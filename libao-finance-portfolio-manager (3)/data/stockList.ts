@@ -338,9 +338,7 @@ const US_STOCKS_LIST = [
   us('ADI','Analog Devices'), us('MRVL','Marvell'), us('KLAC','KLA'), us('NXPI','NXP Semi'), us('STM','STMicro'),
   us('ON','ON Semi'), us('MCHP','Microchip'), us('GFS','GlobalFoundries'), us('ARM','Arm Holdings'), us('SMCI','Super Micro'),
   us('ASML','ASML'), us('UMC','UMC ADR'), us('ASX','ASE Tech ADR'), us('MPWR','Monolithic Power'), us('SWKS','Skyworks'),
-  us('QRVO','Qorvo'), us('TER','Teradyne'), us('ENTG','Entegris'), us('WOLF','Wolfspeed'), us('COHR','Coherent'),
-  us('POWI','Power Integrations'), us('SLAB','Silicon Labs'), us('FORM','FormFactor'), us('RMBS','Rambus'),
-  us('ACLS','Axcelis'), us('AMKR','Amkor'), us('AOSL','Alpha & Omega'), us('VECO','Veeco'),
+  us('QRVO','Qorvo'), us('TER','Teradyne'), us('ENTG','Entegris'), us('WOLF','Wolfspeed'),
 
   // --- Software / Cloud / SaaS ---
   us('ORCL','Oracle'), us('ADBE','Adobe'), us('CRM','Salesforce'), us('SAP','SAP'), us('INTU','Intuit'),
@@ -355,8 +353,6 @@ const US_STOCKS_LIST = [
   us('ROKU','Roku'), us('TTD','The Trade Desk'), us('ETSY','Etsy'), us('EBAY','eBay'), us('CHWY','Chewy'),
   us('DASH','DoorDash'), us('LYFT','Lyft'), us('GRPN','Groupon'), us('AFRM','Affirm'), us('UPST','Upstart'),
   us('SOFI','SoFi'), us('MARA','Marathon Digital'), us('RIOT','Riot Platforms'), us('CLSK','CleanSpark'),
-  us('AI','C3.ai'), us('BKSY','BlackSky'), us('PLUG','Plug Power'), us('FCEL','FuelCell'), us('BLNK','Blink Charging'),
-  us('IONQ','IonQ'), us('RGTI','Rigetti'), us('QUBT','Quantum Computing'), us('STEM','Stem'), us('ENVX','Enovix'),
 
   // --- Finance ---
   us('JPM','JPMorgan'), us('BAC','Bank of America'), us('WFC','Wells Fargo'), us('C','Citigroup'), us('GS','Goldman Sachs'),
@@ -364,9 +360,7 @@ const US_STOCKS_LIST = [
   us('BRK.B','Berkshire Hathaway'), us('COF','Capital One'), us('USB','US Bancorp'), us('PNC','PNC Financial'),
   us('TFC','Truist'), us('SCHW','Charles Schwab'), us('BX','Blackstone'), us('KKR','KKR & Co'), us('APO','Apollo Global'),
   us('CB','Chubb'), us('MMC','Marsh & McLennan'), us('AON','Aon'), us('PGR','Progressive'), us('TRV','Travelers'),
-  us('MET','MetLife'), us('PRU','Prudential'), us('AIG','AIG'), us('ALL','Allstate'), us('NU','Nu Holdings'),
-  us('KRE','Regional Banking ETF'), us('WAL','Western Alliance'), us('KEY','KeyCorp'), us('FITB','Fifth Third'),
-  us('CFG','Citizens Financial'), us('HBAN','Huntington'), us('RF','Regions Financial'),
+  us('MET','MetLife'), us('PRU','Prudential'), us('AIG','AIG'), us('ALL','Allstate'), us('COIN','Coinbase'),
 
   // --- Healthcare / Pharma / Bio ---
   us('LLY','Eli Lilly'), us('UNH','UnitedHealth'), us('JNJ','Johnson & Johnson'), us('PFE','Pfizer'), us('ABBV','AbbVie'),
@@ -376,9 +370,7 @@ const US_STOCKS_LIST = [
   us('BSX','Boston Scientific'), us('MDT','Medtronic'), us('EW','Edwards Lifesciences'), us('ISRG','Intuitive Surgical'),
   us('NVO','Novo Nordisk'), us('AZN','AstraZeneca'), us('SNY','Sanofi'), us('NVS','Novartis'), us('GSK','GSK'),
   us('DXCM','DexCom'), us('ILMN','Illumina'), us('IDXX','IDEXX'), us('ALGN','Align Tech'), us('RMD','ResMed'),
-  us('CRSP','CRISPR'), us('NTLA','Intellia'), us('BEAM','Beam'), us('EDIT','Editas'), us('SRPT','Sarepta'),
-  us('ALNY','Alnylam'), us('BIIB','Biogen'), us('TECH','Bio-Techne'), us('WST','West Pharma'), us('STE','STERIS'),
-  us('PODD','Insulet'), us('SWAV','ShockWave'), us('PEN','Penumbra'), us('GMED','Globus Medical'), us('EXAS','Exact Sciences'),
+  us('CRSP','CRISPR'), us('NTLA','Intellia'), us('BEAM','Beam'), us('EDIT','Editas'),
 
   // --- Consumer Discretionary & Staples ---
   us('WMT','Walmart'), us('PG','Procter & Gamble'), us('KO','Coca-Cola'), us('PEP','PepsiCo'), us('COST','Costco'),
@@ -391,9 +383,7 @@ const US_STOCKS_LIST = [
   us('RACE','Ferrari'), us('RIVN','Rivian'), us('LCID','Lucid'), us('LI','Li Auto'), us('XPEV','XPeng'), us('NIO','NIO'),
   us('BBY','Best Buy'), us('M','Macy\'s'), us('JWN','Nordstrom'), us('KSS','Kohl\'s'), us('DG','Dollar General'),
   us('DLTR','Dollar Tree'), us('KR','Kroger'), us('SYY','Sysco'), us('GIS','General Mills'), us('K','Kellogg'),
-  us('HSY','Hershey'), us('MDLZ','Mondelez'), us('KMB','Kimberly-Clark'), us('DECK','Deckers Outdoor'),
-  us('CROX','Crocs'), us('ONON','On Holding'), us('SKX','Skechers'), us('WING','Wingstop'), us('SHAK','Shake Shack'),
-  us('DPZ','Domino\'s'), us('CELH','Celsius'), us('MNST','Monster Bev'), us('ELF','e.l.f. Beauty'), us('ULTA','Ulta Beauty'),
+  us('HSY','Hershey'), us('MDLZ','Mondelez'), us('KMB','Kimberly-Clark'),
 
   // --- Industrial / Aerospace / Defense ---
   us('CAT','Caterpillar'), us('DE','John Deere'), us('BA','Boeing'), us('LMT','Lockheed Martin'), us('RTX','Raytheon'),
@@ -402,9 +392,6 @@ const US_STOCKS_LIST = [
   us('GD','General Dynamics'), us('NOC','Northrop Grumman'), us('EMR','Emerson'), us('ETN','Eaton'),
   us('ITW','Illinois Tool Works'), us('PH','Parker-Hannifin'), us('CMI','Cummins'), us('PCAR','PACCAR'),
   us('DAL','Delta Air'), us('UAL','United Airlines'), us('AAL','American Airlines'), us('LUV','Southwest'),
-  us('TDG','TransDigm'), us('HEI','Heico'), us('ROK','Rockwell'), us('AME','AMETEK'), us('FAST','Fastenal'),
-  us('ODFL','Old Dominion'), us('JBHT','JB Hunt'), us('KNX','Knight-Swift'), us('XPO','XPO'), us('GXO','GXO Logistics'),
-  us('PWR','Quanta Services'), us('VMI','Valmont'), us('URI','United Rentals'), us('RKLB','Rocket Lab'), us('SPCE','Virgin Galactic'),
 
   // --- Energy / Materials ---
   us('XOM','Exxon Mobil'), us('CVX','Chevron'), us('COP','ConocoPhillips'), us('SLB','Schlumberger'), us('EOG','EOG Resources'),
@@ -412,8 +399,7 @@ const US_STOCKS_LIST = [
   us('LIN','Linde'), us('APD','Air Products'), us('SHW','Sherwin-Williams'), us('FCX','Freeport-McMoRan'),
   us('NEM','Newmont'), us('AA','Alcoa'), us('VALE','Vale'), us('RIO','Rio Tinto'), us('BHP','BHP Group'),
   us('SCCO','Southern Copper'), us('CLF','Cleveland-Cliffs'), us('X','US Steel'), us('NUE','Nucor'),
-  us('ALB','Albemarle'), us('SQM','SQM'), us('MOS','Mosaic'), us('CF','CF Industries'), us('CCJ','Cameco'),
-  us('URA','Global X Uranium'), us('UEC','Uranium Energy'), us('NXE','NexGen Energy'), us('UUUU','Energy Fuels'),
+  us('ALB','Albemarle'), us('SQM','SQM'), us('MOS','Mosaic'), us('CF','CF Industries'),
 
   // --- Real Estate (REITs) ---
   us('PLD','Prologis'), us('AMT','American Tower'), us('CCI','Crown Castle'), us('EQIX','Equinix'),
@@ -421,13 +407,11 @@ const US_STOCKS_LIST = [
   us('VICI','VICI Properties'), us('WELL','Welltower'), us('VTR','Ventas'), us('AVB','AvalonBay'),
   us('EQR','Equity Residential'), us('MAA','Mid-America'), us('ESS','Essex Property'), us('ARE','Alexandria'),
   us('BXP','Boston Properties'), us('IRM','Iron Mountain'), us('WY','Weyerhaeuser'), us('SBAC','SBA Comms'),
-  us('EXR','Extra Space'), us('CUBE','CubeSmart'), us('STAG','STAG Industrial'), us('ADC','Agree Realty'),
 
   // --- Utilities ---
   us('NEE','NextEra Energy'), us('DUK','Duke Energy'), us('SO','Southern Co'), us('D','Dominion'),
   us('AEP','American Electric'), us('EXC','Exelon'), us('SRE','Sempra'), us('XEL','Xcel Energy'),
-  us('PEG','PSEG'), us('ED','ConEd'), us('WEC','WEC Energy'), us('ES','Eversource'), us('CEG','Constellation Energy'),
-  us('VST','Vistra'), us('NRG','NRG Energy'),
+  us('PEG','PSEG'), us('ED','ConEd'), us('WEC','WEC Energy'), us('ES','Eversource'),
 
   // --- ADRs (China / International) ---
   us('BABA','Alibaba'), us('JD','JD.com'), us('PDD','PDD Holdings'), us('BIDU','Baidu'), us('TCEHY','Tencent'),
@@ -435,7 +419,6 @@ const US_STOCKS_LIST = [
   us('TRIP','Trip.com'), us('EDU','New Oriental'), us('TAL','TAL Education'), us('BZ','Kanzhun'),
   us('SE','Sea Limited'), us('CPNG','Coupang'), us('MELI','MercadoLibre'), us('NU','Nu Holdings'),
   us('SONY','Sony'), us('TM','Toyota'), us('HMC','Honda'), us('TAK','Takeda'), us('IX','Orix'),
-  us('ASML','ASML'), us('SAP','SAP'), us('RY','Royal Bank of Canada'), us('TD','Toronto-Dominion'),
 
   // --- ETFs (Index) ---
   us('SPY','SPDR S&P 500'), us('VOO','Vanguard S&P 500'), us('IVV','iShares Core S&P 500'), us('SPLG','SPDR Portfolio S&P 500'),
@@ -443,10 +426,6 @@ const US_STOCKS_LIST = [
   us('QQQ','Invesco QQQ'), us('QQQM','Invesco NASDAQ 100'), us('DIA','SPDR Dow Jones'), us('IWM','iShares Russell 2000'),
   us('IWB','iShares Russell 1000'), us('RSP','Invesco S&P 500 Equal Weight'), us('VEA','Vanguard Developed'),
   us('VWO','Vanguard Emerging'), us('VXUS','Vanguard Total Intl'), us('EFA','iShares EAFE'), us('IEMG','iShares Core MSCI Emerging'),
-  us('MDY','SPDR S&P MidCap 400'), us('IJH','iShares Core S&P Mid-Cap'), us('IJR','iShares Core S&P Small-Cap'),
-  us('IWO','iShares Russell 2000 Growth'), us('IWN','iShares Russell 2000 Value'),
-  us('VB','Vanguard Small-Cap'), us('VO','Vanguard Mid-Cap'), us('VBK','Vanguard Small-Cap Growth'), us('VBR','Vanguard Small-Cap Value'),
-  us('SCHA','Schwab US Small-Cap'), us('SPSM','SPDR Portfolio S&P 600 Small Cap'), us('SLY','SPDR S&P 600 Small Cap'),
 
   // --- ETFs (Leveraged / Inverse) ---
   us('TQQQ','ProShares UltraPro QQQ (3x)'), us('SQQQ','ProShares UltraPro Short QQQ (-3x)'), us('QLD','ProShares Ultra QQQ (2x)'),
@@ -456,8 +435,7 @@ const US_STOCKS_LIST = [
   us('LABU','Direxion Biotech Bull 3X'), us('LABD','Direxion Biotech Bear 3X'),
   us('FNGU','MicroSectors FANG+ 3X'), us('FNGD','MicroSectors FANG+ -3X'),
   us('NVDL','GraniteShares 2x Long NVDA'), us('TSLL','Direxion Daily TSLA Bull 2X'),
-  us('BITX','2x Bitcoin Strategy'), us('UVXY','ProShares Ultra VIX'), us('BOIL','ProShares Ultra Bloomberg Natural Gas'),
-  us('KOLD','ProShares UltraShort Bloomberg Natural Gas'),
+  us('BITX','2x Bitcoin Strategy'),
 
   // --- ETFs (Sector) ---
   us('XLK','Technology Select Sector'), us('XLV','Health Care Select Sector'), us('XLF','Financial Select Sector'),
@@ -471,7 +449,6 @@ const US_STOCKS_LIST = [
   us('VNQ','Vanguard Real Estate'), us('XHB','SPDR Homebuilders'), us('ITB','iShares US Home Construction'),
   us('JETS','US Global Jets'), us('TAN','Invesco Solar'), us('ICLN','iShares Global Clean Energy'), us('URA','Global X Uranium'),
   us('XOP','SPDR Oil & Gas'), us('OIH','VanEck Oil Services'), us('GDX','VanEck Gold Miners'), us('GDXJ','VanEck Junior Gold Miners'),
-  us('PAVE','Global X Infrastructure'), us('ITA','iShares Aerospace & Defense'), us('PPA','Invesco Aerospace & Defense'),
 
   // --- ETFs (Dividend / Value / Growth) ---
   us('SCHD','Schwab US Dividend Equity'), us('JEPI','JPMorgan Equity Premium Income'), us('JEPQ','JPMorgan Nasdaq Equity Premium'),
@@ -479,7 +456,6 @@ const US_STOCKS_LIST = [
   us('DGRO','iShares Core Dividend Growth'), us('SDY','SPDR S&P Dividend'), us('DVY','iShares Select Dividend'),
   us('VTV','Vanguard Value'), us('VUG','Vanguard Growth'), us('IWD','iShares Russell 1000 Value'),
   us('IWF','iShares Russell 1000 Growth'), us('MGK','Vanguard Mega Cap Growth'), us('VGT','Vanguard Info Tech'),
-  us('COWZ','Pacer US Cash Cows 100'), us('MOAT','VanEck Morningstar Wide Moat'),
 
   // --- ETFs (Thematic / Cathie Wood) ---
   us('ARKK','ARK Innovation'), us('ARKG','ARK Genomic'), us('ARKW','ARK Next Gen Internet'),
@@ -490,15 +466,13 @@ const US_STOCKS_LIST = [
   us('TMF','Direxion Daily 20+ Year Treasury Bull 3X'), us('TMV','Direxion Daily 20+ Year Treasury Bear 3X'),
   us('AGG','iShares Core US Aggregate Bond'), us('BND','Vanguard Total Bond Market'), us('LQD','iShares Inv Grade Corp Bond'),
   us('HYG','iShares iBoxx High Yield Corp Bond'), us('JNK','SPDR Bloomberg High Yield Bond'), us('MUB','iShares National Muni Bond'),
-  us('TIP','iShares TIPS Bond'), us('BNDX','Vanguard Total Intl Bond'), us('SGOV','iShares 0-3 Month Treasury'),
-  us('BIL','SPDR Bloomberg 1-3 Month T-Bill'),
+  us('TIP','iShares TIPS Bond'), us('BNDX','Vanguard Total Intl Bond'),
 
   // --- ETFs (Commodity / Crypto) ---
   us('GLD','SPDR Gold Shares'), us('IAU','iShares Gold Trust'), us('SLV','iShares Silver Trust'),
   us('USO','United States Oil Fund'), us('UNG','United States Natural Gas'), us('DBC','Invesco DB Commodity'),
   us('IBIT','iShares Bitcoin Trust'), us('FBTC','Fidelity Wise Origin Bitcoin'), us('GBTC','Grayscale Bitcoin Trust'),
-  us('BITO','ProShares Bitcoin Strategy'), us('ETHE','Grayscale Ethereum Trust'), us('COIN','Coinbase'),
-  us('BITX','2x Bitcoin Strategy'), us('ETHW','ProShares Ether Strategy')
+  us('BITO','ProShares Bitcoin Strategy'), us('ETHE','Grayscale Ethereum Trust'), us('COIN','Coinbase')
 ];
 
 export const ALL_STOCKS: StockItem[] = [
