@@ -1,0 +1,995 @@
+
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import { 
+  Briefcase, 
+  DollarSign, 
+  Sparkles, 
+  XCircle,
+  TrendingUp,
+  RefreshCw,
+  History,
+  LayoutDashboard,
+  Settings,
+  Clock,
+  PlayCircle,
+  PauseCircle,
+  Eye,
+  EyeOff,
+  Coins,
+  ArrowRightLeft
+} from 'lucide-react';
+import { PortfolioState, Asset, AssetLot, CalculatedCategory, CalculatedAsset, TransactionRecord, CapitalLogEntry } from './types';
+import { DEFAULT_CATEGORIES, INITIAL_CAPITAL, DEFAULT_EXCHANGE_RATE } from './constants';
+import SummaryTable from './components/SummaryTable';
+import DetailTable from './components/DetailTable';
+import TransactionHistory from './components/TransactionHistory';
+import DividendLedger from './components/DividendLedger';
+import SettingsModal from './components/SettingsModal';
+import IndustryAnalysis from './components/IndustryAnalysis';
+import DividendModal, { ScannedDividend } from './components/DividendModal';
+import CapitalModal from './components/CapitalModal';
+import MonthlyPnLChart from './components/MonthlyPnLChart';
+import { OrderData } from './components/OrderModal';
+import { analyzePortfolio, fetchPortfolioPrices, fetchStockPrice, fetchStockDividends } from './services/geminiService';
+import { getIndustry } from './services/industryService';
+
+const App: React.FC = () => {
+  // --- State ---
+  const [portfolio, setPortfolio] = useState<PortfolioState>(() => {
+    const saved = localStorage.getItem('libao-portfolio');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Migration: settings
+      if (!parsed.settings) parsed.settings = { usExchangeRate: DEFAULT_EXCHANGE_RATE };
+      // Migration: transactions
+      if (!parsed.transactions) parsed.transactions = [];
+      // Migration: assets lots
+      parsed.categories.forEach((c: any) => {
+        c.assets.forEach((a: any) => {
+          if (!a.lots || a.lots.length === 0) {
+            a.lots = [{
+              id: uuidv4(),
+              date: new Date().toISOString(),
+              shares: a.shares,
+              costPerShare: a.avgCost,
+              exchangeRate: c.market === 'US' ? DEFAULT_EXCHANGE_RATE : 1
+            }];
+          } else {
+             // Migration: ensure lots have exchangeRate
+             a.lots.forEach((l: any) => {
+                if (!l.exchangeRate) l.exchangeRate = c.market === 'US' ? DEFAULT_EXCHANGE_RATE : 1;
+             });
+          }
+        });
+      });
+      
+      // Migration: Capital Logs
+      if (!parsed.capitalLogs) {
+         parsed.capitalLogs = [];
+         if (parsed.totalCapital > 0) {
+            parsed.capitalLogs.push({
+               id: uuidv4(),
+               date: new Date().toISOString(),
+               type: 'DEPOSIT',
+               amount: parsed.totalCapital,
+               note: '初始資金 (系統自動移轉)'
+            });
+         }
+      }
+
+      return parsed;
+    }
+    return {
+      totalCapital: INITIAL_CAPITAL,
+      settings: { usExchangeRate: DEFAULT_EXCHANGE_RATE },
+      categories: DEFAULT_CATEGORIES,
+      transactions: [],
+      capitalLogs: [{
+         id: uuidv4(),
+         date: new Date().toISOString(),
+         type: 'DEPOSIT',
+         amount: INITIAL_CAPITAL,
+         note: '初始資金'
+      }]
+    };
+  });
+
+  const [viewMode, setViewMode] = useState<'PORTFOLIO' | 'HISTORY' | 'DIVIDENDS'>('PORTFOLIO');
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showDividendModal, setShowDividendModal] = useState(false);
+  const [showCapitalModal, setShowCapitalModal] = useState(false);
+  
+  const [aiAdvice, setAiAdvice] = useState<string>('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [isUpdatingPrices, setIsUpdatingPrices] = useState(false);
+  
+  // Dividend Scan State
+  const [scannedDividends, setScannedDividends] = useState<ScannedDividend[]>([]);
+  const [isScanningDividends, setIsScanningDividends] = useState(false);
+
+  // Auto Refresh State
+  const [isAutoRefresh, setIsAutoRefresh] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const autoRefreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Privacy Mode State
+  const [isPrivacyMode, setIsPrivacyMode] = useState(false);
+
+  // --- Effects ---
+  useEffect(() => {
+    localStorage.setItem('libao-portfolio', JSON.stringify(portfolio));
+  }, [portfolio]);
+
+  // Auto Refresh Effect
+  useEffect(() => {
+    if (isAutoRefresh) {
+      if (!isUpdatingPrices) {
+        handleUpdatePrices(true);
+      }
+      autoRefreshIntervalRef.current = setInterval(() => {
+        if (!isUpdatingPrices) {
+          handleUpdatePrices(true);
+        }
+      }, 60000);
+    } else {
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+        autoRefreshIntervalRef.current = null;
+      }
+    }
+    return () => {
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+      }
+    };
+  }, [isAutoRefresh]);
+
+  // --- Calculations ---
+  const calculatedData = useMemo(() => {
+    let totalRealizedPnL = portfolio.transactions.reduce((sum, t) => sum + (t.realizedPnL || 0), 0);
+    let totalMarketValue = 0;
+    
+    const industryMap: Record<string, number> = {};
+    const getRealizedPnL = (filterFn: (t: TransactionRecord) => boolean) => {
+      return portfolio.transactions.filter(filterFn).reduce((sum, t) => sum + (t.realizedPnL || 0), 0);
+    };
+
+    const categories: CalculatedCategory[] = portfolio.categories.map(cat => {
+      const projectedInvestment = Math.floor(portfolio.totalCapital * (cat.allocationPercent / 100));
+      const currentExchangeRate = cat.market === 'US' ? portfolio.settings.usExchangeRate : 1;
+      
+      const calculatedAssets: CalculatedAsset[] = cat.assets.map(asset => {
+        const costBasis = asset.lots.reduce((sum, lot) => sum + (lot.shares * lot.costPerShare * lot.exchangeRate), 0);
+        const marketValue = asset.shares * asset.currentPrice * currentExchangeRate;
+        const unrealizedPnL = Math.round(marketValue - costBasis);
+        const returnRate = costBasis > 0 ? (unrealizedPnL / costBasis) * 100 : 0;
+        
+        let totalShares = asset.lots.reduce((s, l) => s + l.shares, 0);
+        let totalOriginalCost = asset.lots.reduce((s, l) => s + (l.shares * l.costPerShare), 0);
+        const avgCost = totalShares > 0 ? totalOriginalCost / totalShares : 0;
+        const assetRealized = getRealizedPnL(t => t.assetId === asset.id);
+        const portfolioRatio = projectedInvestment > 0 ? (costBasis / projectedInvestment) * 100 : 0;
+        
+        const industry = getIndustry(asset.symbol, cat.market);
+        industryMap[industry] = (industryMap[industry] || 0) + marketValue;
+
+        return {
+          ...asset,
+          avgCost: Math.round(avgCost * 100) / 100,
+          costBasis: Math.round(costBasis),
+          marketValue: Math.round(marketValue),
+          unrealizedPnL,
+          returnRate,
+          portfolioRatio,
+          realizedPnL: assetRealized
+        };
+      });
+
+      const investedAmount = calculatedAssets.reduce((sum, a) => sum + a.costBasis, 0);
+      const categoryMarketValue = calculatedAssets.reduce((sum, a) => sum + a.marketValue, 0);
+      
+      totalMarketValue += categoryMarketValue;
+      const categoryRealizedPnL = getRealizedPnL(t => t.categoryName === cat.name);
+
+      let cashFlow = projectedInvestment;
+      const catTransactions = portfolio.transactions.filter(t => t.categoryName === cat.name);
+      catTransactions.forEach(t => {
+        if (t.type === 'BUY') {
+           cashFlow -= (t.amount + (t.fee || 0));
+        } else if (t.type === 'SELL') {
+           cashFlow += (t.amount - (t.fee || 0) - (t.tax || 0));
+        } else if (t.type === 'DIVIDEND') {
+           cashFlow += (t.amount - (t.tax || 0));
+        }
+      });
+      
+      const remainingCash = Math.round(cashFlow);
+      const investmentRatio = projectedInvestment > 0 ? (investedAmount / projectedInvestment) * 100 : 0;
+
+      return {
+        ...cat,
+        projectedInvestment,
+        investedAmount,
+        remainingCash,
+        investmentRatio,
+        realizedPnL: categoryRealizedPnL,
+        assets: calculatedAssets
+      };
+    });
+
+    const totalInvested = categories.reduce((sum, c) => sum + c.investedAmount, 0);
+    const totalUnrealizedPnL = categories.reduce((sum, c) => sum + (c as any).assets.reduce((as: number, a: CalculatedAsset) => as + a.unrealizedPnL, 0), 0);
+
+    const industryData = Object.entries(industryMap)
+      .map(([name, value]) => ({
+        name,
+        value,
+        percent: totalMarketValue > 0 ? (value / totalMarketValue) * 100 : 0
+      }))
+      .sort((a, b) => b.value - a.value);
+
+    // --- Monthly PnL Calculation ---
+    const monthlyDataMap = new Map<string, number>();
+    
+    // Initialize last 6 months with 0
+    const today = new Date();
+    for (let i = 5; i >= 0; i--) {
+       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+       monthlyDataMap.set(key, 0);
+    }
+
+    portfolio.transactions.forEach(t => {
+       if ((t.type === 'SELL' || t.type === 'DIVIDEND') && t.realizedPnL) {
+          const date = new Date(t.date);
+          const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          if (monthlyDataMap.has(key)) {
+             monthlyDataMap.set(key, (monthlyDataMap.get(key) || 0) + t.realizedPnL);
+          }
+       }
+    });
+
+    const monthlyPnLData = Array.from(monthlyDataMap.entries())
+       .map(([month, value]) => ({ month, value }))
+       .sort((a, b) => a.month.localeCompare(b.month));
+
+    return {
+      categories,
+      totalInvested,
+      totalMarketValue,
+      totalUnrealizedPnL,
+      totalRealizedPnL,
+      industryData,
+      monthlyPnLData
+    };
+  }, [portfolio]);
+
+  // --- Handlers ---
+  
+  // Replaced handleUpdateTotalCapital with Logic that derives it from Logs
+  const syncTotalCapital = (logs: CapitalLogEntry[]) => {
+      return logs.reduce((sum, log) => {
+          return log.type === 'DEPOSIT' ? sum + log.amount : sum - log.amount;
+      }, 0);
+  };
+
+  const handleAddCapitalLog = (entry: Omit<CapitalLogEntry, 'id'>) => {
+     setPortfolio(prev => {
+         const newLog = { ...entry, id: uuidv4() };
+         const newLogs = [...prev.capitalLogs, newLog];
+         return {
+             ...prev,
+             capitalLogs: newLogs,
+             totalCapital: syncTotalCapital(newLogs)
+         };
+     });
+  };
+
+  const handleDeleteCapitalLog = (id: string) => {
+      if(!window.confirm("確定要刪除此筆資金紀錄嗎？總投入資金將會重新計算。")) return;
+      setPortfolio(prev => {
+          const newLogs = prev.capitalLogs.filter(l => l.id !== id);
+          return {
+              ...prev,
+              capitalLogs: newLogs,
+              totalCapital: syncTotalCapital(newLogs)
+          };
+      });
+  };
+
+  const handleUpdateAllocation = (id: string, percent: number) => {
+    setPortfolio(prev => ({
+      ...prev,
+      categories: prev.categories.map(c => c.id === id ? { ...c, allocationPercent: percent } : c)
+    }));
+  };
+
+  const handleUpdateSettings = (newSettings: { usExchangeRate: number }) => {
+    setPortfolio(prev => ({ ...prev, settings: newSettings }));
+  };
+
+  const handleImportData = (data: PortfolioState) => {
+    // Ensure compatibility during import
+    if (!data.capitalLogs && data.totalCapital > 0) {
+        data.capitalLogs = [{
+            id: uuidv4(),
+            date: new Date().toISOString(),
+            type: 'DEPOSIT',
+            amount: data.totalCapital,
+            note: '匯入資料補登'
+        }];
+    }
+    setPortfolio(data);
+  };
+
+  const handleDeleteAsset = (assetId: string) => {
+    if (!activeCategoryId) return;
+    if (!window.confirm('確定要刪除此持倉嗎? 注意：這將不會保留歷史交易紀錄，若要記錄請使用「賣出」。')) return;
+    
+    setPortfolio(prev => ({
+      ...prev,
+      categories: prev.categories.map(c => {
+        if (c.id === activeCategoryId) {
+          return {
+            ...c,
+            assets: c.assets.filter(a => a.id !== assetId)
+          };
+        }
+        return c;
+      })
+    }));
+  };
+
+  const handleUpdateAssetNote = (assetId: string, note: string) => {
+    if (!activeCategoryId) return;
+    setPortfolio(prev => ({
+      ...prev,
+      categories: prev.categories.map(c => {
+        if (c.id === activeCategoryId) {
+          return {
+            ...c,
+            assets: c.assets.map(a => a.id === assetId ? { ...a, note } : a)
+          };
+        }
+        return c;
+      })
+    }));
+  };
+
+  const handleExecuteOrder = (order: OrderData) => {
+    if (!activeCategoryId) return;
+    executeTransaction(order, activeCategoryId);
+  };
+
+  const executeTransaction = (order: OrderData, catId: string) => {
+    const now = new Date();
+    setPortfolio(prev => {
+      let newTransactions = [...prev.transactions];
+      const newCategories = prev.categories.map(cat => {
+        if (cat.id !== catId) return cat;
+        const catBudget = Math.floor(prev.totalCapital * (cat.allocationPercent / 100));
+        let tradeRatio = 0;
+        let newAssets = [...cat.assets];
+        const existingAssetIndex = newAssets.findIndex(
+          a => (order.assetId && a.id === order.assetId) || a.symbol === order.symbol
+        );
+
+        if (order.action === 'BUY') {
+          tradeRatio = catBudget > 0 ? (order.totalAmount / catBudget) * 100 : 0;
+        } else if (order.action === 'SELL' && existingAssetIndex >= 0) {
+          const existing = newAssets[existingAssetIndex];
+          if (existing.shares > 0) {
+            const currentCostBasis = existing.lots.reduce((sum, lot) => sum + (lot.shares * lot.costPerShare * lot.exchangeRate), 0);
+            const currentAlloc = catBudget > 0 ? (currentCostBasis / catBudget) * 100 : 0;
+            tradeRatio = (order.shares / existing.shares) * currentAlloc;
+          }
+        }
+
+        const txLotId = order.action === 'BUY' ? uuidv4() : undefined;
+        const newTx: TransactionRecord = {
+          id: uuidv4(),
+          date: order.action === 'DIVIDEND' ? now.toISOString() : now.toISOString(),
+          assetId: existingAssetIndex >= 0 ? newAssets[existingAssetIndex].id : (order.assetId || uuidv4()),
+          lotId: txLotId,
+          symbol: order.symbol,
+          name: order.name,
+          type: order.action,
+          shares: order.shares,
+          price: order.price, 
+          exchangeRate: order.exchangeRate,
+          amount: order.totalAmount, 
+          fee: order.fee,
+          tax: order.tax,
+          categoryName: cat.name,
+          realizedPnL: 0, 
+          portfolioRatio: tradeRatio
+        };
+
+        if (order.action === 'BUY') {
+          const newLot: AssetLot = {
+            id: txLotId!,
+            date: now.toISOString(),
+            shares: order.shares,
+            costPerShare: order.price,
+            exchangeRate: order.exchangeRate
+          };
+          if (existingAssetIndex >= 0) {
+            const existing = newAssets[existingAssetIndex];
+            newTx.assetId = existing.id;
+            const updatedLots = [...existing.lots, newLot];
+            newAssets[existingAssetIndex] = {
+              ...existing,
+              shares: existing.shares + order.shares,
+              lots: updatedLots
+            };
+          } else {
+            newAssets.push({
+              id: newTx.assetId,
+              symbol: order.symbol,
+              name: order.name,
+              shares: order.shares,
+              avgCost: order.price,
+              currentPrice: order.price,
+              lots: [newLot]
+            });
+          }
+        } else if (order.action === 'SELL') {
+          if (existingAssetIndex >= 0) {
+            const existing = newAssets[existingAssetIndex];
+            newTx.assetId = existing.id;
+            let remainingSharesToSell = order.shares;
+            let realizedPnL = 0;
+            let currentLots = [...existing.lots].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            const updatedLots: AssetLot[] = [];
+            const sellValuePerShareTWD = order.price * order.exchangeRate;
+
+            for (const lot of currentLots) {
+              if (remainingSharesToSell <= 0) {
+                updatedLots.push(lot);
+                continue;
+              }
+              const lotCostPerShareTWD = lot.costPerShare * lot.exchangeRate;
+              const profitPerShareTWD = sellValuePerShareTWD - lotCostPerShareTWD;
+
+              if (lot.shares <= remainingSharesToSell) {
+                realizedPnL += profitPerShareTWD * lot.shares;
+                remainingSharesToSell -= lot.shares;
+              } else {
+                realizedPnL += profitPerShareTWD * remainingSharesToSell;
+                updatedLots.push({ ...lot, shares: lot.shares - remainingSharesToSell });
+                remainingSharesToSell = 0;
+              }
+            }
+            newTx.realizedPnL = Math.round(realizedPnL - order.fee - order.tax);
+            const remainingTotalShares = existing.shares - order.shares;
+            if (remainingTotalShares <= 0) {
+              newAssets = newAssets.filter((_, idx) => idx !== existingAssetIndex);
+            } else {
+              newAssets[existingAssetIndex] = { ...existing, shares: remainingTotalShares, lots: updatedLots };
+            }
+          }
+        } else if (order.action === 'DIVIDEND') {
+           newTx.realizedPnL = Math.round(order.totalAmount - order.tax);
+           if (existingAssetIndex >= 0) newTx.assetId = newAssets[existingAssetIndex].id;
+        }
+
+        newTransactions.push(newTx);
+        return { ...cat, assets: newAssets };
+      });
+      return { ...prev, categories: newCategories, transactions: newTransactions };
+    });
+  };
+
+  const handleConfirmDividends = (dividends: ScannedDividend[]) => {
+    dividends.forEach(div => {
+       const cat = portfolio.categories.find(c => c.name === div.categoryName);
+       if (cat) {
+          const exRate = div.market === 'US' ? portfolio.settings.usExchangeRate : 1;
+          const grossOriginal = div.rate * div.shares;
+          const grossTWD = grossOriginal * exRate;
+          const taxOriginal = grossOriginal * div.taxRate;
+          const taxTWD = taxOriginal * exRate;
+
+          executeTransaction({
+             assetId: div.assetId,
+             symbol: div.symbol,
+             name: div.name,
+             action: 'DIVIDEND',
+             price: 0,
+             shares: 0,
+             exchangeRate: exRate,
+             totalAmount: grossTWD,
+             fee: 0,
+             tax: taxTWD,
+          }, cat.id);
+       }
+    });
+  };
+  
+  const getSharesAtDate = useCallback((assetId: string, dateStr: string): number => {
+      const targetDate = new Date(dateStr);
+      const txs = portfolio.transactions
+        .filter(t => (t.assetId === assetId) && new Date(t.date) < targetDate)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        
+      let sharesOwned = 0;
+      txs.forEach(t => {
+         if (t.type === 'BUY') sharesOwned += t.shares;
+         else if (t.type === 'SELL') sharesOwned -= t.shares;
+      });
+      return sharesOwned;
+  }, [portfolio.transactions]);
+
+  const handleScanDividends = async () => {
+    setIsScanningDividends(true);
+    setShowDividendModal(true);
+    const results: ScannedDividend[] = [];
+    try {
+      const allAssets: { id: string; symbol: string; name: string; categoryName: string; market: 'TW' | 'US' }[] = [];
+      portfolio.categories.forEach(cat => {
+         cat.assets.forEach(a => {
+            allAssets.push({ id: a.id, symbol: a.symbol, name: a.name, market: cat.market, categoryName: cat.name });
+         });
+      });
+      for (const asset of allAssets) {
+         const dividends = await fetchStockDividends(asset.symbol, asset.market);
+         for (const div of dividends) {
+            const sharesOwned = getSharesAtDate(asset.id, div.date);
+            if (sharesOwned > 0 || sharesOwned === 0) {
+               const rate = div.amount;
+               const taxRate = asset.market === 'US' ? 0.3 : 0; 
+               const hasRecentDiv = portfolio.transactions.some(t => 
+                  t.type === 'DIVIDEND' && 
+                  t.symbol === asset.symbol &&
+                  new Date(t.date) >= new Date(div.date) &&
+                  new Date(t.date).getTime() - new Date(div.date).getTime() < 60 * 24 * 60 * 60 * 1000
+               );
+               if (!hasRecentDiv && (sharesOwned > 0 || dividends.length < 5)) {
+                  results.push({
+                     id: uuidv4(),
+                     assetId: asset.id,
+                     symbol: asset.symbol,
+                     name: asset.name,
+                     exDate: div.date,
+                     rate: rate,
+                     shares: sharesOwned,
+                     taxRate: taxRate,
+                     categoryName: asset.categoryName,
+                     market: asset.market
+                  });
+               }
+            }
+         }
+      }
+      setScannedDividends(results);
+    } catch (e) {
+       console.error("Dividend Scan Error", e);
+       alert("掃描過程中發生錯誤，請檢查網路連線。");
+    } finally {
+      setIsScanningDividends(false);
+    }
+  };
+
+  const handleRevokeTransaction = (txId: string) => {
+    setPortfolio(prev => {
+      const tx = prev.transactions.find(t => t.id === txId);
+      if (!tx) return prev;
+      const newCategories = prev.categories.map(cat => {
+        if (cat.name !== tx.categoryName) return cat;
+        let newAssets = [...cat.assets];
+        const assetIndex = newAssets.findIndex(a => a.id === tx.assetId || a.symbol === tx.symbol);
+
+        if (tx.type === 'BUY') {
+          if (assetIndex === -1) return cat; 
+          const asset = newAssets[assetIndex];
+          const newLots = asset.lots.filter(l => l.id !== tx.lotId);
+          const newShares = asset.shares - tx.shares;
+          if (newLots.length === 0 && newShares <= 0) {
+            newAssets.splice(assetIndex, 1);
+          } else {
+            newAssets[assetIndex] = { ...asset, shares: newShares, lots: newLots };
+          }
+        } else if (tx.type === 'SELL') {
+          const realizedPnL = tx.realizedPnL || 0;
+          const exchangeRateSafe = tx.exchangeRate || 1; 
+          const totalRevenueTWD = tx.price * exchangeRateSafe * tx.shares;
+          const totalCostBasisTWD = totalRevenueTWD - realizedPnL - (tx.fee || 0) - (tx.tax || 0);
+          const originalCostPerShare = tx.shares > 0 ? (totalCostBasisTWD / tx.shares) / exchangeRateSafe : 0;
+          const restoredLot: AssetLot = {
+            id: uuidv4(), 
+            date: tx.date, 
+            shares: tx.shares,
+            costPerShare: originalCostPerShare,
+            exchangeRate: exchangeRateSafe
+          };
+          if (assetIndex === -1) {
+             newAssets.push({
+               id: tx.assetId || uuidv4(),
+               symbol: tx.symbol,
+               name: tx.name,
+               shares: tx.shares,
+               avgCost: originalCostPerShare, 
+               currentPrice: tx.price, 
+               lots: [restoredLot]
+             });
+          } else {
+            const asset = newAssets[assetIndex];
+            newAssets[assetIndex] = { ...asset, shares: asset.shares + tx.shares, lots: [...asset.lots, restoredLot] };
+          }
+        }
+        return { ...cat, assets: newAssets };
+      });
+      return { ...prev, categories: newCategories, transactions: prev.transactions.filter(t => t.id !== txId) };
+    });
+  };
+
+  const handleAiAnalysis = async () => {
+    setShowAIModal(true);
+    if (!aiAdvice) {
+      setIsAiLoading(true);
+      const advice = await analyzePortfolio(portfolio);
+      setAiAdvice(advice);
+      setIsAiLoading(false);
+    }
+  };
+
+  const handleUpdatePrices = async (isSilent = false) => {
+    if (isUpdatingPrices) return;
+    const allAssets: {symbol: string, market: string}[] = [];
+    portfolio.categories.forEach(c => {
+      c.assets.forEach(a => {
+        allAssets.push({ symbol: a.symbol, market: c.market });
+      });
+    });
+    if (allAssets.length === 0) {
+      if (!isSilent) alert("目前沒有持倉可更新");
+      return;
+    }
+    setIsUpdatingPrices(true);
+    const priceMap = await fetchPortfolioPrices(allAssets);
+    setPortfolio(prev => ({
+      ...prev,
+      categories: prev.categories.map(cat => ({
+        ...cat,
+        assets: cat.assets.map(asset => {
+          const newPrice = priceMap[asset.symbol] || priceMap[asset.symbol.toUpperCase()];
+          if (newPrice) {
+            return { ...asset, currentPrice: newPrice };
+          }
+          return asset;
+        })
+      }))
+    }));
+    setLastUpdated(new Date());
+    setIsUpdatingPrices(false);
+  };
+
+  const handleRefreshSingleAsset = async (assetId: string, symbol: string, market: string) => {
+    const price = await fetchStockPrice(symbol, market);
+    if (price) {
+      setPortfolio(prev => ({
+        ...prev,
+        categories: prev.categories.map(cat => ({
+          ...cat,
+          assets: cat.assets.map(a => a.id === assetId ? { ...a, currentPrice: price } : a)
+        }))
+      }));
+      setLastUpdated(new Date());
+    }
+  };
+
+  const handleRefreshCategory = async (categoryId: string) => {
+    const category = portfolio.categories.find(c => c.id === categoryId);
+    if (!category || category.assets.length ===0) return;
+    const assetsToFetch = category.assets.map(a => ({ symbol: a.symbol, market: category.market }));
+    const priceMap = await fetchPortfolioPrices(assetsToFetch);
+    setPortfolio(prev => ({
+      ...prev,
+      categories: prev.categories.map(cat => {
+        if (cat.id !== categoryId) return cat;
+        return {
+          ...cat,
+          assets: cat.assets.map(asset => {
+            const newPrice = priceMap[asset.symbol] || priceMap[asset.symbol.toUpperCase()];
+            return newPrice ? { ...asset, currentPrice: newPrice } : asset;
+          })
+        };
+      })
+    }));
+    setLastUpdated(new Date());
+  };
+
+  const activeCategory = activeCategoryId 
+    ? calculatedData.categories.find(c => c.id === activeCategoryId) 
+    : null;
+  const maskValue = (val: string | number) => isPrivacyMode ? '*******' : val;
+  const allAvailableAssets = useMemo(() => {
+     const list: { id: string; symbol: string; name: string; categoryName: string; market: 'TW' | 'US' }[] = [];
+     portfolio.categories.forEach(c => {
+         c.assets.forEach(a => {
+             list.push({ id: a.id, symbol: a.symbol, name: a.name, categoryName: c.name, market: c.market });
+         });
+     });
+     return list;
+  }, [portfolio.categories]);
+
+  return (
+    <div className="min-h-screen bg-gray-100 pb-20">
+      
+      <SettingsModal 
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        settings={portfolio.settings}
+        onUpdateSettings={handleUpdateSettings}
+        fullPortfolio={portfolio}
+        onImportData={handleImportData}
+      />
+
+      <DividendModal 
+        isOpen={showDividendModal}
+        onClose={() => setShowDividendModal(false)}
+        scannedDividends={scannedDividends}
+        availableAssets={allAvailableAssets}
+        usExchangeRate={portfolio.settings.usExchangeRate}
+        onCheckShares={getSharesAtDate}
+        onConfirm={handleConfirmDividends}
+        isLoading={isScanningDividends}
+      />
+
+      <CapitalModal 
+        isOpen={showCapitalModal}
+        onClose={() => setShowCapitalModal(false)}
+        capitalLogs={portfolio.capitalLogs || []}
+        onAddLog={handleAddCapitalLog}
+        onDeleteLog={handleDeleteCapitalLog}
+        isPrivacyMode={isPrivacyMode}
+      />
+
+      {/* Nav */}
+      <nav className="bg-gray-900 text-white shadow-md sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-2 cursor-pointer" onClick={() => {setActiveCategoryId(null); setViewMode('PORTFOLIO')}}>
+              <Briefcase className="w-8 h-8 text-libao-gold" />
+              <div>
+                <span className="font-bold text-xl tracking-tight hidden sm:inline">Libao</span>
+                <span className="text-gray-400 text-sm ml-1 hidden sm:inline">財經學院</span>
+                <span className="font-bold text-lg sm:hidden">Libao</span>
+              </div>
+            </div>
+            
+            <div className="hidden lg:flex items-center bg-gray-800 rounded-lg p-1 mx-4">
+              <button onClick={() => { setActiveCategoryId(null); setViewMode('PORTFOLIO'); }} className={`px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${viewMode === 'PORTFOLIO' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}>
+                <LayoutDashboard className="w-4 h-4" /> 持倉總覽
+              </button>
+              <button onClick={() => { setActiveCategoryId(null); setViewMode('HISTORY'); }} className={`px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${viewMode === 'HISTORY' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}>
+                <History className="w-4 h-4" /> 交易紀錄
+              </button>
+              <button onClick={() => { setActiveCategoryId(null); setViewMode('DIVIDENDS'); }} className={`px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${viewMode === 'DIVIDENDS' ? 'bg-purple-700 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}>
+                <Coins className="w-4 h-4" /> 股息帳本
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsPrivacyMode(!isPrivacyMode)}
+                className={`p-2 rounded-full border transition-all mr-1 ${isPrivacyMode ? 'bg-yellow-100 text-yellow-700 border-yellow-300' : 'bg-gray-800 text-gray-300 border-gray-700 hover:text-white'}`}
+                title={isPrivacyMode ? "顯示金額" : "隱藏金額"}
+              >
+                {isPrivacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+
+              <div className="hidden md:flex items-center bg-gray-800 rounded-full px-3 py-1 border border-gray-700 mr-2">
+                 <button 
+                  onClick={() => setIsAutoRefresh(!isAutoRefresh)}
+                  className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider transition-colors ${isAutoRefresh ? 'text-green-400' : 'text-gray-500'}`}
+                 >
+                   {isAutoRefresh ? <PauseCircle className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
+                   {isAutoRefresh ? 'Auto On (60s)' : 'Auto Off'}
+                 </button>
+                 {lastUpdated && (
+                   <span className="ml-3 pl-3 border-l border-gray-600 text-[10px] text-gray-400 flex items-center gap-1">
+                     <Clock className="w-3 h-3" />
+                     {lastUpdated.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                   </span>
+                 )}
+              </div>
+
+               <button 
+                onClick={() => handleUpdatePrices(false)}
+                disabled={isUpdatingPrices}
+                className={`bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white p-2 sm:px-3 sm:py-2 rounded-full text-sm font-medium flex items-center gap-2 border border-gray-700 transition-all disabled:opacity-50 ${isUpdatingPrices || isAutoRefresh ? 'ring-2 ring-green-500/30' : ''}`}
+                title="手動更新股價"
+              >
+                <RefreshCw className={`w-4 h-4 ${isUpdatingPrices ? 'animate-spin text-green-400' : ''}`} /> 
+                <span className="hidden sm:inline">{isUpdatingPrices ? '更新中' : '更新'}</span>
+              </button>
+              
+              <button 
+                onClick={() => setShowSettingsModal(true)}
+                className="bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white p-2 rounded-full border border-gray-700 transition-all"
+                title="系統設定 / 備份"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+
+              <button 
+                onClick={handleAiAnalysis}
+                className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white p-2 sm:px-3 sm:py-2 rounded-full text-sm font-medium flex items-center gap-2 shadow-lg transition-all hover:scale-105"
+              >
+                <Sparkles className="w-4 h-4" /> 
+                <span className="hidden sm:inline">AI 健診</span>
+              </button>
+            </div>
+          </div>
+          
+          <div className="md:hidden flex border-t border-gray-800 mt-2">
+            <button onClick={() => { setActiveCategoryId(null); setViewMode('PORTFOLIO'); }} className={`flex-1 py-3 text-sm font-medium flex justify-center items-center gap-2 ${viewMode === 'PORTFOLIO' ? 'text-libao-gold border-b-2 border-libao-gold' : 'text-gray-400'}`}>
+                <LayoutDashboard className="w-4 h-4" /> 持倉
+            </button>
+            <button onClick={() => { setActiveCategoryId(null); setViewMode('HISTORY'); }} className={`flex-1 py-3 text-sm font-medium flex justify-center items-center gap-2 ${viewMode === 'HISTORY' ? 'text-libao-gold border-b-2 border-libao-gold' : 'text-gray-400'}`}>
+                <History className="w-4 h-4" /> 紀錄
+            </button>
+            <button onClick={() => { setActiveCategoryId(null); setViewMode('DIVIDENDS'); }} className={`flex-1 py-3 text-sm font-medium flex justify-center items-center gap-2 ${viewMode === 'DIVIDENDS' ? 'text-purple-400 border-b-2 border-purple-400' : 'text-gray-400'}`}>
+                <Coins className="w-4 h-4" /> 股息
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {viewMode === 'DIVIDENDS' ? (
+           <DividendLedger 
+             transactions={portfolio.transactions}
+             onScan={handleScanDividends}
+             onRevoke={handleRevokeTransaction}
+             isPrivacyMode={isPrivacyMode}
+           />
+        ) : viewMode === 'HISTORY' ? (
+          <TransactionHistory 
+            transactions={portfolio.transactions} 
+            portfolio={portfolio}
+            onRevoke={handleRevokeTransaction}
+            isPrivacyMode={isPrivacyMode}
+          />
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
+              {/* Industry Analysis (Left) */}
+              <div className="md:col-span-4 lg:col-span-3 order-3 md:order-1">
+                <IndustryAnalysis 
+                  data={calculatedData.industryData} 
+                  totalValue={calculatedData.totalMarketValue}
+                  isPrivacyMode={isPrivacyMode}
+                />
+              </div>
+
+              {/* Middle & Right: Stats + Chart */}
+              <div className="md:col-span-8 lg:col-span-9 order-1 md:order-2 flex flex-col gap-4">
+                
+                {/* Top Stats Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between">
+                    <div className="flex justify-between items-start">
+                       <div>
+                          <div className="text-gray-500 text-sm font-medium flex items-center gap-1 mb-1">
+                              <DollarSign className="w-4 h-4" /> 總投入本金
+                          </div>
+                          <div className="text-xl font-bold font-mono text-gray-800">
+                              NT$ {maskValue(portfolio.totalCapital.toLocaleString())}
+                          </div>
+                       </div>
+                       <button 
+                          onClick={() => setShowCapitalModal(true)}
+                          className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs font-bold text-gray-600 hover:text-blue-600 transition-colors border border-gray-200"
+                       >
+                          出/入金
+                       </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                    <div className="text-gray-500 text-sm font-medium mb-1">總已投入 (TWD)</div>
+                    <div className="text-xl font-bold text-gray-800 font-mono">
+                        NT${maskValue(calculatedData.totalInvested.toLocaleString())}
+                    </div>
+                    <div className="text-[10px] text-gray-400 mt-1">
+                      使用率: {portfolio.totalCapital > 0 ? ((calculatedData.totalInvested / portfolio.totalCapital) * 100).toFixed(1) : 0}%
+                    </div>
+                  </div>
+
+                  <div className={`p-4 rounded-xl shadow-sm border ${calculatedData.totalUnrealizedPnL >= 0 ? 'bg-red-50 border-red-100' : 'bg-green-50 border-green-100'}`}>
+                    <div className={`text-sm font-medium mb-1 flex items-center gap-1 ${calculatedData.totalUnrealizedPnL >= 0 ? 'text-red-700' : 'text-green-700'}`}>
+                      <TrendingUp className="w-4 h-4" /> 未實現損益
+                    </div>
+                    <div className={`text-xl font-bold font-mono ${calculatedData.totalUnrealizedPnL >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        {isPrivacyMode ? '*******' : (calculatedData.totalUnrealizedPnL > 0 ? '+' : '') + calculatedData.totalUnrealizedPnL.toLocaleString()}
+                    </div>
+                    <div className={`text-xs font-bold mt-1 ${calculatedData.totalUnrealizedPnL >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+                        {(calculatedData.totalInvested > 0 ? (calculatedData.totalUnrealizedPnL / calculatedData.totalInvested) * 100 : 0).toFixed(2)}%
+                    </div>
+                  </div>
+
+                  <div className={`p-4 rounded-xl shadow-sm border bg-white border-gray-200`}>
+                    <div className="text-gray-500 text-sm font-medium mb-1 flex items-center gap-1">
+                      <History className="w-4 h-4" /> 總已實現損益
+                    </div>
+                    <div className={`text-xl font-bold font-mono ${calculatedData.totalRealizedPnL >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        {isPrivacyMode ? '*******' : (calculatedData.totalRealizedPnL > 0 ? '+' : '') + calculatedData.totalRealizedPnL.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Monthly PnL Chart */}
+                <div className="flex-1 min-h-[220px]">
+                   <MonthlyPnLChart 
+                      data={calculatedData.monthlyPnLData} 
+                      isPrivacyMode={isPrivacyMode}
+                   />
+                </div>
+              </div>
+            </div>
+            
+            {activeCategoryId && activeCategory ? (
+              <DetailTable 
+                category={activeCategory}
+                assets={(activeCategory as any).assets}
+                totalCapital={portfolio.totalCapital}
+                onBack={() => setActiveCategoryId(null)}
+                onExecuteOrder={handleExecuteOrder}
+                onDeleteAsset={handleDeleteAsset}
+                onUpdateAssetPrice={handleRefreshSingleAsset}
+                onUpdateCategoryPrices={handleRefreshCategory}
+                onUpdateAssetNote={handleUpdateAssetNote}
+                defaultExchangeRate={portfolio.settings.usExchangeRate}
+                isPrivacyMode={isPrivacyMode}
+              />
+            ) : (
+              <SummaryTable 
+                categories={calculatedData.categories}
+                totalCapital={portfolio.totalCapital}
+                onUpdateAllocation={handleUpdateAllocation}
+                onSelectCategory={setActiveCategoryId}
+                onRefreshCategory={handleRefreshCategory}
+                isPrivacyMode={isPrivacyMode}
+              />
+            )}
+          </>
+        )}
+      </main>
+
+      {/* AI Advisor Modal */}
+      {showAIModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
+            <div className="p-4 border-b flex justify-between items-center bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-t-2xl">
+              <h3 className="font-bold flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-yellow-300" /> AI 智能顧問
+              </h3>
+              <button onClick={() => setShowAIModal(false)} className="hover:bg-white/20 p-1 rounded-full"><XCircle className="w-6 h-6"/></button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1 text-gray-700 leading-relaxed text-lg">
+              {isAiLoading ? (
+                <div className="flex flex-col items-center justify-center h-48 gap-4">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                  <p className="text-gray-500 animate-pulse">正在分析您的倉位...</p>
+                </div>
+              ) : (
+                <div className="whitespace-pre-line">{aiAdvice}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <footer className="text-center text-gray-400 text-sm py-8">
+        <p>&copy; {new Date().getFullYear()} Libao Finance Academy.</p>
+      </footer>
+    </div>
+  );
+};
+
+export default App;
