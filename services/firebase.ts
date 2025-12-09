@@ -1,3 +1,4 @@
+
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
@@ -16,34 +17,36 @@ import {
 } from 'firebase/firestore';
 import { PortfolioState } from '../types';
 
+// ==========================================
+// Firebase Configuration
+// ==========================================
+// 🛡️ SECURITY NOTICE:
+// Firestore Security Rules are the primary defense mechanism.
+// Ensure rules are set to: allow read, write: if request.auth != null && request.auth.uid == userId;
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID
+  apiKey: "AIzaSyD5A9UsWLO6vb5N0pcX5x8I4d9kzy5lvUU",
+  authDomain: "libao-finance-manager.firebaseapp.com",
+  projectId: "libao-finance-manager",
+  storageBucket: "libao-finance-manager.firebasestorage.app",
+  messagingSenderId: "379106694870",
+  appId: "1:379106694870:web:83e75404107d2af6fa5b77",
+  measurementId: "G-1659VMVZMN"
 };
-
-// ==========================================
-// Firebase Service
-// ==========================================
 
 let app;
 let auth: any;
 let db: any;
-let isConfigured = false;
+// Default to true since we have hardcoded config
+let isConfigured = true;
 
 try {
-  if (firebaseConfig && firebaseConfig.apiKey) {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-    isConfigured = true;
-    console.log("Firebase initialized successfully.");
-  }
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  console.log("Firebase initialized successfully.");
 } catch (e) {
   console.error("Firebase initialization error:", e);
+  isConfigured = false;
 }
 
 export const isFirebaseReady = () => isConfigured;
@@ -52,7 +55,7 @@ export const isFirebaseReady = () => isConfigured;
 
 export const loginWithGoogle = async () => {
   if (!isConfigured) {
-    alert("Firebase 設定未完成。");
+    alert("Firebase 初始化失敗，請重新整理頁面。");
     return;
   }
   const provider = new GoogleAuthProvider();
@@ -60,7 +63,7 @@ export const loginWithGoogle = async () => {
     const result = await signInWithPopup(auth, provider);
     return result.user;
   } catch (error: any) {
-    // Suppress default console.error for domain issues to avoid panic
+    // Specific handling for Unauthorized Domain error
     if (error.code === 'auth/unauthorized-domain') {
         const domain = window.location.hostname;
         console.warn(`[Firebase Auth] Domain '${domain}' is not authorized.`);
@@ -71,11 +74,11 @@ export const loginWithGoogle = async () => {
             `請前往 Firebase Console > Authentication > Settings > Authorized domains，\n` +
             `新增上述網域即可正常登入。`
         );
-    } else if (error.code !== 'auth/popup-closed-by-user') {
-        console.error("Login failed", error);
-        alert(`登入錯誤: ${error.message || '未知錯誤'}`);
+    } else if (error.code === 'auth/popup-closed-by-user') {
+        console.log("User closed login popup.");
     } else {
-        console.log("User closed login popup");
+        console.error("Login failed", error);
+        alert(`登入發生錯誤: ${error.message}`);
     }
     return null; 
   }
@@ -104,9 +107,11 @@ export const savePortfolioToCloud = async (userId: string, data: PortfolioState)
   if (!isConfigured || !userId) return;
   try {
     const userRef = doc(db, 'users', userId);
+    // Merge true ensures we don't overwrite other fields if they exist
     await setDoc(userRef, { portfolio: data }, { merge: true });
+    console.log("Cloud sync successful");
   } catch (error: any) {
-    if (error && error.code === 'permission-denied') {
+    if (error.code === 'permission-denied') {
        console.error("Permission denied. Security rules are working!");
     } else {
        console.error("Save to cloud failed", error);
