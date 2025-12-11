@@ -1,0 +1,135 @@
+
+import React, { useState } from 'react';
+import { 
+  X, ArrowRight, CheckCircle, 
+  Wallet, TrendingUp, Coins, Cloud 
+} from 'lucide-react';
+
+interface TutorialModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose }) => {
+  const [currentStep, setCurrentStep] = useState(0);
+
+  if (!isOpen) return null;
+
+  const steps = [
+    {
+      title: "歡迎來到 Libao 財經學院",
+      desc: "這是一個專為您打造的專業資產管理工具。透過這個 App，您可以精準追蹤台股與美股的資金配置、成本與獲利。",
+      icon: <span className="text-4xl">👋</span>,
+      color: "bg-blue-500"
+    },
+    {
+      title: "第一步：資金管理",
+      desc: "在開始投資前，請點擊首頁的「出/入金」按鈕。輸入您的本金 (紅色代表入金)，系統會以此計算您的真實報酬率。",
+      icon: <Wallet className="w-12 h-12 text-white" />,
+      color: "bg-gray-800"
+    },
+    {
+      title: "第二步：交易下單",
+      desc: "點擊「下單」按鈕，輸入代號（如 2330 或 AAPL）。系統支援「股數」或「資金佔比」計算，並會自動抓取即時股價。",
+      icon: <TrendingUp className="w-12 h-12 text-white" />,
+      color: "bg-red-600"
+    },
+    {
+      title: "第三步：股息帳本",
+      desc: "切換至「股息帳本」頁面，您可以掃描或手動記錄配息，系統會自動追蹤您的被動收入。",
+      icon: <Coins className="w-12 h-12 text-white" />,
+      color: "bg-purple-600"
+    },
+    {
+      title: "雲端同步 (重要)",
+      desc: "若要在手機與電腦間同步資料，請點擊右上角的「登入同步」。登入後資料將自動備份至雲端，不再怕資料遺失。",
+      icon: <Cloud className="w-12 h-12 text-white" />,
+      color: "bg-green-600"
+    }
+  ];
+
+  const handleNext = () => {
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(prev => prev + 1);
+    } else {
+      handleComplete();
+    }
+  };
+
+  const handleComplete = () => {
+    // Mark as seen in localStorage with version 3 to reset for existing users
+    localStorage.setItem('libao-tutorial-seen-v3', 'true');
+    onClose();
+  };
+
+  const step = steps[currentStep];
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[300] p-4 animate-in fade-in duration-300">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col relative">
+        
+        {/* Progress Bar */}
+        <div className="h-1.5 bg-gray-100 w-full">
+          <div 
+            className={`h-full transition-all duration-500 ease-out ${step.color}`} 
+            style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
+          />
+        </div>
+
+        {/* Close Button (Skip) */}
+        <button 
+          onClick={handleComplete} 
+          className="absolute top-4 right-4 text-white/80 hover:text-white z-10 p-1 rounded-full hover:bg-black/20 transition-colors"
+          title="跳過教學"
+        >
+          <X className="w-6 h-6" />
+        </button>
+
+        {/* Visual Header */}
+        <div className={`${step.color} h-48 flex items-center justify-center transition-colors duration-500 relative overflow-hidden`}>
+           <div className="relative z-10 transform transition-transform duration-500 scale-110">
+              {step.icon}
+           </div>
+           {/* Background Decoration */}
+           <div className="absolute inset-0 bg-white/10 opacity-30 transform rotate-12 scale-150 pointer-events-none"></div>
+        </div>
+
+        {/* Content */}
+        <div className="p-8 text-center flex-1 flex flex-col justify-center">
+          <h2 className="text-2xl font-bold text-gray-800 mb-3 transition-all duration-300">
+            {step.title}
+          </h2>
+          <p className="text-gray-500 leading-relaxed text-sm md:text-base">
+            {step.desc}
+          </p>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="p-6 border-t border-gray-100 flex justify-between items-center bg-gray-50">
+          <div className="flex gap-1.5">
+            {steps.map((_, idx) => (
+              <div 
+                key={idx} 
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${idx === currentStep ? 'bg-gray-800 w-4' : 'bg-gray-300'}`}
+              />
+            ))}
+          </div>
+
+          <button 
+            onClick={handleNext}
+            className={`px-6 py-2.5 rounded-full font-bold text-white shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 ${step.color}`}
+          >
+            {currentStep === steps.length - 1 ? (
+              <>開始使用 <CheckCircle className="w-4 h-4" /></>
+            ) : (
+              <>下一步 <ArrowRight className="w-4 h-4" /></>
+            )}
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+export default TutorialModal;
