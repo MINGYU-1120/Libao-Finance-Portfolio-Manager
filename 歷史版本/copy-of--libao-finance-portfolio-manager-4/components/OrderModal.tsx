@@ -273,26 +273,74 @@ const OrderModal: React.FC<OrderModalProps> = ({
     } else {
       const pct = parseFloat(percentInput) || 0;
       
-      // FIX: Both BUY and SELL now use Category Budget as base for percentage
-      // This ensures 1% SELL is equal to 1% Allocation Value, not 1% of current holdings.
-      if (p > 0 && pct > 0) {
+      if (pct > 0) {
+         // Target Capital to Allocate/De-allocate (TWD)
          const targetTWD = categoryProjectedInvestment * (pct / 100);
-         const priceInTWD = p * rate;
          
-         if (priceInTWD > 0) {
-            const s = market === 'TW' 
-              ? Math.floor(targetTWD / priceInTWD) 
-              : Number((targetTWD / priceInTWD).toFixed(2));
-            
-            setSharesInput(s.toString());
-            setCalculatedTotalOriginal(s * p);
+         if (action === 'SELL' && initialAsset && initialAsset.lots && initialAsset.lots.length > 0) {
+             // === STRICT FIFO SIMULATION FOR SELL ===
+             // To ensure "selling 1% of Principal" is accurate, we must iterate through lots 
+             // from oldest to newest and accumulate cost basis until we hit the targetTWD.
+             
+             let accumulatedCostTWD = 0;
+             let sharesNeeded = 0;
+             
+             // Sort lots by date ascending (Oldest first)
+             const sortedLots = [...initialAsset.lots].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+             
+             for (const lot of sortedLots) {
+                 const remainingTarget = targetTWD - accumulatedCostTWD;
+                 if (remainingTarget <= 0.1) break; // Float tolerance
+
+                 const lotCostTWD = lot.shares * lot.costPerShare * lot.exchangeRate;
+                 
+                 if (lotCostTWD <= remainingTarget) {
+                     // We need this entire lot
+                     accumulatedCostTWD += lotCostTWD;
+                     sharesNeeded += lot.shares;
+                 } else {
+                     // We need a fraction of this lot
+                     // costPerShare in TWD for this lot
+                     const lotPricePerShareTWD = lot.costPerShare * lot.exchangeRate;
+                     if (lotPricePerShareTWD > 0) {
+                         const sharesFromLot = remainingTarget / lotPricePerShareTWD;
+                         sharesNeeded += sharesFromLot;
+                         accumulatedCostTWD += remainingTarget;
+                     }
+                     break; // Target met
+                 }
+             }
+             
+             // Round appropriately based on market
+             const s = market === 'TW' 
+                ? Math.floor(sharesNeeded) 
+                : Number(sharesNeeded.toFixed(2));
+                
+             setSharesInput(s.toString());
+             setCalculatedTotalOriginal(s * p); // Total Transaction Value is still based on Current Price
+
+         } else {
+             // === BUY MODE or No Holdings ===
+             // For BUY, we use Current Price (Purchasing Power)
+             // Or fallback if no lot info
+             const calculationPrice = p;
+             const calculationPriceTWD = calculationPrice * rate;
+             
+             if (calculationPriceTWD > 0) {
+                const s = market === 'TW' 
+                  ? Math.floor(targetTWD / calculationPriceTWD) 
+                  : Number((targetTWD / calculationPriceTWD).toFixed(2));
+                
+                setSharesInput(s.toString());
+                setCalculatedTotalOriginal(s * p);
+             }
          }
       } else {
         setSharesInput('');
         setCalculatedTotalOriginal(0);
       }
     }
-  }, [price, exchangeRate, sharesInput, percentInput, calcMode, categoryProjectedInvestment, market, action]);
+  }, [price, exchangeRate, sharesInput, percentInput, calcMode, categoryProjectedInvestment, market, action, initialAsset]);
 
 
   // --- Auto Calculation Logic ---
@@ -716,6 +764,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
               <div className="flex justify-between mt-1">
                   <span className="text-[10px] text-gray-400">
                     計算基準: 倉位預計總額 NT${categoryProjectedInvestment.toLocaleString()}
+                    {action === 'SELL' && initialAsset ? ' (依 FIFO 庫存成本)' : ' (依當前市價)'}
                   </span>
                   <span className="text-xs text-right text-gray-500">約 {sharesInput || 0} 股</span>
               </div>

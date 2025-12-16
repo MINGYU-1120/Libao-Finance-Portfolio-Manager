@@ -61,6 +61,9 @@ const App: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [isFirebaseEnabled, setIsFirebaseEnabled] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  
+  // Guard flag to prevent saving empty state to cloud before data is loaded
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // --- UI State ---
   const [showTutorial, setShowTutorial] = useState(false);
@@ -68,9 +71,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   // --- Initialization Logic ---
-  const [portfolio, setPortfolio] = useState<PortfolioState>(() => {
-    // Basic default state
-    return {
+  const initialPortfolioState: PortfolioState = {
       totalCapital: INITIAL_CAPITAL,
       settings: { 
         usExchangeRate: DEFAULT_EXCHANGE_RATE,
@@ -81,8 +82,9 @@ const App: React.FC = () => {
       transactions: [],
       capitalLogs: [], 
       lastModified: Date.now()
-    };
-  });
+  };
+
+  const [portfolio, setPortfolio] = useState<PortfolioState>(initialPortfolioState);
 
   const portfolioRef = useRef(portfolio);
   useEffect(() => {
@@ -108,6 +110,16 @@ const App: React.FC = () => {
   
   const maskValue = (val: string | number) => maskValueFn(val, isPrivacyMode);
 
+  // --- Helper: Synchronous Save ---
+  const saveAndSetPortfolio = useCallback((newState: PortfolioState) => {
+      try {
+          localStorage.setItem('libao-portfolio', JSON.stringify(newState));
+      } catch (e) {
+          console.error("Save Error", e);
+      }
+      setPortfolio(newState);
+  }, []);
+
   // --- Initial Flow Control ---
   useEffect(() => {
     const hasSeenTutorial = localStorage.getItem('libao-tutorial-seen-v5');
@@ -119,6 +131,7 @@ const App: React.FC = () => {
         try {
             const parsed = JSON.parse(localData);
             setPortfolio(parsed);
+            setIsDataLoaded(true); // Mark as loaded from local
         } catch(e) { console.error(e); }
         return;
     }
@@ -132,16 +145,6 @@ const App: React.FC = () => {
           setShowOnboarding(true);
        }
     }
-  }, []);
-
-  // --- Helper: Synchronous Save ---
-  const saveAndSetPortfolio = useCallback((newState: PortfolioState) => {
-      try {
-          localStorage.setItem('libao-portfolio', JSON.stringify(newState));
-      } catch (e) {
-          console.error("Save Error", e);
-      }
-      setPortfolio(newState);
   }, []);
 
   const handleOnboardingComplete = (capital: number, categories: PositionCategory[]) => {
@@ -162,14 +165,14 @@ const App: React.FC = () => {
       // Save locally
       saveAndSetPortfolio(newState);
       localStorage.setItem('libao-onboarding-v1', 'true');
+      setIsDataLoaded(true); // Now safe to sync
       
       // Sync to cloud if logged in
       if (user) {
           savePortfolioToCloud(user.uid, newState);
       }
       
-      // Force reload to clear all states cleanly and enter app
-      window.location.reload();
+      setShowOnboarding(false);
   };
 
   const handleTutorialLogin = async () => {
@@ -212,27 +215,31 @@ const App: React.FC = () => {
           const cloudData = await loadPortfolioFromCloud(currentUser.uid);
           
           if (cloudData) {
-             // === RETURNING USER ===
-             // Cloud data exists. Load it, skip onboarding.
+             // Standard Cloud Load: Always trust cloud data on login/refresh
+             // We removed the "Local > Cloud" check to avoid conflicts
+             console.log(`[Sync] Loading from Cloud...`);
              saveAndSetPortfolio(cloudData);
-             localStorage.setItem('libao-onboarding-v1', 'true'); 
+             showToast(`歡迎回來，已同步雲端資料`, 'success');
              
-             // Close everything
+             setIsDataLoaded(true); // Data is now safe
+             
+             // Common steps after sync
+             localStorage.setItem('libao-onboarding-v1', 'true'); 
              setShowTutorial(false);
              setShowOnboarding(false);
              
-             showToast(`歡迎回來，${currentUser.displayName}`, 'success');
           } else {
-             // === NEW USER (Logged in but no data) ===
-             // Check if local data is meaningful
+             // === NEW USER (Logged in but no cloud data) ===
              const localData = localStorage.getItem('libao-portfolio');
              if (localData && localStorage.getItem('libao-onboarding-v1')) {
                  // User has local setup -> Upload
+                 setIsDataLoaded(true); // Load existing local
                  await savePortfolioToCloud(currentUser.uid, portfolioRef.current);
                  showToast("本地資料已同步至雲端", 'success');
              } else {
                  // True new user -> Show Onboarding
                  setShowOnboarding(true);
+                 // Do NOT set isDataLoaded(true) here, wait for Onboarding to finish
              }
           }
         } catch (e) {
@@ -246,12 +253,39 @@ const App: React.FC = () => {
   }, [saveAndSetPortfolio]); 
 
   const handleLogout = async () => {
-     // Updated Text: Reassure user that cloud data is safe
      if(!window.confirm("確定要登出嗎？\n\n您的資料將安全地保存在雲端 (若已同步)。\n登出後，此裝置上的暫存資料將被清除以確保隱私安全。")) return;
      
-     await logoutUser();
-     localStorage.clear(); 
-     window.location.reload(); 
+     setIsSyncing(true); // Show indicator
+     try {
+         // 1. Force save before clearing local storage if we are loaded
+         if (user && isDataLoaded) {
+            console.log("Forcing save before logout...");
+            await savePortfolioToCloud(user.uid, portfolioRef.current);
+            console.log("Forced save successful.");
+         }
+
+         // 2. Logout from Firebase
+         await logoutUser();
+         
+         // 3. Clear Local Storage
+         localStorage.removeItem('libao-portfolio');
+         localStorage.removeItem('libao-onboarding-v1');
+         
+         // 4. Reset State Manually
+         setUser(null);
+         setPortfolio(initialPortfolioState);
+         setIsDataLoaded(false);
+         setShowOnboarding(true); // Reset to welcome state
+         
+         showToast("已安全登出", 'success');
+     } catch(e) {
+         console.error("Logout process error", e);
+         showToast("登出時發生錯誤，但資料已嘗試保存", 'info');
+         // Fallback reload if something breaks badly
+         setTimeout(() => window.location.reload(), 1000);
+     } finally {
+         setIsSyncing(false);
+     }
   };
 
   const handleResetPortfolio = async () => {
@@ -279,18 +313,19 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    // Auto-save backup
+    // Auto-save local backup (Always safe)
     try {
       localStorage.setItem('libao-portfolio', JSON.stringify(portfolio));
     } catch (e) { console.error(e); }
 
-    if (user && isFirebaseEnabled) {
+    // Auto-save cloud (MUST check isDataLoaded to prevent overwriting cloud with empty init state)
+    if (user && isFirebaseEnabled && isDataLoaded) {
       const timeoutId = setTimeout(() => {
         savePortfolioToCloud(user.uid, portfolio);
       }, 500); 
       return () => clearTimeout(timeoutId);
     }
-  }, [portfolio, user, isFirebaseEnabled]);
+  }, [portfolio, user, isFirebaseEnabled, isDataLoaded]);
 
   const handleUpdatePrices = async (isSilent = false) => {
     if (isUpdatingPrices) return;
@@ -544,6 +579,7 @@ const App: React.FC = () => {
     }
     data.lastModified = Date.now();
     saveAndSetPortfolio(data);
+    setIsDataLoaded(true); // Manually imported data is safe
     showToast("資料匯入成功！", 'success');
   };
 
@@ -591,7 +627,6 @@ const App: React.FC = () => {
   };
 
   const batchExecuteTransactions = (orders: {order: OrderData, catId: string}[]) => {
-    // ... (keep existing logic exactly same)
     const now = new Date();
     let prev = { ...portfolioRef.current };
     
@@ -617,12 +652,11 @@ const App: React.FC = () => {
           }
         }
 
-        const txLotId = order.action === 'BUY' ? uuidv4() : undefined;
         const newTx: TransactionRecord = {
           id: uuidv4(),
           date: order.action === 'DIVIDEND' ? now.toISOString() : now.toISOString(),
           assetId: existingAssetIndex >= 0 ? newAssets[existingAssetIndex].id : (order.assetId || uuidv4()),
-          lotId: txLotId,
+          // lotId intentionally omitted for SELL/DIVIDEND, filled below for BUY
           symbol: order.symbol,
           name: order.name,
           type: order.action,
@@ -638,8 +672,11 @@ const App: React.FC = () => {
         };
 
         if (order.action === 'BUY') {
+          const newLotId = uuidv4();
+          newTx.lotId = newLotId; // Only assign if BUY
+
           const newLot: AssetLot = {
-            id: txLotId!,
+            id: newLotId,
             date: now.toISOString(),
             shares: order.shares,
             costPerShare: order.price,

@@ -113,8 +113,14 @@ export const savePortfolioToCloud = async (userId: string, data: PortfolioState)
   if (!isConfigured || !userId) return;
   try {
     const userRef = doc(db, 'users', userId);
+    
+    // CRITICAL FIX: Firestore throws an error if any value is `undefined`.
+    // We must strip undefined values. JSON.stringify/parse is a fast way to do this 
+    // (it removes keys with undefined values entirely).
+    const cleanData = JSON.parse(JSON.stringify(data));
+
     // Merge true ensures we don't overwrite other fields if they exist
-    await setDoc(userRef, { portfolio: data }, { merge: true });
+    await setDoc(userRef, { portfolio: cleanData }, { merge: true });
     console.log("Cloud sync successful");
   } catch (error: any) {
     if (error.code === 'permission-denied') {

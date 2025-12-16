@@ -215,35 +215,11 @@ const App: React.FC = () => {
           const cloudData = await loadPortfolioFromCloud(currentUser.uid);
           
           if (cloudData) {
-             // === CONFLICT RESOLUTION (Last Modified Check) ===
-             const localDataStr = localStorage.getItem('libao-portfolio');
-             let localData: PortfolioState | null = null;
-             let localTime = 0;
-
-             if (localDataStr) {
-                try {
-                   localData = JSON.parse(localDataStr);
-                   localTime = localData?.lastModified || 0;
-                } catch(e) {}
-             }
-             
-             const cloudTime = cloudData.lastModified || 0;
-             
-             // STRICT CHECK: If Local is strictly NEWER than Cloud, trust Local.
-             // Removed the +2000 buffer to prevent "Sell Disappearing" when refreshing quickly.
-             if (localData && localTime > cloudTime) {
-                 console.log(`[Sync] Local data (${localTime}) is newer than cloud (${cloudTime}). Pushing Local to Cloud...`);
-                 
-                 setPortfolio(localData);
-                 await savePortfolioToCloud(currentUser.uid, localData);
-                 showToast("發現較新的本地資料，已同步至雲端", 'success');
-
-             } else {
-                 // Standard Case: Cloud is newer or same (Sync Down)
-                 console.log(`[Sync] Loading from Cloud (${cloudTime})...`);
-                 saveAndSetPortfolio(cloudData);
-                 showToast(`歡迎回來，已同步雲端資料`, 'success');
-             }
+             // Standard Cloud Load: Always trust cloud data on login/refresh
+             // We removed the "Local > Cloud" check to avoid conflicts
+             console.log(`[Sync] Loading from Cloud...`);
+             saveAndSetPortfolio(cloudData);
+             showToast(`歡迎回來，已同步雲端資料`, 'success');
              
              setIsDataLoaded(true); // Data is now safe
              
@@ -295,7 +271,7 @@ const App: React.FC = () => {
          localStorage.removeItem('libao-portfolio');
          localStorage.removeItem('libao-onboarding-v1');
          
-         // 4. Reset State Manually (Do NOT use window.location.reload())
+         // 4. Reset State Manually
          setUser(null);
          setPortfolio(initialPortfolioState);
          setIsDataLoaded(false);
@@ -676,12 +652,11 @@ const App: React.FC = () => {
           }
         }
 
-        const txLotId = order.action === 'BUY' ? uuidv4() : undefined;
         const newTx: TransactionRecord = {
           id: uuidv4(),
           date: order.action === 'DIVIDEND' ? now.toISOString() : now.toISOString(),
           assetId: existingAssetIndex >= 0 ? newAssets[existingAssetIndex].id : (order.assetId || uuidv4()),
-          lotId: txLotId,
+          // lotId intentionally omitted for SELL/DIVIDEND, filled below for BUY
           symbol: order.symbol,
           name: order.name,
           type: order.action,
@@ -697,8 +672,11 @@ const App: React.FC = () => {
         };
 
         if (order.action === 'BUY') {
+          const newLotId = uuidv4();
+          newTx.lotId = newLotId; // Only assign if BUY
+
           const newLot: AssetLot = {
-            id: txLotId!,
+            id: newLotId,
             date: now.toISOString(),
             shares: order.shares,
             costPerShare: order.price,
