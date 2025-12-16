@@ -63,7 +63,6 @@ export interface AppSettings {
   usExchangeRate: number;
   enableFees: boolean;
   usBroker: 'Firstrade' | 'IBKR' | 'Sub-brokerage';
-  enableSystemNotifications?: boolean; // New Field for Push Notifications
 }
 
 export interface PortfolioState {

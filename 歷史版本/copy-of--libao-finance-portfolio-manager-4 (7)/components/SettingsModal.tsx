@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { X, Save, Upload, Download, Settings, Trash2, Bell } from 'lucide-react';
+import { X, Save, Upload, Download, Settings, Trash2 } from 'lucide-react';
 import { AppSettings, PortfolioState } from '../types';
 import { useToast } from '../contexts/ToastContext';
 
@@ -27,7 +27,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [rate, setRate] = useState(settings.usExchangeRate.toString());
   const [enableFees, setEnableFees] = useState(settings.enableFees ?? true);
   const [usBroker, setUsBroker] = useState<'Firstrade' | 'IBKR' | 'Sub-brokerage'>(settings.usBroker || 'Firstrade');
-  const [enableNotifications, setEnableNotifications] = useState(settings.enableSystemNotifications ?? false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState('');
@@ -44,29 +43,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       ...settings, 
       usExchangeRate: numRate,
       enableFees,
-      usBroker,
-      enableSystemNotifications: enableNotifications
+      usBroker
     });
     onClose();
-  };
-
-  const handleNotificationToggle = async (checked: boolean) => {
-    if (checked) {
-      if (!("Notification" in window)) {
-        alert("您的瀏覽器不支援系統通知功能。");
-        return;
-      }
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        setEnableNotifications(true);
-        new Notification("Libao 財經學院", { body: "系統通知已成功啟用！" });
-      } else {
-        setEnableNotifications(false);
-        alert("您已拒絕通知權限，請至瀏覽器設定中開啟。");
-      }
-    } else {
-      setEnableNotifications(false);
-    }
   };
 
   const handleExport = () => {
@@ -136,23 +115,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">TWD</span>
               </div>
             </div>
-            
-            {/* Notification Toggle */}
-            <div className="flex items-center justify-between mt-2">
-               <div className="flex items-center gap-2">
-                  <Bell className="w-4 h-4 text-gray-500" />
-                  <label className="text-sm font-medium text-gray-600">啟用系統推播通知</label>
-               </div>
-               <input 
-                 type="checkbox"
-                 checked={enableNotifications}
-                 onChange={(e) => handleNotificationToggle(e.target.checked)}
-                 className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-               />
-            </div>
-            <p className="text-[10px] text-gray-400 pl-6">
-               開啟後，當有重大持股新聞時，即使在背景分頁也會跳出通知。
-            </p>
           </div>
 
           {/* Fee Calculation Section */}

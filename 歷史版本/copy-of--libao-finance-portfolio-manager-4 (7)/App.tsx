@@ -84,8 +84,7 @@ const App: React.FC = () => {
       settings: { 
         usExchangeRate: DEFAULT_EXCHANGE_RATE,
         enableFees: true,
-        usBroker: 'Firstrade',
-        enableSystemNotifications: false
+        usBroker: 'Firstrade'
       },
       categories: DEFAULT_CATEGORIES,
       transactions: [],
@@ -172,22 +171,6 @@ const App: React.FC = () => {
          // If no last read record, OR latest news is newer than last read -> Notify
          if (!lastReadTimestamp || latestNewsTimestamp > parseInt(lastReadTimestamp, 10)) {
              setHasNewNews(true);
-             
-             // --- System Notification Trigger ---
-             if (portfolioRef.current.settings.enableSystemNotifications && 
-                 "Notification" in window && 
-                 Notification.permission === 'granted') {
-                 
-                 const latestItem = sorted[0];
-                 const notificationTitle = `Libao 發現 ${sorted.length} 則新新聞`;
-                 const notificationBody = `最新：[${latestItem.symbol}] ${latestItem.title}`;
-                 
-                 new Notification(notificationTitle, {
-                    body: notificationBody,
-                    icon: '/icon.png', // Fallback if no icon
-                    tag: 'libao-news' // Prevent stacking too many
-                 });
-             }
          } else {
              setHasNewNews(false);
          }
