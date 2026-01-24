@@ -2,10 +2,12 @@
   "name": "libao-finance-portfolio-manager-5",
   "private": true,
   "version": "0.0.0",
+  "description": "Libao Finance Portfolio Manager - A React application for managing finance portfolios.",
+  "author": "User",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc -b && vite build",
     "preview": "vite preview"
   },
   "dependencies": {

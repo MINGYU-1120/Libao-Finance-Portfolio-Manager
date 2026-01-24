@@ -77,7 +77,7 @@ class StockService {
     return priceMap;
   }
 
-  public async searchStocks(query: string, market: MarketType): Promise<{symbol: string, name: string, market: MarketType}[]> {
+  public async searchStocks(query: string, market: MarketType): Promise<{ symbol: string, name: string, market: MarketType }[]> {
     const targetUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&lang=zh-Hant-TW&region=TW`;
     const data = await this.fetchWithProxy(targetUrl);
     if (data?.quotes) {
@@ -93,15 +93,15 @@ class StockService {
    */
   public async getStockNews(symbol: string, market: MarketType, name?: string): Promise<NewsItem[]> {
     // 優先策略：台股使用 Yahoo RSS (較穩定)，美股使用 Google News
-    const urls = market === 'TW' 
+    const urls = market === 'TW'
       ? [
-          `https://tw.stock.yahoo.com/rss/s/${symbol}`, // Yahoo 台灣個股 RSS
-          `https://news.google.com/rss/search?q=${encodeURIComponent(symbol + " " + (name || "") + " 股票")}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`
-        ]
+        `https://tw.stock.yahoo.com/rss/s/${symbol}`, // Yahoo 台灣個股 RSS
+        `https://news.google.com/rss/search?q=${encodeURIComponent(symbol + " " + (name || "") + " 股票")}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`
+      ]
       : [
-          `https://finance.yahoo.com/rss/headline?s=${symbol}`, // Yahoo US RSS
-          `https://news.google.com/rss/search?q=${encodeURIComponent(symbol + " stock news")}&hl=en-US&gl=US&ceid=US:en`
-        ];
+        `https://finance.yahoo.com/rss/headline?s=${symbol}`, // Yahoo US RSS
+        `https://news.google.com/rss/search?q=${encodeURIComponent(symbol + " stock news")}&hl=en-US&gl=US&ceid=US:en`
+      ];
 
     for (const targetUrl of urls) {
       for (const proxy of NEWS_PROXIES) {
@@ -143,7 +143,7 @@ class StockService {
             const link = item.querySelector("link")?.textContent || "";
             const pubDate = item.querySelector("pubDate")?.textContent || "";
             const source = item.querySelector("source")?.textContent || (market === 'TW' ? "Yahoo 財經" : "Yahoo Finance");
-            
+
             if (title && link) {
               news.push({ title: title.split(' - ')[0], link, pubDate, source, symbol, market });
             }
@@ -154,6 +154,37 @@ class StockService {
       }
     }
     return [];
+  }
+
+  /**
+   * Fetch historical dividends
+   */
+  public async getStockDividends(symbol: string, market: MarketType, startDate: string): Promise<{ date: string; rate: number }[]> {
+    const start = Math.floor(new Date(startDate).getTime() / 1000);
+    const end = Math.floor(Date.now() / 1000);
+
+    // Yahoo Finance Chart API with events=div
+    // Example: https://query1.finance.yahoo.com/v8/finance/chart/AAPL?symbol=AAPL&period1=...&period2=...&interval=1d&events=div
+
+    const querySymbol = market === 'TW'
+      ? (symbol.includes('.') ? symbol : `${symbol}.TW`)
+      : symbol;
+
+    const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${querySymbol}?symbol=${querySymbol}&period1=${start}&period2=${end}&interval=1d&events=div`;
+
+    const data = await this.fetchWithProxy(targetUrl, true);
+
+    if (!data?.chart?.result?.[0]?.events?.dividends) {
+      return [];
+    }
+
+    const dividendsMap = data.chart.result[0].events.dividends;
+    const dividends: { date: string; rate: number }[] = Object.values(dividendsMap).map((d: any) => ({
+      date: new Date(d.date * 1000).toISOString(),
+      rate: d.amount
+    }));
+
+    return dividends.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
 }
 

@@ -2,19 +2,64 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# Libao Finance Portfolio Manager
 
-This contains everything you need to run your app locally.
+A modern React application for managing finance portfolios, built with performance and user experience in mind.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1InrLFWzBuEL4Sz0gKHSd7slgu6RMvDNS
+## 🚀 Features
 
-## Run Locally
+- **Portfolio Management**: Efficiently track and manage your financial assets.
+- **AI Integration**: Powered by Google's Gemini AI models.
+- **Modern UI**: Built with React 19 and styled for a premium experience.
+- **Type Safety**: Full TypeScript support for robust development.
 
-**Prerequisites:**  Node.js
+## 🛠️ Tech Stack
 
+- **Framework**: React 19
+- **Build Tool**: Vite
+- **Language**: TypeScript
+- **Styling**: Vanilla CSS / Modules
+- **AI**: Google GenAI SDK
+- **Backend/Services**: Firebase (implied by dependencies)
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 🏁 Getting Started
+
+### Prerequisites
+
+- Node.js (Latest LTS recommended)
+- npm or yarn
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd Libao-Finance-Portfolio-Manager-main
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Environment Setup**
+   Create a `.env.local` file in the root directory and add your Gemini API key:
+   ```env
+   VITE_GEMINI_API_KEY=your_api_key_here
+   ```
+   *(Note: Ensure you use the correct variable name expected by the application)*
+
+4. **Run the application**
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+
+## 📜 Scripts
+
+- `npm run dev`: Starts the development server.
+- `npm run build`: Type-checks and builds the application for production.
+- `npm run preview`: Previews the production build locally.
+
+---
+*Created for Libao Finance*
