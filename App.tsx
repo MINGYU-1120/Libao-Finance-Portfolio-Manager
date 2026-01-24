@@ -542,8 +542,14 @@ const App: React.FC = () => {
   const handleUpdateSettings = (s: AppSettings) => { saveAndSetPortfolio({ ...portfolio, settings: s }); showToast("設定已儲存", 'success'); };
 
   /* Automatic Dividend Scanning Logic */
+  const handleManualAddDividend = () => {
+    setScannedDividends([]);
+    setShowDividendModal(true);
+  };
+
   const handleScanDividends = async () => {
     if (isScanningDividends) return;
+    showToast("開始掃描股息...", "info");
     setIsScanningDividends(true);
 
     // 1. Identify distinct assets and their 'earliest buy date'
@@ -981,7 +987,13 @@ const App: React.FC = () => {
           <TransactionHistory transactions={portfolio.transactions} portfolio={portfolio} onRevoke={handleRevokeTransaction} isPrivacyMode={isPrivacyMode} />
         )}
         {viewMode === 'DIVIDENDS' && (
-          <DividendLedger transactions={portfolio.transactions} onScan={handleScanDividends} onRevoke={handleRevokeTransaction} isPrivacyMode={isPrivacyMode} />
+          <DividendLedger
+            transactions={portfolio.transactions}
+            onScan={handleScanDividends}
+            onManualAdd={handleManualAddDividend}
+            onRevoke={handleRevokeTransaction}
+            isPrivacyMode={isPrivacyMode}
+          />
         )}
       </main>
 

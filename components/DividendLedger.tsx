@@ -6,13 +6,20 @@ import { Coins, TrendingUp, Calendar, Trash2, Plus, RefreshCw, DollarSign } from
 interface DividendLedgerProps {
   transactions: TransactionRecord[];
   onScan: () => void;
+  onManualAdd: () => void;
   onRevoke: (txId: string) => void;
   isPrivacyMode: boolean;
 }
 
-const DividendLedger: React.FC<DividendLedgerProps> = ({ transactions, onScan, onRevoke, isPrivacyMode }) => {
+const DividendLedger: React.FC<DividendLedgerProps> = ({
+  transactions,
+  onScan,
+  onManualAdd,
+  onRevoke,
+  isPrivacyMode
+}) => {
   // Filter only DIVIDEND transactions
-  const dividends = transactions.filter(t => t.type === 'DIVIDEND').sort((a, b) => 
+  const dividends = transactions.filter(t => t.type === 'DIVIDEND').sort((a, b) =>
     new Date(b.date).getTime() - new Date(a.date).getTime()
   );
 
@@ -20,7 +27,7 @@ const DividendLedger: React.FC<DividendLedgerProps> = ({ transactions, onScan, o
 
   // Calculate Stats
   const totalDividendsTWD = dividends.reduce((sum, t) => sum + t.realizedPnL!, 0);
-  
+
   // Calculate Market breakdown (Approximate based on fee/tax logic or symbol inference if market not stored directly in tx)
   // Since we don't store 'market' in TransactionRecord explicitly, we can infer or just sum total.
   // Ideally TransactionRecord should have 'market', but for now we aggregate Total.
@@ -32,7 +39,7 @@ const DividendLedger: React.FC<DividendLedgerProps> = ({ transactions, onScan, o
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      
+
       {/* Header & Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Total Card */}
@@ -57,40 +64,48 @@ const DividendLedger: React.FC<DividendLedgerProps> = ({ transactions, onScan, o
             <Calendar className="w-4 h-4 text-purple-500" /> {currentYear} 年度領息
           </h3>
           <div className="text-2xl font-bold font-mono text-gray-800">
-             NT$ {maskValue(thisYearDividends.toLocaleString())}
+            NT$ {maskValue(thisYearDividends.toLocaleString())}
           </div>
           <div className="w-full bg-gray-100 rounded-full h-1.5 mt-3">
-             <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: '100%' }}></div>
+            <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: '100%' }}></div>
           </div>
         </div>
 
         {/* Action Card */}
         <div className="bg-purple-50 rounded-2xl p-6 border border-purple-100 flex flex-col justify-center items-start gap-3">
-           <h3 className="text-purple-800 font-bold text-sm">股息管理</h3>
-           <button 
-             onClick={onScan}
-             className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold shadow-md transition-all flex items-center justify-center gap-2 active:scale-95"
-           >
-             <RefreshCw className="w-4 h-4" /> 掃描 / 新增配息
-           </button>
-           <p className="text-xs text-purple-600 opacity-80">
-             系統將自動掃描歷史持倉與配息紀錄
-           </p>
+          <h3 className="text-purple-800 font-bold text-sm">股息管理</h3>
+          <div className="grid grid-cols-2 gap-2 w-full">
+            <button
+              onClick={onScan}
+              className="py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 text-sm"
+            >
+              <RefreshCw className="w-4 h-4" /> 自動掃描
+            </button>
+            <button
+              onClick={onManualAdd}
+              className="py-2.5 bg-white border border-purple-200 hover:bg-purple-50 text-purple-700 rounded-lg font-bold shadow-sm transition-all flex items-center justify-center gap-2 active:scale-95 text-sm"
+            >
+              <Plus className="w-4 h-4" /> 手動新增
+            </button>
+          </div>
+          <p className="text-xs text-purple-600 opacity-80">
+            建議先「自動掃描」，如無紀錄再「手動新增」
+          </p>
         </div>
       </div>
 
       {/* Ledger Table */}
       <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-200">
         <div className="bg-gray-50 p-4 border-b border-gray-200 flex justify-between items-center">
-           <h2 className="font-bold text-gray-700 flex items-center gap-2">
-             <TrendingUp className="w-5 h-5 text-purple-600" />
-             股息入帳明細
-           </h2>
-           <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded border">
-             共 {dividends.length} 筆
-           </span>
+          <h2 className="font-bold text-gray-700 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-purple-600" />
+            股息入帳明細
+          </h2>
+          <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded border">
+            共 {dividends.length} 筆
+          </span>
         </div>
-        
+
         <div className="overflow-x-auto min-h-[300px]">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-gray-500 uppercase bg-gray-50 border-b">
@@ -107,12 +122,12 @@ const DividendLedger: React.FC<DividendLedgerProps> = ({ transactions, onScan, o
             <tbody className="divide-y divide-gray-100">
               {dividends.length === 0 ? (
                 <tr>
-                   <td colSpan={7} className="text-center py-16 text-gray-400">
-                      <div className="flex flex-col items-center gap-3">
-                         <Coins className="w-12 h-12 opacity-20" />
-                         <p>尚無股息紀錄，試試看「掃描」功能吧！</p>
-                      </div>
-                   </td>
+                  <td colSpan={7} className="text-center py-16 text-gray-400">
+                    <div className="flex flex-col items-center gap-3">
+                      <Coins className="w-12 h-12 opacity-20" />
+                      <p>尚無股息紀錄，試試看「掃描」功能吧！</p>
+                    </div>
+                  </td>
                 </tr>
               ) : (
                 dividends.map(tx => (
@@ -138,15 +153,15 @@ const DividendLedger: React.FC<DividendLedgerProps> = ({ transactions, onScan, o
                       -{maskValue((tx.tax || 0).toLocaleString())}
                     </td>
                     <td className="px-6 py-4 text-right">
-                       <span className="text-purple-700 font-bold font-mono text-lg">
-                         +{maskValue(tx.realizedPnL!.toLocaleString())}
-                       </span>
+                      <span className="text-purple-700 font-bold font-mono text-lg">
+                        +{maskValue(tx.realizedPnL!.toLocaleString())}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <button 
+                      <button
                         onClick={() => {
                           if (window.confirm('確定要刪除此筆股息紀錄嗎？資金將會被扣回。')) {
-                             onRevoke(tx.id);
+                            onRevoke(tx.id);
                           }
                         }}
                         className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
