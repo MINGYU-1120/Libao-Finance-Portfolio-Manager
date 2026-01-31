@@ -351,6 +351,7 @@ const App: React.FC = () => {
   };
 
   const handleExecuteOrder = (order: OrderData) => {
+    console.log('Execute Order Received:', order); // DEBUG LOG
     const txId = uuidv4();
     const lotId = order.action === 'BUY' ? uuidv4() : undefined;
     const currentCategory = portfolio.categories.find(c => c.id === activeCategoryId);
@@ -359,9 +360,16 @@ const App: React.FC = () => {
     // 計算預算，用於計算交易比例
     const projectedInvestment = Math.floor(portfolio.totalCapital * (currentCategory.allocationPercent / 100));
 
+    // Ensure date is valid or fallback to today
+    // Note: new Date("YYYY-MM-DD") is UTC. toISOString() keeps it UTC. 
+    // This allows saving the explicit date selected by user.
+    const dateToSave = order.transactionDate
+      ? new Date(order.transactionDate).toISOString()
+      : new Date().toISOString();
+
     const newTx: TransactionRecord = {
       id: txId,
-      date: new Date().toISOString(),
+      date: dateToSave,
       assetId: order.assetId || uuidv4(),
       lotId: lotId,
       symbol: order.symbol,

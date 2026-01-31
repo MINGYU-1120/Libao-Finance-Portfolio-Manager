@@ -15,7 +15,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, p
   const [revokingTx, setRevokingTx] = useState<TransactionRecord | null>(null);
 
   // Sort transactions by date descending
-  const sortedTransactions = [...transactions].sort((a, b) => 
+  const sortedTransactions = [...transactions].sort((a, b) =>
     new Date(b.date).getTime() - new Date(a.date).getTime()
   );
 
@@ -50,23 +50,23 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, p
       if (!asset) return { allowed: false, reason: "資產庫存已清空，無法撤銷此買入" };
       if (asset.shares < tx.shares) return { allowed: false, reason: "持股數小於買入量，可能已涉及後續交易" };
       return { allowed: true };
-    } 
-    
+    }
+
     if (tx.type === 'SELL') {
       // 撤銷賣出：隨時可以撤銷（系統會補回當時賣出的股數）
       return { allowed: true };
     }
 
     if (tx.type === 'DIVIDEND') {
-       // 領息：隨時可以撤銷（僅涉及現金流）
-       return { allowed: true };
+      // 領息：隨時可以撤銷（僅涉及現金流）
+      return { allowed: true };
     }
 
     return { allowed: false };
   };
 
   const handleRevokeClick = (e: React.MouseEvent, tx: TransactionRecord) => {
-    e.stopPropagation(); 
+    e.stopPropagation();
     e.preventDefault();
     setRevokingTx(tx);
   };
@@ -89,7 +89,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, p
           共 {transactions.length} 筆
         </div>
       </div>
-      
+
       <div className="overflow-x-auto min-h-[300px]">
         <table className="w-full text-sm text-left">
           <thead className="text-xs text-gray-700 uppercase bg-gray-100 border-b-2 border-gray-300">
@@ -123,15 +123,14 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, p
                 return (
                   <tr key={tx.id} className="border-b hover:bg-gray-50 group">
                     <td className="px-4 py-3 text-gray-600 font-mono text-xs whitespace-nowrap">
-                      {new Date(tx.date).toLocaleString('zh-TW', { hour12: false })}
+                      {tx.date.split('T')[0]}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold ${
-                        tx.type === 'BUY' ? 'bg-red-100 text-red-700' : 
-                        tx.type === 'SELL' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'
-                      }`}>
-                        {tx.type === 'BUY' ? <ArrowDownLeft className="w-3 h-3"/> : 
-                         tx.type === 'SELL' ? <ArrowUpRight className="w-3 h-3"/> : <Coins className="w-3 h-3"/>}
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold ${tx.type === 'BUY' ? 'bg-red-100 text-red-700' :
+                          tx.type === 'SELL' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'
+                        }`}>
+                        {tx.type === 'BUY' ? <ArrowDownLeft className="w-3 h-3" /> :
+                          tx.type === 'SELL' ? <ArrowUpRight className="w-3 h-3" /> : <Coins className="w-3 h-3" />}
                         {tx.type === 'BUY' ? '買入' : tx.type === 'SELL' ? '賣出' : '領息'}
                       </span>
                     </td>
@@ -162,17 +161,17 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, p
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
                       {tx.type === 'SELL' || tx.type === 'DIVIDEND' ? (
-                         <span className={tx.realizedPnL! >= 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
-                           {isPrivacyMode ? '*******' : (tx.realizedPnL! > 0 ? '+' : '') + tx.realizedPnL?.toLocaleString()}
-                           {isDiv && <span className="text-[10px] text-gray-400 block">淨入帳</span>}
-                         </span>
+                        <span className={tx.realizedPnL! >= 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
+                          {isPrivacyMode ? '*******' : (tx.realizedPnL! > 0 ? '+' : '') + tx.realizedPnL?.toLocaleString()}
+                          {isDiv && <span className="text-[10px] text-gray-400 block">淨入帳</span>}
+                        </span>
                       ) : (
                         <span className="text-gray-300">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">
                       {check.allowed ? (
-                        <button 
+                        <button
                           type="button"
                           onClick={(e) => handleRevokeClick(e, tx)}
                           className="text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all p-2 rounded-full shadow-sm border border-transparent hover:border-red-200"
@@ -202,28 +201,27 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, p
               <h3 className="font-bold text-lg flex items-center gap-2">
                 <AlertCircle className="w-5 h-5" /> 撤銷交易確認
               </h3>
-              <button 
-                onClick={() => setRevokingTx(null)} 
+              <button
+                onClick={() => setRevokingTx(null)}
                 className="hover:bg-white/20 p-1 rounded-full transition-colors"
               >
-                <X className="w-6 h-6"/>
+                <X className="w-6 h-6" />
               </button>
             </div>
-            
+
             <div className="p-6">
               <p className="text-gray-700 mb-4 font-medium">
                 您確定要撤銷這筆交易嗎？
               </p>
-              
+
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-6 text-sm">
                 <div className="flex justify-between mb-2">
                   <span className="text-gray-500">動作</span>
-                  <span className={`font-bold ${
-                    revokingTx.type === 'BUY' ? 'text-red-600' : 
-                    revokingTx.type === 'SELL' ? 'text-green-600' : 'text-purple-600'
-                  }`}>
-                    {revokingTx.type === 'BUY' ? '買入 (BUY)' : 
-                     revokingTx.type === 'SELL' ? '賣出 (SELL)' : '領息 (DIV)'}
+                  <span className={`font-bold ${revokingTx.type === 'BUY' ? 'text-red-600' :
+                      revokingTx.type === 'SELL' ? 'text-green-600' : 'text-purple-600'
+                    }`}>
+                    {revokingTx.type === 'BUY' ? '買入 (BUY)' :
+                      revokingTx.type === 'SELL' ? '賣出 (SELL)' : '領息 (DIV)'}
                   </span>
                 </div>
                 <div className="flex justify-between mb-2">
@@ -256,13 +254,13 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, p
               </p>
 
               <div className="flex gap-3">
-                <button 
+                <button
                   onClick={() => setRevokingTx(null)}
                   className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold transition-colors"
                 >
                   取消
                 </button>
-                <button 
+                <button
                   onClick={confirmRevoke}
                   className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold shadow-md transition-colors flex items-center justify-center gap-2"
                 >
