@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Asset, CalculatedCategory, CalculatedAsset, AppSettings } from '../types';
-import { ArrowLeft, Plus, RefreshCw, NotebookPen, Wallet, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Plus, RefreshCw, NotebookPen, Wallet, Search } from 'lucide-react';
 import { formatCurrency } from '../utils/formatting';
 import OrderModal, { OrderData } from './OrderModal';
 import StockChartModal from './StockChartModal';
