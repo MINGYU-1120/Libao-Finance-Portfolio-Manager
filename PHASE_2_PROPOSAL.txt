@@ -1,0 +1,12 @@
+**Phase 2: Secure Backend Data Access**
+
+We are now ready to implement Phase 2.
+Current State: App Check is enabled and blocking unauthorized requests.
+
+**Next Steps:**
+1. Create a `functions` directory (if not exists) for Firebase Cloud Functions.
+2. Draft a secure Callable Function to fetch `ai_picks`.
+3. Implement basic Rate Limiting (e.g. using Redis or Firestore counters) within the function.
+4. Update frontend to call this function instead of direct `getDocs`.
+
+Do you want to proceed with creating these Cloud Functions?

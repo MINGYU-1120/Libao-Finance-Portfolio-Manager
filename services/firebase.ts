@@ -8,6 +8,7 @@ import {
   onAuthStateChanged,
   User
 } from 'firebase/auth';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import {
   getFirestore,
   doc,
@@ -57,6 +58,22 @@ let isConfigured = true;
 
 try {
   app = initializeApp(firebaseConfig);
+
+  // Initialize App Check
+  if (typeof window !== 'undefined') {
+    // Enable debug token for localhost development
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+      (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    }
+
+    // Initialize App Check with reCAPTCHA v3
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider('6LcenV8sAAAAALGLE_IlW1I_ntJhlueuwyRARiLd'),
+      isTokenAutoRefreshEnabled: true
+    });
+    console.log("Firebase App Check initialized.");
+  }
+
   auth = getAuth(app);
   db = getFirestore(app);
   console.log("Firebase initialized successfully.");
