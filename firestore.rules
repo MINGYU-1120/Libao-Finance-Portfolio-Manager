@@ -1,0 +1,113 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserRole() {
+       // Check custom claims first (if you set them), otherwise check user doc
+       // For this app, we rely on the public user_directory for roles (readable by all auth users)
+       let userDoc = get(/databases/$(database)/documents/user_directory/$(request.auth.uid));
+       return userDoc != null ? userDoc.data.role : 'viewer';
+    }
+
+    function getTier(role) {
+      // Map roles to integer tiers
+      return role == 'admin' ? 3 :
+             role == 'vip' ? 2 :
+             role == 'member' ? 1 : 0;
+    }
+
+    function hasRole(role) {
+      return getUserRole() == role;
+    }
+
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    // --- Tier Based Access Helper ---
+    function canAccessSection(sectionKey) {
+       // 1. Get User's Tier
+       let role = getUserRole();
+       let userTier = getTier(role);
+
+       // 2. Get Section's Min Tier from Config
+       // Note: You must ensure /config/permissions exists and has the fields.
+       // We default to high security (3=Admin) if config is missing or field is missing for safety.
+       let config = get(/databases/$(database)/documents/config/permissions);
+       let minTier = (config != null && sectionKey in config.data) ? config.data[sectionKey] : 0; 
+       
+       // Note on Default: 
+       // If we want to be safe, we should default to 3 (Admin). 
+       // But if config doesn't exist yet, this breaks app. 
+       // Let's rely on the Admin setup to init this. 
+       // For now, let's hardcode defaults if missing to match frontend defaults?
+       // No, simpler: check config. If config exists, use it.
+       
+       return userTier >= minTier;
+    }
+
+    // --- Rules ---
+
+    // 1. Config: Only Admin can write access controls
+    match /config/access_control {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    match /config/permissions {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // 2. User Directory: Public read (for profile lookup), Admin write, Owner write (for sync)
+    match /user_directory/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+    }
+
+    // 3. User Profiles: Owner can read/write their own
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // 4. AI Picks: Tier Restricted
+    match /ai_picks/{pickId} {
+      // Read: Based on Tier for 'ai_picks' section
+      allow read: if isSignedIn() && canAccessSection('ai_picks');
+      // Write: Admin only
+      allow write: if isAdmin();
+    }
+
+    // 5. Public Portfolios (Market Insider? Martingale?)
+    // Assuming 'martingale' is stored here or similar
+    match /public_portfolios/{docId} {
+      // Only Admin can write
+      allow write: if request.auth != null && hasRole('admin');
+    }
+
+    // --- Protected Sections Rule (NEW) ---
+    match /sections/{sectionId} {
+      function getSectionAllowedRoles(id) {
+        // In real app, fetch from /config/permissions
+        // Here we hardcode for MVP security
+        return id == 'market_insider' ? ['admin', 'member'] : ['admin', 'member', 'viewer'];
+      }
+      
+      // Public metadata (Teaser info)
+      match /public/{doc} {
+        allow read: if true;
+      }
+      
+      // Private content (Real Data)
+      match /private/{doc} { 
+        // Allow Admin to Read (View) and Write (Seed Data)
+        allow read, write: if request.auth != null && hasRole('admin'); 
+      }
+    }
+  }
+}

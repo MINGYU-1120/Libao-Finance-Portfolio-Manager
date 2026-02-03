@@ -14,6 +14,7 @@ export interface ScannedDividend {
   categoryName: string;
   market: 'TW' | 'US';
   isManual?: boolean;
+  isMartingale?: boolean;
 }
 
 interface DividendModalProps {

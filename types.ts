@@ -48,6 +48,7 @@ export interface TransactionRecord {
   originalCostTWD?: number; // NEW: The cost basis (TWD) of the shares sold, used for perfect undo
   categoryName: string;
   portfolioRatio?: number; // % of Category Projected Investment at time of trade
+  isMartingale?: boolean; // NEW: Explicitly tag if this is a Martingale transaction
 }
 
 export type CapitalType = 'DEPOSIT' | 'WITHDRAW';
@@ -74,6 +75,7 @@ export interface PortfolioState {
   categories: PositionCategory[];
   transactions: TransactionRecord[]; // History Ledger
   capitalLogs: CapitalLogEntry[]; // Funding History
+  martingale: PositionCategory[]; // Teacher's Portfolio (Array of Categories)
   lastModified?: number; // Timestamp for sync conflict resolution
 }
 
@@ -106,4 +108,69 @@ export interface NewsItem {
   source: string;
   symbol: string;
   market: MarketType;
+}
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL: string;
+  role: UserRole;
+  lastActive: number;
+  createdAt: number;
+}
+
+// --- Access Control Types ---
+
+export type UserRole = 'admin' | 'vip' | 'member' | 'viewer';
+
+export enum AccessTier {
+  GUEST = 0,
+  STANDARD = 1,
+  FIRST_CLASS = 2,
+  ADMIN = 3
+}
+
+export const ROLE_TIER_MAP: Record<UserRole, AccessTier> = {
+  'viewer': AccessTier.GUEST,
+  'member': AccessTier.STANDARD,
+  'vip': AccessTier.FIRST_CLASS,
+  'admin': AccessTier.ADMIN
+};
+
+export const getTier = (role: UserRole): AccessTier => ROLE_TIER_MAP[role] ?? AccessTier.GUEST;
+
+export interface AIPick {
+  id: string;
+  date: string; // ISO Date YYYY-MM-DD
+  symbol: string;
+  name: string;
+  market: MarketType;
+  analysis: string;
+  timestamp: number; // Created timestamp
+
+  // Quant Fields (AI Picks 2.0)
+  entryPrice?: number;
+  currentPrice?: number; // Latest known price (runtime only)
+  returnSinceEntry?: number; // % (runtime only)
+
+  // Exit Fields
+  exitPrice?: number;
+  exitDate?: string;
+  realizedReturn?: number; // %
+  finalPnl?: number; // TWD (Optional if we track amount, but usually % is enough for signal)
+
+  exitCondition?: string; // e.g. "Close < 20MA"
+  status: 'ACTIVE' | 'CLOSED' | 'WATCHING';
+  confidence?: number; // 0-100
+}
+
+export interface StrategyStats {
+  winRate: number; // e.g. 76.4
+  avgReturn: number; // e.g. 12.8
+  maxDrawdown: number; // e.g. -5.2
+  winRateChange?: number; // e.g. 2.1
+  avgReturnLabel?: string; // e.g. "每筆交易"
+  drawdownLabel?: string; // e.g. "低風險策略"
+  lastUpdated: number;
 }

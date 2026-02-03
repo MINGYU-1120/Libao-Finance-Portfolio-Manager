@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Asset, CalculatedCategory, CalculatedAsset, AppSettings } from '../types';
-import { ArrowLeft, Plus, RefreshCw, NotebookPen, LayoutList, Grid2X2, Wallet } from 'lucide-react';
+import { ArrowLeft, Plus, RefreshCw, NotebookPen, LayoutList, Grid2X2, Wallet, Trash2, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { formatCurrency } from '../utils/formatting';
 import OrderModal, { OrderData } from './OrderModal';
 import StockChartModal from './StockChartModal';
 import NoteModal from './NoteModal';
@@ -18,8 +19,10 @@ interface DetailTableProps {
   onUpdateCategoryPrices: (categoryId: string) => Promise<void>;
   onUpdateAssetNote: (assetId: string, note: string) => void;
   isPrivacyMode: boolean;
+  isMasked?: boolean;
   settings?: AppSettings;
-  forceShowOrderModal?: boolean; 
+  forceShowOrderModal?: boolean;
+  readOnly?: boolean;
 }
 
 const DetailTable: React.FC<DetailTableProps> = ({
@@ -34,16 +37,43 @@ const DetailTable: React.FC<DetailTableProps> = ({
   onUpdateCategoryPrices,
   onUpdateAssetNote,
   isPrivacyMode,
+  isMasked = false,
   settings,
-  forceShowOrderModal
+  forceShowOrderModal,
+  readOnly = false
 }) => {
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<CalculatedAsset | null>(null);
   const [viewMode, setViewMode] = useState<'simple' | 'detailed'>('detailed');
-  
+
   const [isRefreshingCategory, setIsRefreshingCategory] = useState(false);
   const [chartAsset, setChartAsset] = useState<CalculatedAsset | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Delete Confirmation State
+  const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
+
+  const handleDeleteClick = (assetId: string) => {
+    setDeletingAssetId(assetId);
+  };
+
+  const confirmDelete = () => {
+    if (deletingAssetId) {
+      onDeleteAsset(deletingAssetId);
+      setDeletingAssetId(null);
+    }
+  };
+
+  const filteredAssets = assets.filter(asset =>
+    asset.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    asset.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
   const [noteAsset, setNoteAsset] = useState<CalculatedAsset | null>(null);
+  const [expandedAssetId, setExpandedAssetId] = useState<string | null>(null);
+
+  const toggleAssetExpansion = (id: string) => {
+    setExpandedAssetId(prev => prev === id ? null : id);
+  };
 
   useEffect(() => {
     if (forceShowOrderModal) setIsOrderModalOpen(true);
@@ -65,7 +95,8 @@ const DetailTable: React.FC<DetailTableProps> = ({
   };
 
   const totalUnrealized = assets.reduce((sum, a) => sum + a.unrealizedPnL, 0);
-  const maskValue = (val: string | number) => isPrivacyMode ? '*******' : val;
+  const maskValue = (val: string | number) => (isMasked || isPrivacyMode) ? '*******' : val;
+  const strictMask = (val: string | number) => (isMasked || isPrivacyMode) ? '****' : val;
 
   const isUS = category.market === 'US';
   const currencyPrefix = isUS ? '$' : 'NT$';
@@ -73,8 +104,8 @@ const DetailTable: React.FC<DetailTableProps> = ({
 
   return (
     <div className="bg-white shadow-xl rounded-lg overflow-hidden border border-gray-200 animate-in fade-in zoom-in duration-300 w-full relative">
-      
-      <OrderModal 
+
+      <OrderModal
         isOpen={isOrderModalOpen}
         onClose={() => setIsOrderModalOpen(false)}
         market={category.market}
@@ -88,7 +119,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
         settings={settings}
       />
 
-      <StockChartModal 
+      <StockChartModal
         isOpen={!!chartAsset}
         onClose={() => setChartAsset(null)}
         symbol={chartAsset?.symbol || ''}
@@ -96,19 +127,19 @@ const DetailTable: React.FC<DetailTableProps> = ({
         market={category.market}
       />
 
-      <NoteModal 
+      <NoteModal
         isOpen={!!noteAsset}
         onClose={() => setNoteAsset(null)}
         symbol={noteAsset?.symbol || ''}
         name={noteAsset?.name || ''}
         initialNote={noteAsset?.note || ''}
         onSave={(note) => {
-           if (noteAsset) onUpdateAssetNote(noteAsset.id, note);
+          if (noteAsset) onUpdateAssetNote(noteAsset.id, note);
         }}
       />
 
       {/* 頂部紅標 Banner */}
-      <div id="detail-header" className={`px-4 py-5 text-white flex flex-wrap justify-between items-center gap-4 ${category.market === 'TW' ? 'bg-red-700' : 'bg-blue-800'}`}>
+      <div id="detail-header" className={`px-4 py-6 text-white flex flex-wrap justify-between items-center gap-4 ${category.market === 'TW' ? 'bg-gradient-to-r from-red-700 to-red-600' : 'bg-gradient-to-r from-blue-800 to-indigo-700'} shadow-inner`}>
         <div className="flex items-center gap-4 w-full sm:w-auto">
           <button onClick={onBack} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl transition-all font-bold shrink-0">
             <ArrowLeft className="w-5 h-5" />
@@ -116,25 +147,25 @@ const DetailTable: React.FC<DetailTableProps> = ({
           </button>
           <div className="flex-1 min-w-0">
             <h2 className="text-2xl font-black flex items-center gap-2 truncate">
-              {category.name} 
+              {category.name}
               <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded tracking-widest uppercase font-mono">{category.market === 'TW' ? '台股' : '美股'}</span>
             </h2>
-            <div className="flex items-center gap-3 text-xs opacity-90 mt-0.5 font-bold">
-              <span>上限: {maskValue(category.projectedInvestment.toLocaleString())}</span>
-              <span className="flex items-center gap-1 text-yellow-300"><Wallet className="w-3.5 h-3.5"/> 現金: {maskValue(category.remainingCash.toLocaleString())}</span>
+            <div className="flex items-center gap-4 text-xs opacity-90 mt-1 font-bold">
+              <span className="bg-white/10 px-2 py-0.5 rounded">上限: {formatCurrency(category.projectedInvestment, isUS ? 'USD' : 'TWD', isPrivacyMode)}</span>
+              <span className="flex items-center gap-1 text-yellow-300 bg-black/10 px-2 py-0.5 rounded"><Wallet className="w-3.5 h-3.5" /> 現金: {formatCurrency(category.remainingCash, isUS ? 'USD' : 'TWD', isPrivacyMode)}</span>
             </div>
           </div>
         </div>
 
-        <div className="flex gap-6 text-right w-full sm:w-auto justify-between sm:justify-end border-t sm:border-none border-white/10 pt-3 sm:pt-0">
+        <div className="flex gap-8 text-right w-full sm:w-auto justify-between sm:justify-end border-t sm:border-none border-white/10 pt-4 sm:pt-0">
           <div>
-            <div className="text-[10px] opacity-70 uppercase font-bold tracking-widest">已投入</div>
-            <div className="text-xl font-mono font-bold leading-none mt-1">{maskValue(category.investedAmount.toLocaleString())} <span className="text-xs opacity-60">({category.investmentRatio.toFixed(1)}%)</span></div>
+            <div className="text-[10px] opacity-70 uppercase font-black tracking-widest mb-1">已投入資金</div>
+            <div className="text-3xl font-mono font-black leading-none">{formatCurrency(category.investedAmount, isUS ? 'USD' : 'TWD', isPrivacyMode)} <span className="text-[10px] opacity-60">({category.investmentRatio.toFixed(1)}%)</span></div>
           </div>
           <div>
-            <div className="text-[10px] opacity-70 uppercase font-bold tracking-widest">未實現</div>
-            <div className={`text-xl font-mono font-bold leading-none mt-1 ${totalUnrealized >= 0 ? 'text-white' : 'text-green-300'}`}>
-              {isPrivacyMode ? '****' : (totalUnrealized > 0 ? '+' : '') + totalUnrealized.toLocaleString()}
+            <div className="text-[10px] opacity-70 uppercase font-black tracking-widest mb-1">未實現損益</div>
+            <div className={`text-3xl font-mono font-black leading-none ${totalUnrealized >= 0 ? 'text-white' : 'text-green-300'}`}>
+              {totalUnrealized > 0 ? '+' : ''}{maskValue(formatCurrency(totalUnrealized, isUS ? 'USD' : 'TWD', isPrivacyMode))}
             </div>
           </div>
         </div>
@@ -143,140 +174,291 @@ const DetailTable: React.FC<DetailTableProps> = ({
       {/* 操作列 */}
       <div className="sticky top-[64px] z-40 bg-white border-b border-gray-200 px-3 py-2 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest hidden sm:inline mr-1">HOLDINGS</span>
-            <div className="flex bg-gray-100 p-0.5 rounded-lg border border-gray-200">
-              <button onClick={() => setViewMode('simple')} className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'simple' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>
-                <LayoutList className="w-3 h-3" /> 簡易
-              </button>
-              <button onClick={() => setViewMode('detailed')} className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'detailed' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>
-                <Grid2X2 className="w-3 h-3" /> 詳細
-              </button>
-            </div>
+          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest hidden sm:inline mr-1">持倉項目</span>
+          <div className="flex bg-gray-100 p-0.5 rounded-lg border border-gray-200">
+            <button onClick={() => setViewMode('simple')} className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'simple' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>
+              <LayoutList className="w-3 h-3" /> 簡易
+            </button>
+            <button onClick={() => setViewMode('detailed')} className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'detailed' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>
+              <Grid2X2 className="w-3 h-3" /> 詳細
+            </button>
+          </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
-          {assets.length > 0 && (
-            <button onClick={handleRefreshCategory} className={`p-1.5 rounded-full hover:bg-gray-100 text-gray-400 ${isRefreshingCategory ? 'animate-spin text-blue-600' : ''}`}>
-               <RefreshCw className="w-4 h-4" />
+          {/* 搜尋框 */}
+          <div className="relative group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+            <input
+              type="text"
+              placeholder="搜尋代碼/名稱..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-32 sm:w-48 transition-all"
+            />
+          </div>
+
+          {!readOnly && (
+            <button
+              onClick={handleRefreshCategory}
+              disabled={isRefreshingCategory}
+              className={`flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded text-sm text-gray-600 hover:text-indigo-600 shadow-sm transition ${isRefreshingCategory ? 'opacity-50' : ''}`}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingCategory ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{isRefreshingCategory ? '更新中...' : '同步價格'}</span>
             </button>
           )}
-          <button id="detail-add-btn" onClick={() => handleOpenOrder()} className="bg-libao-gold hover:bg-yellow-400 text-gray-900 font-black py-1.5 px-6 rounded-lg text-xs flex items-center gap-1.5 shadow transition-all active:scale-95 border-b-2 border-yellow-600">
-            <Plus className="w-4 h-4" /> 下單 (Order)
-          </button>
+          {!readOnly && (
+            <button id="detail-add-btn" onClick={() => handleOpenOrder()} className="bg-libao-gold hover:bg-yellow-400 text-gray-900 font-black py-1.5 px-6 rounded-lg text-xs flex items-center gap-1.5 shadow transition-all active:scale-95 border-b-2 border-yellow-600">
+              <Plus className="w-4 h-4" /> 下單交易 (Order)
+            </button>
+          )}
         </div>
       </div>
 
-      {/* 表格內容區 */}
-      <div className="bg-white">
-        {viewMode === 'simple' ? (
-          <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pb-12">
-            {assets.length === 0 && <div className="col-span-full text-center py-20 text-gray-400 font-bold">目前無持股資料</div>}
-            {assets.map(asset => {
-                const displayUnrealized = asset.unrealizedPnL / displayRate;
-                const displayCost = asset.costBasis / displayRate;
-                return (
-                  <div key={asset.id} className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 cursor-pointer" onClick={() => handleOpenOrder(asset)}>
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex flex-col gap-0.5 min-w-0">
-                        <span className={`font-mono font-black px-1.5 py-0.5 rounded text-[9px] w-fit text-white ${isUS ? 'bg-blue-600' : 'bg-red-600'}`}>{asset.symbol}</span>
-                        <span className="font-bold text-gray-900 truncate text-sm">{asset.name}</span>
-                      </div>
-                      <div className="text-right">
-                          <div className="text-[8px] text-gray-400 font-bold uppercase">現價</div>
-                          <div className="font-mono font-bold text-xs text-gray-800">{maskValue(asset.currentPrice.toLocaleString())}</div>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center bg-gray-50 p-2 rounded-lg">
-                      <div>
-                          <div className="text-[8px] text-gray-400 uppercase">成本 / 占比</div>
-                          <div className="font-mono font-bold text-[10px]">{currencyPrefix}{maskValue(Math.round(displayCost).toLocaleString())} | {asset.portfolioRatio.toFixed(1)}%</div>
-                      </div>
-                      <div className="text-right">
-                          <div className={`text-[8px] font-bold ${asset.unrealizedPnL >= 0 ? 'text-red-500' : 'text-green-600'}`}>ROI</div>
-                          <div className={`font-mono font-bold text-[10px] ${asset.unrealizedPnL >= 0 ? 'text-red-500' : 'text-green-600'}`}>
-                            {isPrivacyMode ? '****' : (displayUnrealized > 0 ? '+' : '') + Math.round(displayUnrealized).toLocaleString()}
-                            <span className="text-[9px] ml-1">({asset.returnRate.toFixed(1)}%)</span>
-                          </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-            })}
+      <div className="md:hidden divide-y divide-gray-100 min-h-[400px]">
+        {/* Mobile Header Row */}
+        <div className="grid grid-cols-[1.3fr_1fr_1fr_1.1fr] gap-1 px-4 py-2 bg-gray-100 text-[11px] font-black text-gray-500 text-right sticky top-0 z-10 border-b border-gray-200 shadow-sm">
+          <div className="text-left pl-1">名稱</div>
+          <div>
+            <div>現價</div>
+            <div className="text-[9px] font-normal opacity-80">均價</div>
+          </div>
+          <div>
+            <div>股數</div>
+            <div className="text-[9px] font-normal opacity-80">佔比</div>
+          </div>
+          <div className="pr-1">損益</div>
+        </div>
+
+        {filteredAssets.length === 0 ? (
+          <div className="p-12 text-center text-gray-400 bg-white">
+            <div className="mb-2 font-bold">{searchTerm ? '找不到符合的資產' : '尚無持倉'}</div>
+            {!readOnly && !searchTerm && (
+              <button onClick={() => handleOpenOrder()} className="text-indigo-600 font-bold hover:underline">立即新增</button>
+            )}
           </div>
         ) : (
-          <div className="w-full overflow-x-auto bg-white border-t border-gray-100">
-            <table className="w-full min-w-[900px] text-[12px] text-left border-collapse table-fixed">
-              <thead className="bg-gray-50 border-b border-gray-200 font-black text-gray-500 uppercase">
-                <tr>
-                  <th className="px-1.5 py-2.5 text-center w-[8%]">代號</th>
-                  <th className="px-1.5 py-2.5 w-[18%]">公司名稱</th>
-                  <th className="px-1.5 py-2.5 text-center w-[10%]">資金占比</th>
-                  <th className="px-1.5 py-2.5 text-right bg-yellow-50/40 w-[12%]">現有股數</th>
-                  <th className="px-1.5 py-2.5 text-right bg-yellow-50/40 w-[12%]">成本均價</th>
-                  <th className="px-1.5 py-2.5 text-right w-[12%]">持倉市值 ({isUS ? 'USD' : 'TWD'})</th>
-                  <th className="px-1.5 py-2.5 text-right bg-red-50/20 w-[12%]">預估損益 ({isUS ? 'USD' : 'TWD'})</th>
-                  <th className="px-1.5 py-2.5 text-center w-[8%]">損益率</th>
-                  <th className="px-1.5 py-2.5 text-center w-[8%]">工具</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {assets.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="text-center py-24 text-gray-400 font-bold bg-white text-sm">目前尚無任何持股資料</td>
-                  </tr>
-                )}
-                {assets.map((asset) => {
-                  const displayUnrealized = asset.unrealizedPnL / displayRate;
-                  const displayMarketValue = asset.marketValue / displayRate;
-                  return (
-                    <tr key={asset.id} className="hover:bg-blue-50/20 transition-colors bg-white">
-                      <td className="px-1.5 py-2 text-center">
-                        <span className={`inline-block font-mono font-bold px-1.5 py-0.5 rounded text-[10px] text-white ${isUS ? 'bg-blue-600' : 'bg-red-600'}`}>{asset.symbol}</span>
-                      </td>
-                      <td className="px-1.5 py-2 font-bold text-gray-800 truncate">{asset.name}</td>
-                      <td className="px-1.5 py-2 text-center">
-                        <div className="flex flex-col items-center">
-                          <div className="w-full max-w-[40px] bg-gray-100 rounded-full h-1 mb-0.5 overflow-hidden">
-                            <div className="bg-blue-500 h-full" style={{ width: `${Math.min(asset.portfolioRatio, 100)}%` }}></div>
-                          </div>
-                          <span className="text-[9px] text-gray-500 font-mono">{asset.portfolioRatio.toFixed(1)}%</span>
-                        </div>
-                      </td>
-                      <td className="px-1.5 py-2 text-right font-mono font-bold text-gray-700">{maskValue(asset.shares.toLocaleString())}</td>
-                      <td className="px-1.5 py-2 text-right font-mono text-gray-400">
-                        {currencyPrefix}{maskValue(asset.avgCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}
-                      </td>
-                      <td className="px-1.5 py-2 text-right font-mono font-bold text-gray-800">
-                        {maskValue(Math.round(displayMarketValue).toLocaleString())}
-                      </td>
-                      <td className={`px-1.5 py-2 text-right font-mono font-bold ${asset.unrealizedPnL >= 0 ? 'text-red-500' : 'text-green-600'}`}>
-                        {maskValue(Math.round(displayUnrealized).toLocaleString())}
-                      </td>
-                      <td className="px-1.5 py-2 text-center">
-                        <span className={`inline-block px-1.5 py-0.5 rounded font-black text-[10px] font-mono ${asset.returnRate >= 0 ? 'text-red-600 bg-red-50' : 'text-green-600 bg-green-50'}`}>
-                          {asset.returnRate > 0 ? '+' : ''}{asset.returnRate.toFixed(1)}%
-                        </span>
-                      </td>
-                      <td className="px-1.5 py-2 text-center">
-                        <div className="flex gap-1 justify-center">
-                          <button onClick={() => handleOpenOrder(asset)} className="bg-gray-900 text-white px-2 py-0.5 rounded text-[10px] font-bold active:scale-95 transition-all">交易</button>
-                          <button onClick={() => setNoteAsset(asset)} className={`p-0.5 rounded border active:scale-95 transition-all ${asset.note ? 'bg-yellow-100 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-400'}`}><NotebookPen className="w-3.5 h-3.5" /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          filteredAssets.map(asset => (
+            <div key={asset.id} className="bg-white transition-colors">
+              <div
+                className={`grid grid-cols-[1.3fr_1fr_1fr_1.1fr] gap-1 px-4 py-3 items-center min-h-[64px] active:bg-gray-50 cursor-pointer ${expandedAssetId === asset.id ? 'bg-indigo-50/30' : ''}`}
+                onClick={() => toggleAssetExpansion(asset.id)}
+              >
+                {/* Col 1: Name */}
+                <div className="text-left overflow-hidden">
+                  <div className="font-black text-gray-900 truncate text-[15px]">{asset.name}</div>
+                  <div className="text-[11px] font-bold text-gray-400 font-mono truncate">{asset.symbol}</div>
+                </div>
+
+                {/* Col 2: Price / Avg */}
+                <div className="text-right">
+                  <div className={`font-mono font-black text-[13px] ${asset.currentPrice > asset.avgCost ? 'text-red-600' : (asset.currentPrice < asset.avgCost ? 'text-green-600' : 'text-gray-900')}`}>
+                    {strictMask(category.market === 'US' ? formatCurrency(asset.currentPrice, 'USD', isPrivacyMode) : asset.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 }))}
+                  </div>
+                  <div className="text-[11px] text-gray-400 font-mono mt-0.5">
+                    {strictMask(category.market === 'US' ? formatCurrency(asset.avgCost, 'USD', isPrivacyMode) : asset.avgCost.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 }))}
+                  </div>
+                </div>
+
+                {/* Col 3: Shares / Ratio */}
+                <div className="text-right">
+                  <div className="font-mono font-black text-gray-800 text-[13px]">{strictMask(asset.shares)}</div>
+                  <div className="text-[11px] font-bold text-indigo-500 font-mono mt-0.5">{isMasked ? '****' : asset.portfolioRatio.toFixed(1)}%</div>
+                </div>
+
+                {/* Col 4: P&L */}
+                <div className="text-right">
+                  <div className={`font-mono font-black text-[13px] ${asset.unrealizedPnL >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {maskValue(Math.round(asset.unrealizedPnL).toLocaleString())}
+                  </div>
+                  <div className={`text-[11px] font-bold mt-0.5 ${asset.currentPrice > asset.avgCost ? 'text-red-500' : 'text-green-600'}`}>
+                    {asset.avgCost > 0 ? (asset.currentPrice > asset.avgCost ? '+' : '') + (isMasked ? '****' : ((asset.currentPrice - asset.avgCost) / asset.avgCost * 100).toFixed(2)) + '%' : '0.00%'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Collapsible Action Row */}
+              {expandedAssetId === asset.id && !readOnly && (
+                <div className="px-4 py-2 bg-gray-50 border-t border-b border-gray-100 flex justify-end items-center gap-2 animate-in slide-in-from-top-2 duration-200">
+                  <button onClick={(e) => { e.stopPropagation(); setNoteAsset(asset); }} className="px-3 py-1.5 bg-white border border-gray-200 rounded text-xs font-bold text-gray-500 flex items-center gap-1 shadow-sm">
+                    <NotebookPen className="w-3.5 h-3.5" /> 筆記
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); onUpdateAssetPrice(asset.id, asset.symbol, category.market); }} className="px-3 py-1.5 bg-white border border-gray-200 rounded text-xs font-bold text-blue-600 flex items-center gap-1 shadow-sm">
+                    <RefreshCw className="w-3.5 h-3.5" /> 更新
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); handleDeleteClick(asset.id); }} className="px-3 py-1.5 bg-white border border-gray-200 rounded text-xs font-bold text-red-600 flex items-center gap-1 shadow-sm">
+                    <Trash2 className="w-3.5 h-3.5" /> 刪除
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); handleOpenOrder(asset); }} className="px-4 py-1.5 bg-indigo-600 text-white rounded text-xs font-black flex items-center gap-1 shadow-md ml-2">
+                    <Plus className="w-3.5 h-3.5" /> 資產交易
+                  </button>
+                </div>
+              )}
+            </div>
+          ))
         )}
       </div>
+
+      <div className="hidden md:block overflow-x-auto min-h-[400px]">
+        <table className="w-full">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200 text-left text-sm font-black text-gray-500 uppercase tracking-widest">
+              <th className="p-4 w-40">標的</th>
+              {viewMode === 'detailed' && <th className="p-4 text-right">成本均價</th>}
+              <th className="p-4 text-right">當前股價</th>
+              <th className="p-4 text-right">持倉股數</th>
+              <th className="p-4 text-right">持倉價值</th>
+              <th className="p-4 text-right">未實現損益</th>
+              <th className="p-4 text-center">資金佔比</th>
+              {!readOnly && <th className="p-4 text-center w-48">操作</th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 text-lg font-medium">
+            {filteredAssets.length === 0 ? (
+              <tr>
+                <td colSpan={10} className="p-12 text-center text-gray-400">
+                  <div className="mb-2 font-bold">{searchTerm ? `找不到與 "${searchTerm}" 相關的資產` : '尚無持倉'}</div>
+                  {!readOnly && !searchTerm && (
+                    <button onClick={() => handleOpenOrder()} className="text-indigo-600 font-bold hover:underline">立即新增</button>
+                  )}
+                </td>
+              </tr>
+            ) : (
+              filteredAssets.map(asset => (
+                <tr key={asset.id} className="hover:bg-indigo-50/30 transition-colors group">
+                  <td className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-1.5 h-10 rounded-full ${asset.unrealizedPnL >= 0 ? 'bg-red-500' : 'bg-green-500'}`}></div>
+                      <div>
+                        <div className="font-black text-gray-900 flex items-center gap-2 cursor-pointer hover:text-indigo-600 transition-colors" onClick={() => setChartAsset(asset)}>
+                          {asset.symbol}
+                          {(asset.currentPrice > asset.avgCost) ? <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> : <div className="w-1.5 h-1.5 rounded-full bg-green-400"></div>}
+                        </div>
+                        <div className="text-xs text-gray-500 truncate max-w-[150px] font-bold">{asset.name}</div>
+                        {asset.note && (
+                          <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-1 bg-gray-100 px-1.5 py-0.5 rounded-md w-fit font-bold">
+                            <NotebookPen className="w-3 h-3" />
+                            {asset.note.substring(0, 10)}{asset.note.length > 10 ? '...' : ''}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  {viewMode === 'detailed' && (
+                    <td className="p-4 text-right font-mono text-gray-500 font-medium text-sm">
+                      {strictMask(category.market === 'US' ? formatCurrency(asset.avgCost, 'USD', isPrivacyMode) : asset.avgCost.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 }))}
+                    </td>
+                  )}
+                  <td className="p-4 text-right">
+                    <div className="font-mono font-black text-gray-900">
+                      {strictMask(category.market === 'US' ? formatCurrency(asset.currentPrice, 'USD', isPrivacyMode) : asset.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 }))}
+                    </div>
+                  </td>
+                  <td className="p-4 text-right">
+                    <div className="font-mono font-black text-gray-800">{strictMask(asset.shares)} <span className="text-gray-400 text-xs font-bold">股</span></div>
+                  </td>
+                  <td className="p-4 text-right font-mono text-indigo-900 font-black">
+                    {maskValue(formatCurrency(asset.marketValue, isUS ? 'USD' : 'TWD', isPrivacyMode))}
+                  </td>
+                  <td className="p-4 text-right">
+                    <div className={`font-mono font-black ${asset.unrealizedPnL >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {asset.unrealizedPnL >= 0 ? '+' : ''}{maskValue(formatCurrency(asset.unrealizedPnL, isUS ? 'USD' : 'TWD', isPrivacyMode))}
+                    </div>
+                    <div className={`text-xs font-black ${asset.currentPrice > asset.avgCost ? 'text-red-500' : 'text-green-600'}`}>
+                      {asset.avgCost > 0 ? (
+                        <>
+                          {(asset.currentPrice > asset.avgCost ? '+' : '')}{isMasked ? '****' : ((asset.currentPrice - asset.avgCost) / asset.avgCost * 100).toFixed(2)}%
+                        </>
+                      ) : '0.00%'}
+                    </div>
+                  </td>
+                  <td className="p-4 text-center">
+                    <div className="text-sm font-black text-gray-700 font-mono">{isMasked ? '****' : asset.portfolioRatio.toFixed(1)}%</div>
+                  </td>
+                  {!readOnly && (
+                    <td className="p-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleOpenOrder(asset)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all font-black text-xs shadow-md active:scale-95"
+                          title="資產交易 (Trade)"
+                        >
+                          <Plus className="w-4 h-4" /> 資產交易
+                        </button>
+                        <div className="flex gap-1 border-l border-gray-100 pl-2">
+                          <button
+                            onClick={() => setNoteAsset(asset)}
+                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                            title="筆記"
+                          >
+                            <NotebookPen className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => onUpdateAssetPrice(asset.id, asset.symbol, category.market)}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                            title="更新"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(asset.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                            title="刪除"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {deletingAssetId && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">確定刪除此資產？</h3>
+                <p className="text-sm text-gray-500 mt-2">
+                  這將移除該資產的所有庫存數據，但保留歷史交易紀錄。
+                  <br />
+                  <span className="text-red-500 font-bold text-xs mt-1 block">注意：若稍後想撤銷相關交易，可能需要先手動還原資產。</span>
+                </p>
+              </div>
+              <div className="flex gap-3 w-full mt-2">
+                <button
+                  onClick={() => setDeletingAssetId(null)}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors"
+                >
+                  確認刪除
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 底部返回按鈕 */}
       <div className="p-6 border-t bg-gray-50 flex justify-center">
         <button onClick={onBack} className="group flex items-center gap-2 px-10 py-2.5 bg-gray-900 hover:bg-black rounded-xl text-white font-bold transition-all shadow-lg active:scale-95 text-sm">
           <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-          <span>返回持倉總覽</span>
+          <span>返回持倉總覽 (Back)</span>
         </button>
       </div>
     </div>

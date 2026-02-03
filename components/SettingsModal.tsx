@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Save, Upload, Download, Settings, Trash2, Bell, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { X, Save, Upload, Download, Settings, Trash2, Bell, AlertTriangle, ShieldAlert, RefreshCw } from 'lucide-react';
 import { AppSettings, PortfolioState } from '../types';
 import { useToast } from '../contexts/ToastContext';
 
@@ -12,6 +12,7 @@ interface SettingsModalProps {
   fullPortfolio: PortfolioState;
   onImportData: (data: PortfolioState) => void;
   onResetPortfolio: () => void;
+  onRepairData: () => void;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -21,13 +22,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onUpdateSettings,
   fullPortfolio,
   onImportData,
-  onResetPortfolio
+  onResetPortfolio,
+  onRepairData
 }) => {
   const { showToast } = useToast();
   const [rate, setRate] = useState(settings.usExchangeRate.toString());
   const [enableNotifications, setEnableNotifications] = useState(settings.enableSystemNotifications ?? false);
   const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>('default');
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState('');
 
@@ -35,13 +37,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setRate(settings.usExchangeRate.toString());
-      
+
       if ("Notification" in window) {
         setPermissionStatus(Notification.permission);
         if (Notification.permission === 'denied') {
-           setEnableNotifications(false);
+          setEnableNotifications(false);
         } else {
-           setEnableNotifications(settings.enableSystemNotifications ?? false);
+          setEnableNotifications(settings.enableSystemNotifications ?? false);
         }
       } else {
         setEnableNotifications(false);
@@ -58,14 +60,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       showToast("請輸入有效的匯率", 'error');
       return;
     }
-    
+
     let finalNotifyState = enableNotifications;
     if ("Notification" in window && Notification.permission === 'denied') {
-        finalNotifyState = false;
+      finalNotifyState = false;
     }
 
-    onUpdateSettings({ 
-      ...settings, 
+    onUpdateSettings({
+      ...settings,
       usExchangeRate: numRate,
       enableSystemNotifications: finalNotifyState
     });
@@ -78,7 +80,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         alert("您的瀏覽器不支援系統通知功能。");
         return;
       }
-      
+
       const currentPermission = Notification.permission;
       if (currentPermission === 'granted') {
         setEnableNotifications(true);
@@ -144,85 +146,98 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
         <div className="bg-gray-800 p-4 text-white flex justify-between items-center sticky top-0 z-10">
           <div className="flex items-center gap-2 font-bold text-lg">
-             <Settings className="w-5 h-5" /> 系統偏好與備份
+            <Settings className="w-5 h-5" /> 系統偏好與備份
           </div>
-          <button onClick={onClose} className="hover:bg-white/20 p-1 rounded-full"><X className="w-6 h-6"/></button>
+          <button onClick={onClose} className="hover:bg-white/20 p-1 rounded-full"><X className="w-6 h-6" /></button>
         </div>
 
         <div className="p-6 space-y-6">
-          
+
           {/* Exchange Rate Section */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider border-b pb-1">基本設定</h3>
             <div className="flex items-center gap-3">
               <label className="text-sm font-medium text-gray-600">美金匯率 (USD/TWD)</label>
               <div className="flex-1 relative">
-                 <input 
-                   type="number" 
-                   value={rate}
-                   onChange={(e) => setRate(e.target.value)}
-                   className="w-full p-2 border rounded-lg font-mono font-bold text-right pr-8 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                 />
-                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">TWD</span>
+                <input
+                  type="number"
+                  value={rate}
+                  onChange={(e) => setRate(e.target.value)}
+                  className="w-full p-2 border rounded-lg font-mono font-bold text-right pr-8 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">TWD</span>
               </div>
             </div>
-            
+
             {/* Notification Toggle */}
             <div className="flex items-center justify-between mt-2">
-               <div className="flex items-center gap-2">
-                  <Bell className="w-4 h-4 text-gray-500" />
-                  <label className="text-sm font-medium text-gray-600">啟用系統推播通知</label>
-               </div>
-               <input 
-                 type="checkbox"
-                 checked={enableNotifications}
-                 onChange={(e) => handleNotificationToggle(e.target.checked)}
-                 className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer bg-white"
-               />
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-gray-500" />
+                <label className="text-sm font-medium text-gray-600">啟用系統推播通知</label>
+              </div>
+              <input
+                type="checkbox"
+                checked={enableNotifications}
+                onChange={(e) => handleNotificationToggle(e.target.checked)}
+                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer bg-white"
+              />
             </div>
-            
+
             {permissionStatus === 'denied' && (
-               <div className="text-[10px] text-red-500 bg-red-50 p-2 rounded flex items-start gap-1">
-                  <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
-                  <span>瀏覽器通知權限已被封鎖。</span>
-               </div>
+              <div className="text-[10px] text-red-500 bg-red-50 p-2 rounded flex items-start gap-1">
+                <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                <span>瀏覽器通知權限已被封鎖。</span>
+              </div>
             )}
           </div>
 
           {/* Data Management Section */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider border-b pb-1">資料管理</h3>
-            
+
+            <div className="grid grid-cols-1 gap-3">
+              <button
+                onClick={() => {
+                  if (window.confirm("確定要執行資料修復嗎？系統將根據交易紀錄重新計算現有持股，這通常能修復持股消失的問題。")) {
+                    onRepairData();
+                  }
+                }}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 font-bold transition-colors border border-indigo-200"
+              >
+                <RefreshCw className="w-4 h-4" /> 修復持股資料 (從紀錄重建)
+              </button>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
-              <button 
+              <button
                 onClick={handleExport}
                 className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 font-medium transition-colors border border-blue-200"
               >
                 <Download className="w-4 h-4" /> 匯出備份
               </button>
-              
-              <button 
+
+              <button
                 onClick={handleImportClick}
                 className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 font-medium transition-colors border border-gray-200"
               >
                 <Upload className="w-4 h-4" /> 匯入資料
               </button>
             </div>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleFileChange} 
-              className="hidden" 
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
               accept=".json"
             />
             {importError && <p className="text-xs text-red-500 text-center">{importError}</p>}
           </div>
 
           <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-xs text-gray-500 leading-relaxed">
-             <div className="flex items-center gap-2 font-bold text-gray-600 mb-1">
-                <ShieldAlert className="w-3 h-3" /> 免責聲明
-             </div>
-             本應用程式僅提供資產紀錄功能，所有數據皆來自公開資訊。
+            <div className="flex items-center gap-2 font-bold text-gray-600 mb-1">
+              <ShieldAlert className="w-3 h-3" /> 免責聲明
+            </div>
+            本應用程式僅提供資產紀錄功能，所有數據皆來自公開資訊。
           </div>
 
           <button
@@ -233,13 +248,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
 
           <div className="pt-6 border-t border-gray-200">
-              <h3 className="text-sm font-bold text-red-600 uppercase tracking-wider mb-2">危險區域</h3>
-              <button 
-                  onClick={onResetPortfolio}
-                  className="w-full py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 flex items-center justify-center gap-2 transition-colors"
-              >
-                  <Trash2 className="w-4 h-4" /> 重置所有資料
-              </button>
+            <h3 className="text-sm font-bold text-red-600 uppercase tracking-wider mb-2">危險區域</h3>
+            <button
+              onClick={onResetPortfolio}
+              className="w-full py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 flex items-center justify-center gap-2 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" /> 重置所有資料
+            </button>
           </div>
 
         </div>

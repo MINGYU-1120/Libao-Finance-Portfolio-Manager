@@ -11,8 +11,14 @@ const NEWS_PROXIES = [
 ];
 
 const STOCK_PROXIES = [
-  { url: (u: string) => `https://corsproxy.io/?${encodeURIComponent(u)}`, wrapper: 'none' },
-  { url: (u: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`, wrapper: 'allorigins' }
+  // CodeTabs usually works well for simple GETs
+  { url: (u: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`, wrapper: 'none' },
+  // ThingProxy is another option
+  { url: (u: string) => `https://thingproxy.freeboard.io/fetch/${u}`, wrapper: 'none' },
+  // AllOrigins wrap in JSON
+  { url: (u: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`, wrapper: 'allorigins' },
+  // CorsProxy.io (often 401/404 recently, move to last)
+  { url: (u: string) => `https://corsproxy.io/?${encodeURIComponent(u)}`, wrapper: 'none' }
 ];
 
 class StockService {
@@ -185,6 +191,83 @@ class StockService {
     }));
 
     return dividends.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  /**
+   * Fetch Historical Open Price for a specific date
+   */
+  public async getHistoricalOpen(symbol: string, market: MarketType, dateStr: string): Promise<number | null> {
+    // Correctly handle TW suffixes (TWSE vs TPEX)
+    const suffixes = (market === 'TW' && !symbol.includes('.')) ? ['.TW', '.TWO'] : [''];
+
+    for (const suffix of suffixes) {
+      const querySymbol = symbol + suffix;
+
+      // --- Attempt 1: Real-time Quote (v7 Quote API) ---
+      // Prioritize this for "Today" related queries as it's faster and fresher
+      try {
+        console.log(`[StockService] Fetching quote for ${querySymbol}...`);
+        // Simplify URL to avoid proxy encoding issues or region blocks
+        // The symbol itself (e.g. 4168.TWO) usually implies the region for unique tickers
+        const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${querySymbol}`;
+        const quoteData = await this.fetchWithProxy(quoteUrl);
+        // console.log(`[StockService] Quote data for ${querySymbol}:`, quoteData);
+
+        if (quoteData?.quoteResponse?.result?.[0]) {
+          const q = quoteData.quoteResponse.result[0];
+          console.log(`[StockService] Got quote: Open=${q.regularMarketOpen}, Time=${q.regularMarketTime}`);
+
+          if (q.regularMarketOpen && q.regularMarketTime) {
+            const marketDate = new Date(q.regularMarketTime * 1000).toISOString().split('T')[0];
+
+            const isRequestingToday = dateStr === new Date().toISOString().split('T')[0];
+            const isRecent = Math.abs((Date.now() / 1000) - q.regularMarketTime) < 86400 * 2; // extended to 48h to catch weekend/holiday closes if needed
+
+            // If requesting today, accept if it's recent (last 24-48h session)
+            if (isRequestingToday && isRecent) {
+              return q.regularMarketOpen;
+            }
+            // If requesting a specific past date, strict match
+            if (!isRequestingToday && marketDate === dateStr) {
+              return q.regularMarketOpen;
+            }
+          }
+        }
+      } catch (quoteError) {
+        console.error(`[StockService] Quote fetch failed for ${querySymbol}`, quoteError);
+      }
+
+      // --- Attempt 2: Historical Data (Daily Candles) ---
+      try {
+        console.log(`[StockService] Fetching history for ${querySymbol}...`);
+        // 1. Convert Date String (YYYY-MM-DD) to Timestamp
+        const dateObj = new Date(dateStr);
+        const startTs = Math.floor(dateObj.getTime() / 1000);
+        const endTs = startTs + 86400 * 2; // Look ahead 2 days
+
+        const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${querySymbol}?symbol=${querySymbol}&period1=${startTs}&period2=${endTs}&interval=1d`;
+        const data = await this.fetchWithProxy(targetUrl);
+
+        if (data?.chart?.result?.[0]) {
+          const result = data.chart.result[0];
+          const timestamps = result.timestamp || [];
+          const opens = result.indicators?.quote?.[0]?.open || [];
+
+          for (let i = 0; i < timestamps.length; i++) {
+            // Convert Yahoo timestamp to YYYY-MM-DD
+            const tsDate = new Date(timestamps[i] * 1000).toISOString().split('T')[0];
+            if (tsDate === dateStr) {
+              const openPrice = opens[i];
+              if (openPrice) return openPrice;
+            }
+          }
+        }
+      } catch (e) {
+        console.error(`[StockService] Historical fetch failed for ${querySymbol}`, e);
+      }
+    } // End Suffix Loop
+
+    return null;
   }
 }
 
