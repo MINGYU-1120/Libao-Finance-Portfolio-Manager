@@ -1522,7 +1522,7 @@ const App: React.FC = () => {
         assets: [], // Empty assets
         realizedPnL: 0, // Reset PnL
         investedAmount: 0, // Reset Invested
-        remainingCash: c.projectedInvestment // Restore projected cash
+        remainingCash: Math.floor(portfolio.totalCapital * (c.allocationPercent / 100)) // Restore projected cash
       }))
       : [];
 

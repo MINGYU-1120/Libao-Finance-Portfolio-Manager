@@ -302,7 +302,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                   <div className="flex items-center gap-1">
                     <span className="text-xs text-gray-400 font-medium">TWD</span>
                     <span className={`${totalTWD > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {totalTWD > 0 ? '+' : ''}{formatCurrency(totalTWD, 0)}
+                      {totalTWD > 0 ? '+' : ''}{formatCurrency(totalTWD, 'TWD')}
                     </span>
                   </div>
                 )}
@@ -317,7 +317,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                   <div className="flex items-center gap-1">
                     <span className="text-xs text-gray-400 font-medium">USD</span>
                     <span className={`${totalUSD > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {totalUSD > 0 ? '+' : ''}{formatCurrency(totalUSD, 2)}
+                      {totalUSD > 0 ? '+' : ''}{formatCurrency(totalUSD, 'USD')}
                     </span>
                   </div>
                 )}
