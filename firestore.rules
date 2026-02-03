@@ -26,7 +26,11 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return hasRole('admin');
+      // Security by Identity: Hardcode Super Admin Emails to prevent lockout 
+      // if DB roles are compromised or empty.
+      return hasRole('admin') || 
+             request.auth.token.email == '1033023@ntsu.edu.tw' || 
+             request.auth.token.email == 'libao.finance@gmail.com';
     }
 
     // --- Tier Based Access Helper ---
@@ -64,10 +68,20 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // 2. User Directory: Public read (for profile lookup), Admin write, Owner write (for sync)
+    // 2. User Directory: Restricted Access
+    // FIX: Block public read to prevent email scraping (IDOR)
+    // FIX: Block self-promotion to admin (Privilege Escalation)
     match /user_directory/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      
+      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == userId && (
+        // Case A: Creating new doc - Role must be 'viewer' unless Super Admin
+        (resource == null && request.resource.data.role == 'viewer') ||
+        // Case B: Updating doc - Role field must NOT change
+        (resource != null && request.resource.data.role == resource.data.role) ||
+        // Exception: Super Admins can write anything (including promoting themselves)
+        isAdmin()
+      ));
     }
 
     // 3. User Profiles: Owner can read/write their own
@@ -108,6 +122,12 @@ service cloud.firestore {
         // Allow Admin to Read (View) and Write (Seed Data)
         allow read, write: if request.auth != null && hasRole('admin'); 
       }
+    }
+
+    // 6. Audit Logs: Admin Read/Write Only
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin(); // In real app, only Cloud Functions should write this, but for MVP Admin Client writes it.
     }
   }
 }

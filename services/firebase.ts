@@ -25,13 +25,13 @@ import {
 import {
   PortfolioState, PositionCategory, AppSettings,
   NewsItem,
-  TransactionRecord,
-  AIPick,
-  StrategyStats,
-  AccessTier,
-  getTier,
   UserRole,
-  UserProfile
+  AccessTier,
+  UserProfile,
+  AIPick,
+  AuditLog,
+  TransactionRecord,
+  StrategyStats
 } from '../types';
 
 // ==========================================
@@ -199,6 +199,48 @@ export const resetCloudPortfolio = async (userId: string) => {
   } catch (error: any) {
     console.error("Reset cloud portfolio failed", error);
     throw error;
+  }
+};
+
+/**
+ * Audit Logs
+ */
+export const logAdminAction = async (action: string, targetId: string, details: string, actorEmail: string = "system") => {
+  try {
+    const colRef = collection(db, 'audit_logs');
+    await addDoc(colRef, {
+      timestamp: Date.now(),
+      action,
+      targetId,
+      details,
+      actorEmail,
+      actorUid: auth.currentUser?.uid || 'unknown'
+    });
+  } catch (e) {
+    console.error("Failed to write audit log", e);
+    // Don't throw, logging failure shouldn't crash the app
+  }
+};
+
+export const getAuditLogs = async (limitCount: number = 50): Promise<AuditLog[]> => {
+  try {
+    const colRef = collection(db, 'audit_logs');
+    const q = query(colRef, orderBy('timestamp', 'desc'), limit(limitCount));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        timestamp: data.timestamp,
+        action: data.action,
+        actorEmail: data.actorEmail,
+        targetId: data.targetId,
+        details: data.details
+      } as AuditLog;
+    });
+  } catch (e) {
+    console.error("Failed to fetch audit logs", e);
+    return [];
   }
 };
 

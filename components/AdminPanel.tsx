@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { db, updateUserRole, getAllUsers, getAllSectionMinTiers, updateSectionMinTier } from '../services/firebase';
-import { UserProfile, UserRole, AccessTier } from '../types';
-import { Shield, User, Clock, Search, Filter, AlertTriangle, CheckCircle, X } from 'lucide-react';
+import { db, updateUserRole, getAllUsers, getAllSectionMinTiers, updateSectionMinTier, logAdminAction, getAuditLogs } from '../services/firebase';
+import { UserProfile, UserRole, AccessTier, AuditLog } from '../types';
+import { Shield, User, Clock, Search, Filter, AlertTriangle, CheckCircle, X, FileText, Activity } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 
 interface AdminPanelProps {
@@ -19,8 +19,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, currentUser, onClose })
     const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
     // Permission State
-    const [activeTab, setActiveTab] = useState<'users' | 'permissions'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'permissions' | 'logs'>('users');
     const [permissionMatrix, setPermissionMatrix] = useState<Record<string, AccessTier>>({});
+    const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
     useEffect(() => {
         if (isOpen) {
@@ -44,6 +45,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, currentUser, onClose })
                 'martingale': AccessTier.STANDARD,
             };
             setPermissionMatrix({ ...defaults, ...perms });
+
+            // Load Logs
+            const logs = await getAuditLogs(50);
+            setAuditLogs(logs);
         } catch (e) {
             console.error("Failed to load admin data", e);
             showToast("無法載入管理員資料", "error");
@@ -67,6 +72,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, currentUser, onClose })
                 u.uid === targetUid ? { ...u, role: newRole } : u
             ));
 
+            await logAdminAction(
+                "UPDATE_USER_ROLE",
+                targetUid,
+                `Updated role to ${newRole}`,
+                currentUser.email
+            );
+
+            // Reload logs to show new action
+            getAuditLogs().then(setAuditLogs);
+
             showToast("權限已更新", "success");
         } catch (error) {
             showToast("更新失敗，請檢查網路或是權限", "error");
@@ -86,6 +101,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, currentUser, onClose })
 
         try {
             await updateSectionMinTier(sectionKey, tier);
+
+            await logAdminAction(
+                "UPDATE_SECTION_TIER",
+                sectionKey,
+                `Updated ${sectionKey} tier requirement to ${tier}`,
+                currentUser.email
+            );
+
+            // Reload logs
+            getAuditLogs().then(setAuditLogs);
+
             showToast(`已更新板塊權限等級`, "success");
         } catch (error) {
             showToast("更新板塊權限失敗", "error");
@@ -148,9 +174,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, currentUser, onClose })
                     >
                         板塊權限設定
                     </button>
+                    <button
+                        onClick={() => setActiveTab('logs')}
+                        className={`pb-3 px-4 font-bold transition-all ${activeTab === 'logs' ? 'text-yellow-500 border-b-2 border-yellow-500' : 'text-gray-400 hover:text-white'}`}
+                    >
+                        操作紀錄 <span className="bg-gray-800 text-xs px-2 py-0.5 rounded-full ml-1 border border-gray-600">NEW</span>
+                    </button>
                 </div>
 
-                {activeTab === 'users' ? (
+                {activeTab === 'users' && (
                     // Users List Tab
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
                         {/* Filters */}
@@ -261,7 +293,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, currentUser, onClose })
                             </div>
                         )}
                     </div>
-                ) : (
+                )}
+
+                {activeTab === 'permissions' && (
                     // Permission Matrix Tab
                     <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
                         {isLoading ? (
@@ -328,6 +362,77 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, currentUser, onClose })
                                 </div>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {activeTab === 'logs' && (
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                            <FileText className="w-5 h-5 text-indigo-400" /> 管理員操作日誌 (Audit Logs)
+                        </h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="border-b border-gray-700 text-gray-400 text-xs uppercase bg-gray-900/50">
+                                        <th className="py-3 px-4 w-40">時間</th>
+                                        <th className="py-3 px-4 w-40">操作者 (Admin)</th>
+                                        <th className="py-3 px-4 w-32">對象 (Target)</th>
+                                        <th className="py-3 px-4 w-40">動作 (Action)</th>
+                                        <th className="py-3 px-4">詳細內容</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-700">
+                                    {auditLogs.length === 0 ? (
+                                        <tr><td colSpan={5} className="p-8 text-center text-gray-500">尚無操作紀錄</td></tr>
+                                    ) : (
+                                        auditLogs.map(log => {
+                                            // Try to resolve targetId to a user email if possible
+                                            const targetUser = users.find(u => u.uid === log.targetId);
+
+                                            // Map known section keys to friendly names
+                                            const sectionNames: Record<string, string> = {
+                                                'market_insider': '市場內線/大盤',
+                                                'ai_picks': 'AI 量化選股',
+                                                'martingale': '馬丁策略',
+                                                'users': '使用者管理'
+                                            };
+
+                                            const displayTarget = targetUser ? targetUser.email : (sectionNames[log.targetId] || log.targetId);
+
+                                            return (
+                                                <tr key={log.id} className="hover:bg-gray-750">
+                                                    <td className="py-3 px-4 text-gray-400 font-mono text-xs">
+                                                        {formatDate(log.timestamp)}
+                                                    </td>
+                                                    <td className="py-3 px-4">
+                                                        <span className="text-white font-bold text-sm block">{log.actorEmail}</span>
+                                                    </td>
+                                                    <td className="py-3 px-4">
+                                                        <div className="flex items-center gap-1.5">
+                                                            {targetUser ? <User className="w-3 h-3 text-indigo-400" /> : <Shield className="w-3 h-3 text-gray-500" />}
+                                                            <span className="text-gray-300 font-mono text-xs truncate max-w-[120px]" title={String(displayTarget)}>
+                                                                {displayTarget}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-3 px-4">
+                                                        <span className={`inline-flex px-2 py-1 rounded text-xs font-bold ${log.action.includes('ROLE') ? 'bg-purple-900/30 text-purple-400 border border-purple-500/30' :
+                                                            log.action.includes('TIER') ? 'bg-orange-900/30 text-orange-400 border border-orange-500/30' :
+                                                                'bg-gray-700 text-gray-300'
+                                                            }`}>
+                                                            {log.action}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-3 px-4 text-gray-300 text-sm">
+                                                        {log.details}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 )}
 
