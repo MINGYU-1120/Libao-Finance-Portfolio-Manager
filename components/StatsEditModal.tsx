@@ -11,13 +11,15 @@ interface StatsEditModalProps {
 
 const StatsEditModal: React.FC<StatsEditModalProps> = ({ isOpen, onClose, currentStats, onSave }) => {
     const [stats, setStats] = useState<StrategyStats>({
+        totalReturn: 0,
         winRate: 0,
-        avgReturn: 0,
+        profitFactor: 0,
         maxDrawdown: 0,
+        tradesCount: 0,
         winRateChange: 0,
-        avgReturnLabel: '每筆交易',
-        drawdownLabel: '歷史最大',
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
+        // Override with props if available
+        ...(currentStats || {}) as StrategyStats // This line ensures currentStats is merged if available, otherwise an empty object
     });
 
     useEffect(() => {

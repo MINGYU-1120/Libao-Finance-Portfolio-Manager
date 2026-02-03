@@ -33,9 +33,10 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
    * 核心邏輯修正：只要是該個股在該類別中的「最新」交易，就應該可以撤銷。
    */
   // Helper: Safe date parsing
-  const getTxTimestamp = (dateStr: string | Date) => {
+  const getTxTimestamp = (dateStr: string | Date | number) => {
+    if (typeof dateStr === 'number') return dateStr;
     const t = new Date(dateStr).getTime();
-    return isNaN(t) ? 0 : t; // Push invalid dates to bottom (or top depending on sort)
+    return isNaN(t) ? 0 : t;
   };
 
   /**
@@ -368,7 +369,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                 return (
                   <tr key={tx.id} className="border-b hover:bg-gray-50 group">
                     <td className="px-4 py-3 text-gray-600 font-mono text-sm whitespace-nowrap">
-                      {tx.date.split('T')[0]}
+                      {typeof tx.date === 'string' ? tx.date.split('T')[0] : new Date(tx.date).toISOString().split('T')[0]}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold shadow-sm ${tx.type === 'BUY' ? 'bg-red-50 text-red-600 border border-red-200' :

@@ -78,16 +78,22 @@ const PickItem: React.FC<{ pick: AIPick, selectedPick: AIPick | null, onSelect: 
 );
 
 const DEMO_PICKS: AIPick[] = [
-    { id: 'd0', symbol: 'NASDAQ:AAPL', name: 'Apple Inc.', date: new Date().toISOString().split('T')[0], market: 'US', entryPrice: 175.5, status: 'ACTIVE', returnSinceEntry: 3.2, exitCondition: '跌破 20MA', analysis: 'DEMO: Strong iPhone sales in emerging markets.', timestamp: Date.now() },
-    { id: 'd1', symbol: '2330', name: '台積電', date: '2024-03-15', market: 'TW', entryPrice: 750, status: 'ACTIVE', returnSinceEntry: 15.2, exitCondition: '跌破 20MA', analysis: 'DEMO: Strong AI demand driving growth.', timestamp: Date.now() },
-    { id: 'd2', symbol: 'NASDAQ:NVDA', name: 'NVIDIA', date: '2024-03-14', market: 'US', entryPrice: 850, status: 'ACTIVE', returnSinceEntry: 25.4, exitCondition: '跌破 10MA', analysis: 'DEMO: Data center revenue exploding.', timestamp: Date.now() },
-    { id: 'd3', symbol: '2454', name: '聯發科', date: '2024-02-20', market: 'TW', entryPrice: 1100, exitPrice: 1250, status: 'CLOSED', realizedReturn: 13.6, exitCondition: '跌破 5MA', analysis: 'DEMO: Success in flagship mobile chips.', exitDate: '2024-03-10', timestamp: Date.now() },
+    { id: 'd0', stock_symbol: 'AAPL', symbol: 'NASDAQ:AAPL', name: 'Apple Inc.', date: new Date().toISOString().split('T')[0], market: 'US', entryPrice: 175.5, status: 'ACTIVE', returnSinceEntry: 3.2, exitCondition: '跌破 20MA', analysis: 'DEMO: Strong iPhone sales in emerging markets.', timestamp: Date.now(), prediction: 'Bullish', confidence: 0.85 },
+    { id: 'd1', stock_symbol: '2330', symbol: '2330', name: '台積電', date: '2024-03-15', market: 'TW', entryPrice: 750, status: 'ACTIVE', returnSinceEntry: 15.2, exitCondition: '跌破 20MA', analysis: 'DEMO: Strong AI demand driving growth.', timestamp: Date.now(), prediction: 'Bullish', confidence: 0.9 },
+    { id: 'd2', stock_symbol: 'NVDA', symbol: 'NASDAQ:NVDA', name: 'NVIDIA', date: '2024-03-14', market: 'US', entryPrice: 850, status: 'ACTIVE', returnSinceEntry: 25.4, exitCondition: '跌破 10MA', analysis: 'DEMO: Data center revenue exploding.', timestamp: Date.now(), prediction: 'Bullish', confidence: 0.95 },
+    { id: 'd3', stock_symbol: '2454', symbol: '2454', name: '聯發科', date: '2024-02-20', market: 'TW', entryPrice: 1100, exitPrice: 1250, status: 'CLOSED', realizedReturn: 13.6, exitCondition: '跌破 5MA', analysis: 'DEMO: Success in flagship mobile chips.', exitDate: '2024-03-10', timestamp: Date.now(), prediction: 'Neutral', confidence: 0.75 },
 ];
 
 const DEMO_STATS: StrategyStats = {
-    winRate: 78,
-    avgReturn: 12.5,
-    maxDrawdown: -8.5,
+    totalReturn: 15.4,
+    winRate: 68,
+    profitFactor: 1.5,
+    tradesCount: 42,
+    maxDrawdown: -12.5,
+    avgReturn: 15.4,
+    avgReturnLabel: "年化報酬",
+    drawdownLabel: "最大回撤",
+    winRateChange: 2.1,
     lastUpdated: Date.now()
 };
 
@@ -342,7 +348,10 @@ const AIPicks: React.FC<AIPicksProps> = ({ userRole }) => {
             }
 
             setStats({
+                totalReturn: storedStats?.totalReturn || 0,
                 winRate: dynamicWinRate,
+                profitFactor: storedStats?.profitFactor || 0,
+                tradesCount: storedStats?.tradesCount || 0,
                 avgReturn: dynamicAvgReturn,
                 maxDrawdown: storedStats?.maxDrawdown || 0,
                 lastUpdated: Date.now()
@@ -364,10 +373,13 @@ const AIPicks: React.FC<AIPicksProps> = ({ userRole }) => {
         try {
             await addAIPick({
                 date: newPick.date!,
+                stock_symbol: newPick.symbol.replace('NASDAQ:', '').replace('NYSE:', ''), // Extract raw symbol
                 symbol: newPick.symbol.toUpperCase(),
                 name: newPick.name,
                 market: newPick.market as 'TW' | 'US',
                 analysis: newPick.analysis,
+                prediction: 'Bullish', // Default or add input
+                confidence: 0.8, // Default or add input
                 timestamp: Date.now(),
                 // New Quant Fields
                 entryPrice: Number(newPick.entryPrice) || 0,
