@@ -33,7 +33,7 @@ const SectionTeaser: React.FC<SectionTeaserProps> = ({ title }) => {
                     <p className="text-gray-400 text-sm max-w-xs mx-auto">此板塊包含即時市場內線與深度分析。請升級您的權限以獲取完整存取權。</p>
                 </div>
                 <button
-                    onClick={() => alert("請聯繫管理員升級您的權限：\n1033023@ntsu.edu.tw")}
+                    onClick={() => alert("系統升級測試中，敬請期待")}
                     className="px-6 py-2.5 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-gray-950 font-black rounded-xl shadow-lg shadow-yellow-900/20 transform transition-all active:scale-95 flex items-center gap-2"
                 >
                     升級權限

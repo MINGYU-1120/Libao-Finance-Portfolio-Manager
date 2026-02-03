@@ -69,7 +69,7 @@ const MartingalePanel: React.FC<MartingalePanelProps> = ({
                     defaultExchangeRate={settings.usExchangeRate}
                     onBack={() => onSetActiveCategory(null)}
                     onExecuteOrder={(order) => operations.onExecuteOrder(activeCategory.id, order)}
-                    onDeleteAsset={(assetId) => operations.onDeleteAsset(activeCategory.id, assetId)}
+
                     onUpdateAssetPrice={(assetId, symbol, market) => operations.onUpdateAssetPrice(activeCategory.id, assetId, symbol, market)}
                     onUpdateCategoryPrices={() => operations.onUpdatePrice(activeCategory.id)}
                     onUpdateAssetNote={() => { }} // Not implemented in top level yet based on props

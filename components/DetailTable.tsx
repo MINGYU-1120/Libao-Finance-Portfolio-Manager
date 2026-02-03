@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Asset, CalculatedCategory, CalculatedAsset, AppSettings } from '../types';
-import { ArrowLeft, Plus, RefreshCw, NotebookPen, LayoutList, Grid2X2, Wallet, Trash2, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Plus, RefreshCw, NotebookPen, Wallet, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatCurrency } from '../utils/formatting';
 import OrderModal, { OrderData } from './OrderModal';
 import StockChartModal from './StockChartModal';
@@ -14,7 +14,7 @@ interface DetailTableProps {
   defaultExchangeRate: number;
   onBack: () => void;
   onExecuteOrder: (order: OrderData) => void;
-  onDeleteAsset: (assetId: string) => void;
+  // onDeleteAsset prop removed as per user request to prevent manual deletion
   onUpdateAssetPrice: (assetId: string, symbol: string, market: string) => Promise<void>;
   onUpdateCategoryPrices: (categoryId: string) => Promise<void>;
   onUpdateAssetNote: (assetId: string, note: string) => void;
@@ -32,7 +32,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
   defaultExchangeRate,
   onBack,
   onExecuteOrder,
-  onDeleteAsset,
+  // onDeleteAsset,
   onUpdateAssetPrice,
   onUpdateCategoryPrices,
   onUpdateAssetNote,
@@ -44,25 +44,12 @@ const DetailTable: React.FC<DetailTableProps> = ({
 }) => {
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<CalculatedAsset | null>(null);
-  const [viewMode, setViewMode] = useState<'simple' | 'detailed'>('detailed');
+  // const [viewMode, setViewMode] = useState<'simple' | 'detailed'>('detailed'); // Removed
 
   const [isRefreshingCategory, setIsRefreshingCategory] = useState(false);
   const [chartAsset, setChartAsset] = useState<CalculatedAsset | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Delete Confirmation State
-  const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
-
-  const handleDeleteClick = (assetId: string) => {
-    setDeletingAssetId(assetId);
-  };
-
-  const confirmDelete = () => {
-    if (deletingAssetId) {
-      onDeleteAsset(deletingAssetId);
-      setDeletingAssetId(null);
-    }
-  };
 
   const filteredAssets = assets.filter(asset =>
     asset.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -174,15 +161,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
       {/* 操作列 */}
       <div className="sticky top-[64px] z-40 bg-white border-b border-gray-200 px-3 py-2 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest hidden sm:inline mr-1">持倉項目</span>
-          <div className="flex bg-gray-100 p-0.5 rounded-lg border border-gray-200">
-            <button onClick={() => setViewMode('simple')} className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'simple' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>
-              <LayoutList className="w-3 h-3" /> 簡易
-            </button>
-            <button onClick={() => setViewMode('detailed')} className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'detailed' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>
-              <Grid2X2 className="w-3 h-3" /> 詳細
-            </button>
-          </div>
+          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest hidden sm:inline mr-1">持倉項目 (Details)</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -287,11 +266,10 @@ const DetailTable: React.FC<DetailTableProps> = ({
                   <button onClick={(e) => { e.stopPropagation(); onUpdateAssetPrice(asset.id, asset.symbol, category.market); }} className="px-3 py-1.5 bg-white border border-gray-200 rounded text-xs font-bold text-blue-600 flex items-center gap-1 shadow-sm">
                     <RefreshCw className="w-3.5 h-3.5" /> 更新
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); handleDeleteClick(asset.id); }} className="px-3 py-1.5 bg-white border border-gray-200 rounded text-xs font-bold text-red-600 flex items-center gap-1 shadow-sm">
-                    <Trash2 className="w-3.5 h-3.5" /> 刪除
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); handleOpenOrder(asset); }} className="px-4 py-1.5 bg-indigo-600 text-white rounded text-xs font-black flex items-center gap-1 shadow-md ml-2">
-                    <Plus className="w-3.5 h-3.5" /> 資產交易
+
+                  {/* Delete button removed */}
+                  <button onClick={(e) => { e.stopPropagation(); handleOpenOrder(asset); }} className="px-4 py-1.5 bg-gray-900 hover:bg-black text-white rounded text-xs font-black flex items-center gap-1 shadow-md ml-2">
+                    <Plus className="w-3.5 h-3.5" /> 交易
                   </button>
                 </div>
               )}
@@ -305,7 +283,8 @@ const DetailTable: React.FC<DetailTableProps> = ({
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-left text-sm font-black text-gray-500 uppercase tracking-widest">
               <th className="p-4 w-40">標的</th>
-              {viewMode === 'detailed' && <th className="p-4 text-right">成本均價</th>}
+
+              <th className="p-4 text-right">成本均價</th>
               <th className="p-4 text-right">當前股價</th>
               <th className="p-4 text-right">持倉股數</th>
               <th className="p-4 text-right">持倉價值</th>
@@ -345,11 +324,10 @@ const DetailTable: React.FC<DetailTableProps> = ({
                       </div>
                     </div>
                   </td>
-                  {viewMode === 'detailed' && (
-                    <td className="p-4 text-right font-mono text-gray-500 font-medium text-sm">
-                      {strictMask(category.market === 'US' ? formatCurrency(asset.avgCost, 'USD', isPrivacyMode) : asset.avgCost.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 }))}
-                    </td>
-                  )}
+
+                  <td className="p-4 text-right font-mono text-gray-500 font-medium text-sm">
+                    {strictMask(category.market === 'US' ? formatCurrency(asset.avgCost, 'USD', isPrivacyMode) : asset.avgCost.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 }))}
+                  </td>
                   <td className="p-4 text-right">
                     <div className="font-mono font-black text-gray-900">
                       {strictMask(category.market === 'US' ? formatCurrency(asset.currentPrice, 'USD', isPrivacyMode) : asset.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 }))}
@@ -381,10 +359,10 @@ const DetailTable: React.FC<DetailTableProps> = ({
                       <div className="flex items-center justify-center gap-2">
                         <button
                           onClick={() => handleOpenOrder(asset)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all font-black text-xs shadow-md active:scale-95"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 hover:bg-black text-white rounded-lg transition-all font-black text-xs shadow-md active:scale-95"
                           title="資產交易 (Trade)"
                         >
-                          <Plus className="w-4 h-4" /> 資產交易
+                          <Plus className="w-4 h-4" /> 交易
                         </button>
                         <div className="flex gap-1 border-l border-gray-100 pl-2">
                           <button
@@ -401,13 +379,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
                           >
                             <RefreshCw className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => handleDeleteClick(asset.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                            title="刪除"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {/* Delete button removed */}
                         </div>
                       </div>
                     </td>
@@ -419,40 +391,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
         </table>
       </div>
 
-      {/* Delete Confirmation Modal */}
-      {deletingAssetId && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 animate-in zoom-in-95 duration-200">
-            <div className="flex flex-col items-center text-center gap-4">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                <Trash2 className="w-6 h-6 text-red-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900">確定刪除此資產？</h3>
-                <p className="text-sm text-gray-500 mt-2">
-                  這將移除該資產的所有庫存數據，但保留歷史交易紀錄。
-                  <br />
-                  <span className="text-red-500 font-bold text-xs mt-1 block">注意：若稍後想撤銷相關交易，可能需要先手動還原資產。</span>
-                </p>
-              </div>
-              <div className="flex gap-3 w-full mt-2">
-                <button
-                  onClick={() => setDeletingAssetId(null)}
-                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={confirmDelete}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors"
-                >
-                  確認刪除
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* 底部返回按鈕 */}
       <div className="p-6 border-t bg-gray-50 flex justify-center">
@@ -461,7 +400,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
           <span>返回持倉總覽 (Back)</span>
         </button>
       </div>
-    </div>
+    </div >
   );
 };
 

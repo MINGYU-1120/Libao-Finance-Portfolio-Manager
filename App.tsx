@@ -1526,7 +1526,7 @@ const App: React.FC = () => {
         assets: [], // Empty assets
         realizedPnL: 0, // Reset PnL
         investedAmount: 0, // Reset Invested
-        remainingCash: c.projectedInvestment // Restore projected cash
+        remainingCash: Math.floor(portfolio.totalCapital * (c.allocationPercent / 100)) // Restore projected cash
       }))
       : [];
 
@@ -1956,7 +1956,7 @@ const App: React.FC = () => {
             )}
             <div id="tour-summary-table">
               {activeCategoryId ? (
-                <DetailTable category={calculatedData.categories.find(c => c.id === activeCategoryId)!} assets={calculatedData.categories.find(c => c.id === activeCategoryId)!.assets} totalCapital={portfolio.totalCapital} onBack={() => setActiveCategoryId(null)} onExecuteOrder={handleExecuteOrder} onDeleteAsset={() => { }} onUpdateAssetPrice={handleUpdateAssetPrice} onUpdateCategoryPrices={handleRefreshCategory} onUpdateAssetNote={() => { }} defaultExchangeRate={portfolio.settings.usExchangeRate} isPrivacyMode={isPrivacyMode} settings={portfolio.settings} forceShowOrderModal={isTourForceOrderOpen} />
+                <DetailTable category={calculatedData.categories.find(c => c.id === activeCategoryId)!} assets={calculatedData.categories.find(c => c.id === activeCategoryId)!.assets} totalCapital={portfolio.totalCapital} onBack={() => setActiveCategoryId(null)} onExecuteOrder={handleExecuteOrder} onUpdateAssetPrice={handleUpdateAssetPrice} onUpdateCategoryPrices={handleRefreshCategory} onUpdateAssetNote={() => { }} defaultExchangeRate={portfolio.settings.usExchangeRate} isPrivacyMode={isPrivacyMode} settings={portfolio.settings} forceShowOrderModal={isTourForceOrderOpen} />
               ) : (
                 <>
                   <SummaryTable categories={calculatedData.categories} totalCapital={portfolio.totalCapital} onUpdateAllocation={handleUpdateAllocation} onSelectCategory={setActiveCategoryId} onRefreshCategory={handleRefreshCategory} isPrivacyMode={isPrivacyMode} />

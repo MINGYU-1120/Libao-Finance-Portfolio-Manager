@@ -50,8 +50,8 @@ const firebaseConfig = {
 };
 
 let app;
-let auth: any;
-let db: any;
+export let auth: any;
+export let db: any;
 // Default to true since we have hardcoded config
 let isConfigured = true;
 
