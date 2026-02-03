@@ -234,8 +234,12 @@ const App: React.FC = () => {
         setUserRole('viewer'); // Reset role
         setPortfolio(initialPortfolioState); // Clear sensitive data
         setIsDataLoaded(false); // Force reload for next user
+        setUserRole('viewer'); // Reset role
+        setPortfolio(initialPortfolioState); // Clear sensitive data
+        setIsDataLoaded(false); // Force reload for next user
         setActiveCategoryId(null);
         setMartingaleActiveId(null);
+        setShowAdminPanel(false); // Fix: Close admin panel on logout
 
         // Load local only as fallback
         const localData = localStorage.getItem('libao-portfolio');

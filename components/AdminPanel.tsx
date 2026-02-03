@@ -120,9 +120,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, currentUser, onClose })
                 {/* Header */}
                 <div className="flex justify-between items-center mb-8">
                     <div>
-                        <h1 className="text-3xl font-black text-white flex items-center gap-3">
-                            <Shield className="w-8 h-8 text-yellow-500" />
-                            管理員控制台 (Admin Dashboard)
+                        <h1 className="text-xl md:text-3xl font-black text-white flex items-center gap-3">
+                            <Shield className="w-6 h-6 md:w-8 md:h-8 text-yellow-500" />
+                            管理員控制台 <span className="hidden sm:inline">(Admin Dashboard)</span>
                         </h1>
                         <p className="text-gray-400 mt-2">管理系統使用者與權限分配</p>
                     </div>
@@ -226,9 +226,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, currentUser, onClose })
                                                             onChange={(e) => handleRoleChange(user.uid, e.target.value as UserRole)}
                                                             disabled={editingUserId === user.uid}
                                                             className={`bg-gray-900 border border-gray-600 rounded px-3 py-1 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 ${user.role === 'admin' ? 'text-red-400 border-red-900' :
-                                                                    user.role === 'vip' ? 'text-yellow-400 border-yellow-900' :
-                                                                        user.role === 'member' ? 'text-blue-400 border-blue-900' :
-                                                                            'text-gray-400'
+                                                                user.role === 'vip' ? 'text-yellow-400 border-yellow-900' :
+                                                                    user.role === 'member' ? 'text-blue-400 border-blue-900' :
+                                                                        'text-gray-400'
                                                                 }`}
                                                         >
                                                             <option value="viewer">Viewer (訪客)</option>
@@ -245,8 +245,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, currentUser, onClose })
                                                     </td>
                                                     <td className="py-3 px-4">
                                                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold ${(Date.now() - user.lastActive) < 1000 * 60 * 5 // 5 mins
-                                                                ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                                                                : 'bg-gray-700 text-gray-500'
+                                                            ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                                                            : 'bg-gray-700 text-gray-500'
                                                             }`}>
                                                             <div className={`w-1.5 h-1.5 rounded-full ${(Date.now() - user.lastActive) < 1000 * 60 * 5 ? 'bg-green-400 animate-pulse' : 'bg-gray-500'
                                                                 }`} />
@@ -306,9 +306,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, currentUser, onClose })
                                                                 value={tier as number}
                                                                 onChange={(e) => handleChangeMinTier(key, Number(e.target.value))}
                                                                 className={`w-full md:w-64 appearance-none rounded-lg px-4 py-3 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer transition-all border ${(tier as number) === AccessTier.ADMIN ? 'bg-red-900/20 text-red-400 border-red-900/50 hover:border-red-500' :
-                                                                        (tier as number) === AccessTier.FIRST_CLASS ? 'bg-yellow-900/20 text-yellow-400 border-yellow-900/50 hover:border-yellow-500' :
-                                                                            (tier as number) === AccessTier.STANDARD ? 'bg-blue-900/20 text-blue-400 border-blue-900/50 hover:border-blue-500' :
-                                                                                'bg-gray-700 text-gray-300 border-gray-600 hover:border-gray-500'
+                                                                    (tier as number) === AccessTier.FIRST_CLASS ? 'bg-yellow-900/20 text-yellow-400 border-yellow-900/50 hover:border-yellow-500' :
+                                                                        (tier as number) === AccessTier.STANDARD ? 'bg-blue-900/20 text-blue-400 border-blue-900/50 hover:border-blue-500' :
+                                                                            'bg-gray-700 text-gray-300 border-gray-600 hover:border-gray-500'
                                                                     }`}
                                                             >
                                                                 <option value={AccessTier.GUEST}>🔓 訪客 (Guest) - 公開</option>
