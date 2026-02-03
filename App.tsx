@@ -1665,7 +1665,7 @@ const App: React.FC = () => {
             </div>
             <div className="hidden lg:flex items-center bg-gray-800 rounded-lg p-1 mx-4">
               {/* VIP Gold Chip Button - Move to Front */}
-              {(userRole === 'admin' || userRole === 'member') && (
+              {(userRole === 'admin' || userRole === 'member' || userRole === 'vip') && (
                 <button
                   id="nav-desktop-vip"
                   onClick={() => { setViewMode('VIP_PORTFOLIO'); setShowAdminPanel(false); }}
@@ -1780,7 +1780,7 @@ const App: React.FC = () => {
                     <ChevronRight className="w-4 h-4 text-gray-600" />
                   </button>
 
-                  {(userRole === 'admin' || userRole === 'member') && (
+                  {(userRole === 'admin' || userRole === 'member' || userRole === 'vip') && (
                     <button onClick={() => { setViewMode('VIP_PORTFOLIO'); setIsSidebarOpen(false); }} className={`w-full flex items-center justify-between p-3.5 rounded-xl transition-all border ${viewMode === 'VIP_PORTFOLIO' ? 'bg-gradient-to-r from-yellow-700 to-yellow-900 text-yellow-100 border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)]' : 'bg-gray-800 border-transparent hover:border-yellow-500/50 hover:bg-yellow-900/10'}`}>
                       <div className="flex items-center gap-3">
                         <div className="relative">
@@ -1958,7 +1958,7 @@ const App: React.FC = () => {
                   <SummaryTable categories={calculatedData.categories} totalCapital={portfolio.totalCapital} onUpdateAllocation={handleUpdateAllocation} onSelectCategory={setActiveCategoryId} onRefreshCategory={handleRefreshCategory} isPrivacyMode={isPrivacyMode} />
 
                   {/* Restore Teaser for Unauthorized Users */}
-                  {(userRole !== 'admin' && userRole !== 'member') && (calculatedData as any).martingale && (
+                  {(userRole !== 'admin' && userRole !== 'member' && userRole !== 'vip') && (calculatedData as any).martingale && (
                     <div className="mt-12 relative border-t-4 border-libao-gold/20 pt-8">
                       <SectionGate
                         sectionKey="martingale"
