@@ -72,7 +72,7 @@ const SectionGate: React.FC<SectionGateProps> = ({ sectionKey, title, userRole, 
                             </span> 等級權限以查看完整策略佈局與即時數據
                         </p>
                         <button
-                            onClick={() => alert("請聯繫管理員升級您的權限：\n1033023@ntsu.edu.tw")}
+                            onClick={() => alert("系統升級測試中，敬請期待")}
                             className="px-8 py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white font-black rounded-xl shadow-lg shadow-yellow-900/40 transform transition-all hover:scale-105 active:scale-95 border border-yellow-400/20"
                         >
                             立即升級獲取權限
