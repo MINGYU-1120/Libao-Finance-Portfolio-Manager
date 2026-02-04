@@ -631,7 +631,10 @@ const App: React.FC = () => {
     const userTier = getTier(userRole);
     const hasAccess = userTier >= AccessTier.STANDARD;
 
-    if (hasAccess) {
+    // ONLY non-admin members should subscribe. 
+    // Admins manage the data locally and upload it; they don't need to listen to their own updates
+    // which causes a "rollback" race condition when they edit Martingale categories/transactions.
+    if (hasAccess && userRole !== 'admin') {
       console.log("[Sync] Authorized user detected, subscribing to public martingale...");
       unsubscribe = subscribeToPublicMartingale((publicData) => {
         if (publicData) {
