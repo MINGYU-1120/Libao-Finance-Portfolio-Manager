@@ -3,6 +3,7 @@ import { initializeApp } from 'firebase/app';
 import {
   getAuth,
   signInWithPopup,
+  signInWithRedirect,
   GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
@@ -102,8 +103,21 @@ export const loginWithGoogle = async () => {
     const result = await signInWithPopup(auth, provider);
     return result.user;
   } catch (error: any) {
+    // Handling Popup Blocked (Common on Mobile)
+    if (error.code === 'auth/popup-blocked' || error.code === 'auth/operation-not-supported-in-this-environment') {
+      console.warn("Popup blocked, falling back to redirect...");
+      try {
+        await signInWithRedirect(auth, provider);
+        // Page will redirect, function won't return
+        return null;
+      } catch (redirectError) {
+        console.error("Redirect login failed", redirectError);
+        alert("登入失敗：無法開啟登入視窗，也無法跳轉。請嘗試使用其他瀏覽器。");
+        return null;
+      }
+    }
     // Specific handling for Unauthorized Domain error
-    if (error.code === 'auth/unauthorized-domain') {
+    else if (error.code === 'auth/unauthorized-domain') {
       const domain = window.location.hostname;
       console.warn(`[Firebase Auth] Domain '${domain}' is not authorized.`);
       alert(
