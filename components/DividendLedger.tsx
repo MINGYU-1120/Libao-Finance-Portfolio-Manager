@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { TransactionRecord, UserRole, PositionCategory } from '../types';
-import { Coins, TrendingUp, Calendar, Trash2, Plus, RefreshCw, DollarSign } from 'lucide-react';
+import { TransactionRecord, UserRole, PositionCategory, AccessTier, getTier } from '../types';
+import { Coins, TrendingUp, Calendar, Trash2, Plus, RefreshCw, DollarSign, Lock } from 'lucide-react';
 
 import AnnualDividendStatsModal from './AnnualDividendStatsModal';
 
@@ -67,7 +67,9 @@ const DividendLedger: React.FC<DividendLedgerProps> = ({
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const maskValue = (val: string | number) => isPrivacyMode ? '*******' : val;
+  const userTier = getTier(userRole);
   const isReadOnly = activeTab === 'martingale' && userRole !== 'admin';
+  const hasMartingaleAccess = userTier >= AccessTier.STANDARD;
 
   // Calculate Stats
   const totalDividendsTWD = dividends.reduce((sum, t) => sum + t.realizedPnL!, 0);
@@ -187,15 +189,23 @@ const DividendLedger: React.FC<DividendLedgerProps> = ({
                 我的帳本
               </button>
               <div className="w-[1px] bg-gray-200 mx-1"></div>
-              <button
-                onClick={() => setActiveTab('martingale')}
-                className={`px-3 py-1 rounded-md text-sm font-bold transition-all ${activeTab === 'martingale'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-500 hover:bg-gray-50'
-                  }`}
-              >
-                馬丁帳本
-              </button>
+              {hasMartingaleAccess && (
+                <button
+                  onClick={() => setActiveTab('martingale')}
+                  className={`px-3 py-1 rounded-md text-sm font-bold transition-all ${activeTab === 'martingale'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-500 hover:bg-gray-50'
+                    }`}
+                >
+                  馬丁帳本
+                </button>
+              )}
+              {!hasMartingaleAccess && (
+                <div className="px-3 py-1 text-sm font-bold text-gray-400 flex items-center gap-1 cursor-not-allowed opacity-50 select-none" title="僅限會員存取">
+                  <Lock className="w-3 h-3" />
+                  馬丁帳本
+                </div>
+              )}
             </div>
           </div>
 

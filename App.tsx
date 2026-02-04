@@ -84,7 +84,7 @@ import {
 } from './services/firebase';
 import { useToast } from './contexts/ToastContext';
 import { OrderData } from './components/OrderModal';
-import { UserRole } from './types';
+import { UserRole, AccessTier, getTier } from './types';
 
 const maskValueFn = (val: string | number, isPrivacyMode: boolean) => isPrivacyMode ? '*******' : val;
 
@@ -625,11 +625,13 @@ const App: React.FC = () => {
   }, [portfolio.martingale, userRole, isDataLoaded]);
 
   // 2. Member: Auto-subscribe to changes
-  // 2. Member: Auto-subscribe to changes
   useEffect(() => {
     let unsubscribe = () => { };
-    if (userRole === 'member') {
-      console.log("[Sync] Member detected, subscribing to public martingale...");
+    const userTier = getTier(userRole);
+    const hasAccess = userTier >= AccessTier.STANDARD;
+
+    if (hasAccess) {
+      console.log("[Sync] Authorized user detected, subscribing to public martingale...");
       showToast("正在連接馬丁策略雲端資料...", "info");
 
       unsubscribe = subscribeToPublicMartingale((publicData) => {
@@ -638,10 +640,8 @@ const App: React.FC = () => {
 
           setPortfolio(prev => {
             const personalTxs = prev.transactions.filter(t => t.isMartingale !== true);
-            const newMartingaleTxs = publicData.transactions.map(t => ({ ...t, isMartingale: true })); // Ensure flag
+            const newMartingaleTxs = publicData.transactions.map(t => ({ ...t, isMartingale: true }));
 
-            // Debug Toast to confirm data arrival
-            // Use a short timeout to avoid collision with other toasts
             setTimeout(() => showToast(`策略同步完成：${publicData.categories.length} 個分類`, "success"), 100);
 
             return {
@@ -655,9 +655,19 @@ const App: React.FC = () => {
           showToast("⚠️ 雲端策略資料為空 (NULL)，請聯繫管理員", "error");
         }
       });
+    } else {
+      // CLEAR Martingale data if user is NOT authorized (e.g. downgraded to viewer)
+      if (isDataLoaded && (portfolio.martingale?.length > 0 || portfolio.transactions.some(t => t.isMartingale))) {
+        console.log("[Sync] Unauthorized user, clearing martingale data...");
+        setPortfolio(prev => ({
+          ...prev,
+          martingale: [],
+          transactions: prev.transactions.filter(t => t.isMartingale !== true)
+        }));
+      }
     }
     return () => unsubscribe();
-  }, [userRole]);
+  }, [userRole, isDataLoaded]);
 
   // --- Handlers (Transaction, Order, etc.) ---
   // (Assuming these handleXXX exist in original code, I am preserving structure)

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { TransactionRecord, PortfolioState, Asset, UserRole } from '../types';
-import { History, ArrowUpRight, ArrowDownLeft, Coins, Filter, Search, Calendar, ChevronDown, Trash2, AlertCircle, X, CheckCircle } from 'lucide-react';
+import { TransactionRecord, PortfolioState, Asset, UserRole, AccessTier, getTier } from '../types';
+import { History, ArrowUpRight, ArrowDownLeft, Coins, Filter, Search, Calendar, ChevronDown, Trash2, AlertCircle, X, CheckCircle, Lock } from 'lucide-react';
 import { formatCurrency, formatTWD } from '../utils/formatting';
 
 interface TransactionHistoryProps {
@@ -27,7 +27,9 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
   // Sort transactions logic is now handled in 'Search & Filter Logic' section below
 
   const maskValue = (val: string | number) => isPrivacyMode ? '*******' : val;
+  const userTier = getTier(userRole);
   const isReadOnly = activeTab === 'martingale' && userRole !== 'admin';
+  const hasMartingaleAccess = userTier >= AccessTier.STANDARD;
 
   /**
    * 核心邏輯修正：只要是該個股在該類別中的「最新」交易，就應該可以撤銷。
@@ -212,16 +214,25 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
             <Coins className="w-4 h-4" />
             個人交易紀錄
           </button>
-          <button
-            onClick={() => { setActiveTab('martingale'); setSelectedCategory('all'); setSearchTerm(''); setSelectedTimeRange('all'); }}
-            className={`relative px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-300 flex items-center gap-2 ${activeTab === 'martingale'
-              ? 'bg-yellow-400 text-gray-900 shadow-md transform scale-[1.02]'
-              : 'text-gray-300 hover:text-white hover:bg-gray-600/50'
-              }`}
-          >
-            <ArrowUpRight className="w-4 h-4" />
-            馬丁交易紀錄
-          </button>
+          {hasMartingaleAccess && (
+            <button
+              onClick={() => { setActiveTab('martingale'); setSelectedCategory('all'); setSearchTerm(''); setSelectedTimeRange('all'); }}
+              className={`relative px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-300 flex items-center gap-2 ${activeTab === 'martingale'
+                ? 'bg-yellow-400 text-gray-900 shadow-md transform scale-[1.02]'
+                : 'text-gray-300 hover:text-white hover:bg-gray-600/50'
+                }`}
+            >
+              <ArrowUpRight className="w-4 h-4" />
+              馬丁交易紀錄
+            </button>
+          )}
+
+          {!hasMartingaleAccess && (
+            <div className="px-4 py-1.5 text-sm font-medium text-gray-500 flex items-center gap-2 cursor-not-allowed opacity-50 select-none">
+              <Lock className="w-4 h-4" />
+              馬丁交易紀錄 (限會員)
+            </div>
+          )}
         </div>
       </div>
 
