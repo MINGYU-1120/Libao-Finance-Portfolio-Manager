@@ -302,10 +302,13 @@ const App: React.FC = () => {
   };
 
   const handleLoginAction = async () => {
-    setIsSyncing(true);
+    // Note: Calling this as directly as possible to avoid losing user gesture context on mobile
     const loggedInUser = await loginWithGoogle();
-    if (!loggedInUser) setIsSyncing(false);
-    // The auth state listener will handle the rest (sync logic)
+    if (!loggedInUser) {
+      setIsSyncing(false);
+    } else {
+      setIsSyncing(true); // Let the auth listener take over
+    }
   };
 
   const handleLogout = async () => {
@@ -1519,12 +1522,15 @@ const App: React.FC = () => {
   };
 
   const handleResetMartingale = () => {
-    // Double Confirmation as requested
-    if (!window.confirm("警告：您確定要「重置」所有的馬丁持倉嗎？\n\n這將會：\n1. 清空所有馬丁策略內的「持倉數據」\n2. 移除相關的歷史交易紀錄\n3. 保留「策略分類」設定\n\n此操作無法復原！")) {
-      return;
-    }
+    // Single detailed confirmation for better mobile compatibility
+    const message = "⚠️ 警告：您確定要「重置」所有的馬丁持倉紀錄嗎？\n\n" +
+      "此操作將會：\n" +
+      "1. 清空所有馬丁策略內的「持倉數據」與「未實現損益」\n" +
+      "2. 永久移除相關的歷史交易與股息紀錄\n" +
+      "3. 保留「策略分類」與「預算配置」設定\n\n" +
+      "一旦執行即無法復原！請確認您已備份重要資訊。";
 
-    if (!window.confirm("【最終確認】請再次確認您要執行此操作。\n\n所有馬丁數據將被永久刪除。\n按「確定」以執行重置，按「取消」保留資料。")) {
+    if (!window.confirm(message)) {
       return;
     }
 

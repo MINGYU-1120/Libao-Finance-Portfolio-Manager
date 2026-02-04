@@ -99,11 +99,24 @@ export const loginWithGoogle = async () => {
     prompt: 'select_account'
   });
 
+  // Mobile Detection: signInWithRedirect is much better for mobile browsers to avoid popup blocks
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+  if (isMobile) {
+    console.log("[Auth] Mobile detected, using signInWithRedirect...");
+    try {
+      await signInWithRedirect(auth, provider);
+      return null; // Page will redirect
+    } catch (e) {
+      console.error("Redirect failed", e);
+    }
+  }
+
   try {
     const result = await signInWithPopup(auth, provider);
     return result.user;
   } catch (error: any) {
-    // Handling Popup Blocked (Common on Mobile)
+    // Handling Popup Blocked (Common on Mobile or some desktop settings)
     if (error.code === 'auth/popup-blocked' || error.code === 'auth/operation-not-supported-in-this-environment') {
       console.warn("Popup blocked, falling back to redirect...");
       try {
