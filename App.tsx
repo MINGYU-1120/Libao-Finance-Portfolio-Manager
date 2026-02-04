@@ -634,37 +634,39 @@ const App: React.FC = () => {
     // ONLY non-admin members should subscribe. 
     // Admins manage the data locally and upload it; they don't need to listen to their own updates
     // which causes a "rollback" race condition when they edit Martingale categories/transactions.
-    if (hasAccess && userRole !== 'admin') {
-      console.log("[Sync] Authorized user detected, subscribing to public martingale...");
-      unsubscribe = subscribeToPublicMartingale((publicData) => {
-        if (publicData) {
-          const dataSig = `${publicData.categories.length}-${publicData.transactions.length}`;
-          const isInitialLoad = !lastMartingaleDataRef.current;
+    if (hasAccess) {
+      if (userRole !== 'admin') {
+        console.log("[Sync] Authorized member detected, subscribing to public martingale...");
+        unsubscribe = subscribeToPublicMartingale((publicData) => {
+          if (publicData) {
+            const dataSig = `${publicData.categories.length}-${publicData.transactions.length}`;
+            const isInitialLoad = !lastMartingaleDataRef.current;
 
-          console.log("[Sync] Received Public Update. Sig:", dataSig);
+            console.log("[Sync] Received Public Update. Sig:", dataSig);
 
-          setPortfolio(prev => {
-            const personalTxs = prev.transactions.filter(t => t.isMartingale !== true);
-            const newMartingaleTxs = publicData.transactions.map(t => ({ ...t, isMartingale: true }));
+            setPortfolio(prev => {
+              const personalTxs = prev.transactions.filter(t => t.isMartingale !== true);
+              const newMartingaleTxs = publicData.transactions.map(t => ({ ...t, isMartingale: true }));
 
-            return {
-              ...prev,
-              martingale: publicData.categories,
-              transactions: [...personalTxs, ...newMartingaleTxs]
-            };
-          });
+              return {
+                ...prev,
+                martingale: publicData.categories,
+                transactions: [...personalTxs, ...newMartingaleTxs]
+              };
+            });
 
-          // Only show toast if data actually changed or it's the first load
-          if (lastMartingaleDataRef.current !== dataSig) {
-            lastMartingaleDataRef.current = dataSig;
-            if (!isInitialLoad) {
-              showToast(`策略同步完成：${publicData.categories.length} 個分類`, "success");
+            // Only show toast if data actually changed or it's the first load
+            if (lastMartingaleDataRef.current !== dataSig) {
+              lastMartingaleDataRef.current = dataSig;
+              if (!isInitialLoad) {
+                showToast(`策略同步完成：${publicData.categories.length} 個分類`, "success");
+              }
             }
+          } else {
+            console.log("[Sync] Received null public data");
           }
-        } else {
-          console.log("[Sync] Received null public data");
-        }
-      });
+        });
+      }
     } else {
       // CLEAR Martingale data if user is NOT authorized (e.g. downgraded to viewer)
       if (isDataLoaded && (portfolio.martingale?.length > 0 || portfolio.transactions.some(t => t.isMartingale))) {
