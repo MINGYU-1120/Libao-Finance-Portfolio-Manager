@@ -8,10 +8,8 @@ service cloud.firestore {
     }
 
     function getUserRole() {
-       // Check custom claims first (if you set them), otherwise check user doc
-       // For this app, we rely on the public user_directory for roles (readable by all auth users)
-       let userDoc = get(/databases/$(database)/documents/user_directory/$(request.auth.uid));
-       return userDoc != null ? userDoc.data.role : 'viewer';
+       let path = /databases/$(database)/documents/user_directory/$(request.auth.uid);
+       return isSignedIn() && exists(path) ? get(path).data.role : 'viewer';
     }
 
     function getTier(role) {
@@ -26,31 +24,25 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Security by Identity: Hardcode Super Admin Emails to prevent lockout 
-      // if DB roles are compromised or empty.
-      return hasRole('admin') || 
-             request.auth.token.email == '1033023@ntsu.edu.tw' || 
-             request.auth.token.email == 'libao.finance@gmail.com';
+      // 1. Identity-based Super Admin (Priority: Bootstrap safely even if DB doc doesn't exist)
+      let superAdminEmails = ['1033023@ntsu.edu.tw', 'libao.finance@gmail.com'];
+      let isIdentityAdmin = isSignedIn() && request.auth.token.email in superAdminEmails;
+
+      // 2. Role-based Admin (Dynamic: Check DB role)
+      return isIdentityAdmin || (isSignedIn() && getUserRole() == 'admin');
     }
 
     // --- Tier Based Access Helper ---
     function canAccessSection(sectionKey) {
-       // 1. Get User's Tier
+       // 1. Get User's Tier (Defaults to 0 for new or signed-out users)
        let role = getUserRole();
        let userTier = getTier(role);
 
        // 2. Get Section's Min Tier from Config
-       // Note: You must ensure /config/permissions exists and has the fields.
-       // We default to high security (3=Admin) if config is missing or field is missing for safety.
-       let config = get(/databases/$(database)/documents/config/permissions);
-       let minTier = (config != null && sectionKey in config.data) ? config.data[sectionKey] : 0; 
-       
-       // Note on Default: 
-       // If we want to be safe, we should default to 3 (Admin). 
-       // But if config doesn't exist yet, this breaks app. 
-       // Let's rely on the Admin setup to init this. 
-       // For now, let's hardcode defaults if missing to match frontend defaults?
-       // No, simpler: check config. If config exists, use it.
+       let configPath = /databases/$(database)/documents/config/permissions;
+       let hasConfig = exists(configPath);
+       let minTier = hasConfig && sectionKey in get(configPath).data 
+                     ? get(configPath).data[sectionKey] : 0; 
        
        return userTier >= minTier;
     }
