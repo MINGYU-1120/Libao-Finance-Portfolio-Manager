@@ -80,7 +80,8 @@ import {
   syncUserProfile,
   updatePublicMartingale,
   subscribeToPublicMartingale,
-  subscribeToUserRole
+  subscribeToUserRole,
+  handleRedirectResult
 } from './services/firebase';
 import { useToast } from './contexts/ToastContext';
 import { OrderData } from './components/OrderModal';
@@ -195,6 +196,27 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Handle redirect result on app startup (critical for PWA standalone mode)
+  useEffect(() => {
+    const checkRedirect = async () => {
+      console.log("[App] Checking redirect result on startup...");
+
+      try {
+        const redirectUser = await handleRedirectResult();
+
+        if (redirectUser) {
+          console.log("[App] Redirect login successful, auth state will update automatically");
+          // onAuthStateChanged will handle the rest (loading portfolio, etc.)
+        }
+      } catch (e) {
+        console.error("[App] Redirect check failed:", e);
+        setIsSyncing(false);
+      }
+    };
+
+    checkRedirect();
+  }, []); // Run once on mount
+
   useEffect(() => {
     const unsubscribe = subscribeToAuthChanges(async (currentUser) => {
       setUser(currentUser);
@@ -299,16 +321,17 @@ const App: React.FC = () => {
   };
 
   const handleLoginAction = async () => {
-    // Immediate log to check if button is reactive
     console.log("[App] handleLoginAction triggered");
 
     try {
-      // Don't set full-screen isSyncing here yet, as re-render might break some mobile gestures
-      // Instead, we'll set it inside/after the login attempt
+      setIsSyncing(true); // Show loading immediately
       const loggedInUser = await loginWithGoogle();
 
-      if (loggedInUser || window.innerWidth <= 1024) {
-        setIsSyncing(true); // Show loading while waiting for sync or redirect
+      // If redirect started (returns null), keep loading state
+      // The page will reload and handleRedirectResult will complete the flow
+      if (!loggedInUser) {
+        console.log("[App] Redirect started, keeping loading state...");
+        // Don't set isSyncing(false) - let the redirect happen
       }
     } catch (e: any) {
       console.error("[Login Error]", e);

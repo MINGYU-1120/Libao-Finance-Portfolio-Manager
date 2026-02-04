@@ -4,6 +4,7 @@ import {
   getAuth,
   signInWithPopup,
   signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
@@ -120,6 +121,37 @@ export const loginWithGoogle = async () => {
       alert(`【網域未授權】請在 Firebase 控制台新增: ${window.location.hostname}`);
     } else if (error.code !== 'auth/popup-closed-by-user') {
       alert(`登入遭遇進階錯誤: ${error.message}`);
+    }
+
+    return null;
+  }
+};
+
+/**
+ * Check and handle redirect result after signInWithRedirect
+ * This is critical for PWA standalone mode where the app restarts after redirect
+ */
+export const handleRedirectResult = async (): Promise<User | null> => {
+  if (!auth) return null;
+
+  try {
+    console.log("[Auth] Checking for redirect result...");
+    const result = await getRedirectResult(auth);
+
+    if (result) {
+      console.log("[Auth] Redirect result found, user logged in:", result.user.email);
+      return result.user;
+    } else {
+      console.log("[Auth] No redirect result found");
+      return null;
+    }
+  } catch (error: any) {
+    console.error("[Auth] Redirect result error:", error.code, error.message);
+
+    if (error.code === 'auth/unauthorized-domain') {
+      alert(`【網域未授權】請在 Firebase 控制台新增: ${window.location.hostname}`);
+    } else if (error.code !== 'auth/popup-closed-by-user') {
+      alert(`登入過程發生錯誤: ${error.message}`);
     }
 
     return null;
