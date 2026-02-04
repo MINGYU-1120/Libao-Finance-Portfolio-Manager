@@ -10,7 +10,7 @@ import {
   onAuthStateChanged,
   User
 } from 'firebase/auth';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 import {
   getFirestore,
   doc,
@@ -74,17 +74,23 @@ try {
       // 使用標準 UUID v4 格式的 Debug Token
       const FIXED_DEBUG_TOKEN = "c3a8b273-5a0a-4fb1-b3f5-62d47d95b583";
       (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = FIXED_DEBUG_TOKEN;
-      console.log(`[AppCheck] 偵錯模式已啟用。權杖: ${FIXED_DEBUG_TOKEN}`);
+      console.log(`[AppCheck] --- DEBUG MODE ENABLED ---`);
+      console.log(`[AppCheck] Source: ${isLocalhost ? 'Localhost' : 'URL Force Debug'}`);
+      console.log(`[AppCheck] UUID: ${FIXED_DEBUG_TOKEN}`);
     }
 
+    // --- reCAPTCHA Enterprise 網站金鑰配置 ---
+    const RECAPTCHA_SITE_KEY = '6LcCnMAsAAAAAB36wj2NuzbCEJsApZRMrsQzcqTJ';
+
     try {
+      // 改用 ReCaptchaEnterpriseProvider 以匹配您的企業版金鑰
       initializeAppCheck(app, {
-        provider: new ReCaptchaV3Provider('6LcenV8sAAAAALGLE_IlW1I_ntJhlueuwyRARiLd'),
+        provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY),
         isTokenAutoRefreshEnabled: true
       });
-      console.log("[AppCheck] 初始化成功。");
+      console.log("[AppCheck] reCAPTCHA Enterprise 初始化成功。");
     } catch (err) {
-      console.error("[AppCheck] 初始化失敗 (可能是金鑰或網域問題):", err);
+      console.error("[AppCheck] 初始化失敗:", err);
     }
   }
 

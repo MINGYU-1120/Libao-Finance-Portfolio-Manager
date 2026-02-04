@@ -94,12 +94,11 @@ service cloud.firestore {
     }
 
     // 5. Public Portfolios (Market Insider? Martingale?)
-    // Assuming 'martingale' is stored here or similar
     match /public_portfolios/{docId} {
-      // Allow based on section permission (STANDARD/Member by default)
-      allow read: if isSignedIn() && canAccessSection('martingale');
+      // 僅限 admin, vip, member 讀取 (排除 viewer)
+      allow read: if isSignedIn() && (getUserRole() == 'admin' || getUserRole() == 'vip' || getUserRole() == 'member');
       // Only Admin can write
-      allow write: if request.auth != null && isAdmin();
+      allow write: if isAdmin();
     }
 
     // --- Protected Sections Rule (NEW) ---
