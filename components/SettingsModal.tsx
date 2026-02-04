@@ -195,18 +195,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider border-b pb-1">資料管理</h3>
 
-            <div className="grid grid-cols-1 gap-3">
-              <button
-                onClick={() => {
-                  if (window.confirm("確定要執行資料修復嗎？系統將根據交易紀錄重新計算現有持股，這通常能修復持股消失的問題。")) {
-                    onRepairData();
-                  }
-                }}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 font-bold transition-colors border border-indigo-200"
-              >
-                <RefreshCw className="w-4 h-4" /> 修復持股資料 (從紀錄重建)
-              </button>
-            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <button
