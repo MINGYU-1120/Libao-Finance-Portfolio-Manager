@@ -80,27 +80,26 @@ try {
     }
 
     // --- reCAPTCHA Enterprise 網站金鑰配置 ---
-    const RECAPTCHA_SITE_KEY = '6LcCnMAsAAAAAB36wj2NuzbCEJsApZRMrsQzcqTJ';
+    const RECAPTCHA_SITE_KEY = '6LcenV8sAAAAALGLE_llW1I_ntJhlueuwyRARiLd';
 
     try {
-      console.log("[AppCheck] 正在嘗試初始化 reCAPTCHA Enterprise...");
-      const appCheck = initializeAppCheck(app, {
-        provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY),
-        isTokenAutoRefreshEnabled: true
-      });
-      console.log("[AppCheck] ✅ reCAPTCHA Enterprise 初始化順利完成。");
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      console.log(`[AppCheck] 診斷: ${isMobile ? '行動端' : '電腦版'}, 網域: ${location.hostname}`);
 
-      // 測試取得 Token
-      (async () => {
+      // 非同步初始化，避免阻塞 Auth/Firestore
+      setTimeout(() => {
         try {
-          console.log("[AppCheck] 正在預研發驗證標記...");
+          initializeAppCheck(app, {
+            provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY),
+            isTokenAutoRefreshEnabled: true
+          });
+          console.log("[AppCheck] 註冊程序已非同步啟動 (reCAPTCHA Enterprise)");
         } catch (e) {
-          console.error("[AppCheck] 標記預載失敗:", e);
+          console.warn("[AppCheck] 行動端初始化略過:", e);
         }
-      })();
+      }, 1000);
     } catch (err: any) {
-      console.error("[AppCheck] ❌ 初始化致命錯誤:", err);
-      console.log("[AppCheck] 詳細錯誤訊息:", err?.message || "未知原因");
+      console.error("[AppCheck] 嚴重錯誤:", err?.message || err);
     }
   }
 
