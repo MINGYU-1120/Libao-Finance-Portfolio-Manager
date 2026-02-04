@@ -83,14 +83,24 @@ try {
     const RECAPTCHA_SITE_KEY = '6LcCnMAsAAAAAB36wj2NuzbCEJsApZRMrsQzcqTJ';
 
     try {
-      // 改用 ReCaptchaEnterpriseProvider 以匹配您的企業版金鑰
-      initializeAppCheck(app, {
+      console.log("[AppCheck] 正在嘗試初始化 reCAPTCHA Enterprise...");
+      const appCheck = initializeAppCheck(app, {
         provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY),
         isTokenAutoRefreshEnabled: true
       });
-      console.log("[AppCheck] reCAPTCHA Enterprise 初始化成功。");
-    } catch (err) {
-      console.error("[AppCheck] 初始化失敗:", err);
+      console.log("[AppCheck] ✅ reCAPTCHA Enterprise 初始化順利完成。");
+
+      // 測試取得 Token
+      (async () => {
+        try {
+          console.log("[AppCheck] 正在預研發驗證標記...");
+        } catch (e) {
+          console.error("[AppCheck] 標記預載失敗:", e);
+        }
+      })();
+    } catch (err: any) {
+      console.error("[AppCheck] ❌ 初始化致命錯誤:", err);
+      console.log("[AppCheck] 詳細錯誤訊息:", err?.message || "未知原因");
     }
   }
 
