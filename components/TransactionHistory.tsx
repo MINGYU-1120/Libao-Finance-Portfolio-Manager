@@ -278,14 +278,11 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
               const pnl = tx.realizedPnL || 0;
               if (pnl === 0) return acc;
 
-              // Find category to determine currency
-              // Use the allCategories array we defined earlier or reconstruct it
-              const allCats = [...portfolio.categories, ...(Array.isArray(portfolio.martingale) ? portfolio.martingale : [])];
-              const cat = allCats.find(c => c.name === tx.categoryName);
-              const isUS = cat?.market === 'US';
+              // Consistent heuristic with Row Logic
+              const isUS = (tx.exchangeRate || 1) > 5;
 
               if (isUS) {
-                acc.totalUSD += pnl;
+                acc.totalUSD += pnl / (tx.exchangeRate || 1);
               } else {
                 acc.totalTWD += pnl;
               }
@@ -409,7 +406,18 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                     <td className="px-4 py-3 text-right font-mono">
                       {tx.type === 'SELL' || tx.type === 'DIVIDEND' ? (
                         <span className={tx.realizedPnL! >= 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
-                          {tx.realizedPnL! > 0 ? '+' : ''}{formatTWD(tx.realizedPnL!, isPrivacyMode)}
+                          {(() => {
+                            const isUS = (tx.exchangeRate || 1) > 5;
+                            const pnlVal = isUS ? (tx.realizedPnL || 0) / (tx.exchangeRate || 1) : (tx.realizedPnL || 0);
+
+                            if (isPrivacyMode) return '*******';
+
+                            const valStr = pnlVal.toLocaleString('en-US', { minimumFractionDigits: isUS ? 2 : 0, maximumFractionDigits: isUS ? 2 : 0 });
+                            const sign = pnlVal > 0 ? '+' : '';
+                            const prefix = isUS ? 'USD' : 'NT$';
+
+                            return `${sign}${prefix} ${valStr}`;
+                          })()}
                           {isDiv && <span className="text-[10px] text-gray-400 block">淨入帳</span>}
                         </span>
                       ) : (

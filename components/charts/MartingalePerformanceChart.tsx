@@ -35,6 +35,8 @@ const calculateNiceTicks = (min: number, max: number, maxTicks: number = 5) => {
 };
 
 const MartingalePerformanceChart: React.FC<MartingalePerformanceChartProps> = ({ transactions, isPrivacyMode }) => {
+    // 0. Market Filter State
+    const [marketFilter, setMarketFilter] = useState<'ALL' | 'TW' | 'US'>('ALL');
     const [timeframe, setTimeframe] = useState<Timeframe>('YTD');
     const [showPercent, setShowPercent] = useState(false);
     const [hoveredPoint, setHoveredPoint] = useState<{ date: string; value: number; x: number; y: number } | null>(null);
@@ -43,13 +45,11 @@ const MartingalePerformanceChart: React.FC<MartingalePerformanceChartProps> = ({
     const chartData = useMemo(() => {
         if (!transactions || transactions.length === 0) return [];
 
-        // Filter only Martingale Transactions (where Category Name is likely 'Martingale' or has special flag)
-        // For now, assume passed transactions are already filtered
         const sortedTxs = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         if (sortedTxs.length === 0) return [];
 
         const startDate = new Date(sortedTxs[0].date);
-        startDate.setDate(startDate.getDate() - 2); // Start 2 days before to ensure we see the jump from 0
+        startDate.setDate(startDate.getDate() - 2);
         const endDate = new Date();
         startDate.setHours(0, 0, 0, 0);
         endDate.setHours(0, 0, 0, 0);
@@ -69,22 +69,55 @@ const MartingalePerformanceChart: React.FC<MartingalePerformanceChartProps> = ({
 
                 if (txDate.getTime() > currentDate.getTime()) break;
 
-                const amount = (tx.price * tx.shares * tx.exchangeRate);
+                // Market Filter Check
+                const isUS = (tx.exchangeRate || 1) > 5;
+                const txMarket = isUS ? 'US' : 'TW';
+
+                // Skip if not matching filter (unless ALL)
+                if (marketFilter !== 'ALL' && txMarket !== marketFilter) {
+                    txIndex++;
+                    continue;
+                }
+
+                // Value Calculation based on Filter
+                // If US Filter -> Use USD PnL. If TW/ALL -> Use TWD PnL.
+                // Note: For ALL, we use TWD as base.
+                const useUSD = marketFilter === 'US';
+                const rate = useUSD ? (tx.exchangeRate || 1) : 1;
+
+                // Original amount in TWD
+                const amountTWD = (tx.price * tx.shares * (tx.exchangeRate || 1));
+                const amount = useUSD ? amountTWD / (tx.exchangeRate || 1) : amountTWD;
 
                 if (tx.type === 'BUY') {
                     currentInvested += amount;
                 } else if (tx.type === 'SELL') {
-                    const realized = (tx.realizedPnL || 0);
-                    const costBasisReleased = amount - realized; // Roughly approximate if full logic not available
+                    const realizedTWD = (tx.realizedPnL || 0);
+                    const realized = useUSD ? realizedTWD / (tx.exchangeRate || 1) : realizedTWD;
+
+                    // Cost Basis = Proceeds - PnL? 
+                    // proceeds = amount
+                    const costBasisReleased = amount - realized;
                     currentInvested -= costBasisReleased;
+                    currentRealizedPnL += realized;
+                } else if (tx.type === 'DIVIDEND') {
+                    const realizedTWD = (tx.realizedPnL || 0);
+                    const realized = useUSD ? realizedTWD / (tx.exchangeRate || 1) : realizedTWD;
                     currentRealizedPnL += realized;
                 }
                 txIndex++;
             }
 
             let pct = 0;
-            if (currentInvested > 1) {
+            if (currentInvested > 1) { // 1 is just a tiny float buffer
                 pct = (currentRealizedPnL / currentInvested) * 100;
+            } else if (currentInvested === 0 && currentRealizedPnL !== 0) {
+                // If all sold, return is infinite? Or just keep last %?
+                // Let's keep 0 or handle essentially infinite return cleanly
+                // Usually means we closed out positions. 
+                // Simple approach: 0 or last known could be misleading.
+                // Let's use 0 to reset ratio if no investment active.
+                pct = 0;
             }
 
             days.push({
@@ -95,7 +128,7 @@ const MartingalePerformanceChart: React.FC<MartingalePerformanceChartProps> = ({
             });
         }
         return days;
-    }, [transactions]);
+    }, [transactions, marketFilter]);
 
     // 2. Filter by Timeframe
     const filteredData = useMemo(() => {
@@ -129,9 +162,11 @@ const MartingalePerformanceChart: React.FC<MartingalePerformanceChartProps> = ({
     const height = 300;
     const padding = { top: 40, bottom: 40, left: 0, right: 60 };
 
-
-
-
+    // Helper for Currency Label
+    const getCurrencyLabel = () => {
+        if (marketFilter === 'US') return 'USD';
+        return 'NT$';
+    };
 
     if (displayData.length < 2) {
         return (
@@ -190,7 +225,7 @@ const MartingalePerformanceChart: React.FC<MartingalePerformanceChartProps> = ({
     return (
         <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-2xl shadow-lg border border-gray-700 text-white">
             {/* Header */}
-            <div className="flex justify-between items-start mb-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
                 <div>
                     <div className="flex items-center gap-2 text-gray-400 font-bold text-xs uppercase tracking-wider mb-1">
                         <LineChart className="w-4 h-4 text-libao-gold" />
@@ -198,7 +233,9 @@ const MartingalePerformanceChart: React.FC<MartingalePerformanceChartProps> = ({
                     </div>
                     <div className="flex items-baseline gap-3">
                         <div className={`text-4xl font-black font-mono tracking-tighter ${displayColor}`}>
-                            {currentDisplayValue > 0 ? '+' : ''}{formatHeaderValue(currentDisplayValue)}
+                            {currentDisplayValue > 0 ? '+' : ''}
+                            {!showPercent && (marketFilter === 'US' ? 'USD ' : 'NT$ ')}
+                            {formatHeaderValue(currentDisplayValue)}
                         </div>
                     </div>
                     <div className={`flex items-center gap-1 text-sm font-bold mt-1 ${isPositive ? 'text-red-400' : 'text-green-400'}`}>
@@ -207,30 +244,29 @@ const MartingalePerformanceChart: React.FC<MartingalePerformanceChartProps> = ({
                     </div>
                 </div>
 
-                {/* Toggle & Info */}
-                <div className="flex items-center gap-3">
-                    <div className="bg-gray-800 p-1 rounded-lg flex text-xs font-bold font-mono border border-gray-700">
-                        <button onClick={() => setShowPercent(false)} className={`px-3 py-1 rounded-md transition-all ${!showPercent ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}>$</button>
-                        <button onClick={() => setShowPercent(true)} className={`px-3 py-1 rounded-md transition-all ${showPercent ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}>%</button>
+                {/* Controls Group */}
+                <div className="flex flex-wrap items-center gap-2">
+                    {/* Market Toggles */}
+                    <div className="bg-gray-800 p-1 rounded-lg flex text-[10px] font-bold border border-gray-700">
+                        {(['TW', 'US', 'ALL'] as const).map(m => (
+                            <button
+                                key={m}
+                                onClick={() => setMarketFilter(m)}
+                                className={`px-2 py-1 rounded transition-colors ${marketFilter === m ? 'bg-libao-gold text-gray-900' : 'text-gray-400 hover:text-white'}`}
+                            >
+                                {m === 'TW' ? '台股' : m === 'US' ? '美股' : '全市場'}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Show % Toggle */}
+                    <div className="bg-gray-800 p-1 rounded-lg flex text-[10px] font-bold font-mono border border-gray-700">
+                        <button onClick={() => setShowPercent(false)} className={`px-2 py-1 rounded transition-colors ${!showPercent ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-white'}`}>$</button>
+                        <button onClick={() => setShowPercent(true)} className={`px-2 py-1 rounded transition-colors ${showPercent ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-white'}`}>%</button>
                     </div>
                 </div>
             </div>
-
-            {/* Timeframe Tabs */}
-            <div className="flex gap-1 mb-4 overflow-x-auto pb-2 no-scrollbar">
-                {(['1W', '1M', '3M', 'YTD', '1Y', 'ALL'] as const).map(tf => (
-                    <button
-                        key={tf}
-                        onClick={() => setTimeframe(tf)}
-                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${timeframe === tf
-                            ? 'bg-libao-gold text-black shadow-lg shadow-yellow-500/20'
-                            : 'bg-gray-800 text-gray-500 hover:bg-gray-700 hover:text-gray-300'
-                            }`}
-                    >
-                        {tf === '1W' ? '1周' : tf === '1M' ? '1個月' : tf === '3M' ? '3個月' : tf === 'YTD' ? '本年迄今' : tf === '1Y' ? '1年' : '全部'}
-                    </button>
-                ))}
-            </div>
+            {/* ... rest of header (Value Display) needs update ... */}
 
             {/* Chart Area */}
             <div className="relative w-full aspect-[2/1] sm:aspect-[3/1] max-h-[300px]" onMouseLeave={() => setHoveredPoint(null)}>

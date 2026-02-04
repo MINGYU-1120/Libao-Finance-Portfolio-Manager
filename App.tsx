@@ -43,13 +43,13 @@ import {
 } from 'lucide-react';
 import { PortfolioState, PositionCategory, CalculatedCategory, CalculatedAsset, TransactionRecord, AppSettings, NewsItem, AssetLot, Asset, MarketType } from './types';
 import { DEFAULT_CATEGORIES, INITIAL_CAPITAL, DEFAULT_EXCHANGE_RATE } from './constants';
-import SummaryTable from './components/SummaryTable';
+
 import DetailTable from './components/DetailTable';
 import TransactionHistory from './components/TransactionHistory';
 import DividendLedger from './components/DividendLedger';
 import SettingsModal from './components/SettingsModal';
 import FeeSettingsModal from './components/FeeSettingsModal';
-import IndustryAnalysis from './components/IndustryAnalysis';
+
 import DividendModal, { ScannedDividend } from './components/DividendModal';
 import CapitalModal from './components/CapitalModal';
 import MonthlyPnLChart from './components/MonthlyPnLChart';
@@ -60,7 +60,7 @@ import GuidedTour, { TourStep } from './components/GuidedTour';
 import SectionGate from './components/SectionGate';
 // MarketInsiderDemo removed
 import AIPicks from './components/AIPicks';
-import PerformanceChart from './components/PerformanceChart';
+
 import AddCategoryModal from './components/AddCategoryModal';
 import { stockService } from './services/StockService';
 import { getIndustry, calculateIndustryAnalysis } from './services/industryService';
@@ -68,6 +68,8 @@ import { formatCurrency, formatTWD } from './utils/formatting';
 import { scrubSensitiveData } from './utils/privacy';
 import AdminPanel from './components/AdminPanel';
 import MartingalePanel from './components/MartingalePanel';
+import PersonalDashboard from './components/PersonalDashboard';
+import PersonalSummary from './components/PersonalSummary';
 import {
   loginWithGoogle,
   logoutUser,
@@ -452,7 +454,7 @@ const App: React.FC = () => {
     const calculatedCats: CalculatedCategory[] = catsCopy.map(cat => {
       // Find Category-specific PnL (Realized) from Transactions
       const catRealizedPnL = portfolio.transactions
-        .filter(t => t.categoryName === cat.name && t.type === 'SELL' && t.realizedPnL !== undefined && t.isMartingale !== true)
+        .filter(t => t.categoryName === cat.name && (t.type === 'SELL' || t.type === 'DIVIDEND') && t.realizedPnL !== undefined && t.isMartingale !== true)
         .reduce((sum, t) => sum + (t.realizedPnL || 0), 0);
 
       totalRealizedPnL += catRealizedPnL;
@@ -1539,6 +1541,14 @@ const App: React.FC = () => {
     showToast("馬丁倉位已完整重置", "success");
   };
 
+  const handleDeleteCategory = (categoryId: string) => {
+    if (!window.confirm("確定要刪除此分類嗎？包含的資產將會被移除。")) return;
+    const newCats = portfolio.categories.filter(c => c.id !== categoryId);
+    saveAndSetPortfolio({ ...portfolio, categories: newCats });
+    if (activeCategoryId === categoryId) setActiveCategoryId(null);
+    showToast("分類已刪除", "info");
+  };
+
   if (!isDataLoaded && !user && !isStartingFresh) {
     return (
       <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center justify-center p-6 text-center overflow-hidden relative">
@@ -1902,64 +1912,47 @@ const App: React.FC = () => {
       <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 pb-24 md:pb-8 ${activeCategoryId ? 'py-0' : 'py-8'}`}>
         {viewMode === 'PORTFOLIO' && (
           <>
-            {!activeCategoryId && (
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 animate-in fade-in slide-in-from-top-4 duration-300">
-                <div className="md:col-span-8 lg:col-span-9 flex flex-col gap-6 order-1 md:order-2">
-                  <div id="tour-total-capital" className="flex flex-col gap-4">
-                    <div className="bg-gradient-to-r from-gray-900 to-indigo-900 p-6 rounded-2xl shadow-xl border border-gray-800 relative overflow-hidden">
-                      <div className="relative z-10 flex justify-between items-center">
-                        <div>
-                          <div className="text-indigo-300 text-[10px] sm:text-xs font-bold mb-1 tracking-wider uppercase">總資產淨值 (Net Worth)</div>
-                          <div className="text-2xl sm:text-3xl font-mono font-bold text-white tracking-tight">NT$ {formatTWD(totalNetWorth, isPrivacyMode)}</div>
-                        </div>
-                        <Briefcase className="w-10 h-10 sm:w-12 sm:h-12 text-libao-gold opacity-30" />
-                      </div>
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-                    </div>
 
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                      <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
-                        <div className="text-gray-400 text-[10px] font-bold mb-2 uppercase flex items-center gap-1"><Wallet className="w-3 h-3" /> 投入本金</div>
-                        <div className="text-base sm:text-xl font-mono font-bold">
-                          <div className="truncate mb-1">NT$ {formatTWD(portfolio.totalCapital, isPrivacyMode)}</div>
-                          <button onClick={() => setShowCapitalModal(true)} className="text-[9px] sm:text-[10px] bg-indigo-50 px-2 py-1 rounded text-indigo-600 font-bold hover:bg-indigo-100 border border-indigo-100 transition-colors w-fit">出/入金</button>
-                        </div>
-                      </div>
-                      <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-100">
-                        <div className="text-gray-400 text-[10px] font-bold mb-2 uppercase flex items-center gap-1"><TrendingUp className="w-3 h-3 text-red-500" /> 未實現損益</div>
-                        <div className={`text-base sm:text-xl font-mono font-bold ${calculatedData.totalUnrealizedPnL >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {calculatedData.totalUnrealizedPnL > 0 ? '+' : ''}{formatTWD(calculatedData.totalUnrealizedPnL, isPrivacyMode)}
-                          <span className="text-xs block font-bold opacity-80 mt-1">{unrealizedRatio > 0 ? '+' : ''}{unrealizedRatio.toFixed(2)}%</span>
-                        </div>
-                      </div>
-                      <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-100">
-                        <div className="text-gray-400 text-[10px] font-bold mb-2 uppercase flex items-center gap-1"><History className="w-3 h-3 text-indigo-500" /> 已實現損益</div>
-                        <div className={`text-base sm:text-xl font-mono font-bold ${calculatedData.totalRealizedPnL >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {calculatedData.totalRealizedPnL > 0 ? '+' : ''}{formatTWD(calculatedData.totalRealizedPnL, isPrivacyMode)}
-                        </div>
-                      </div>
-                      <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-200 ring-1 ring-indigo-50 lg:ring-2">
-                        <div className="text-gray-500 text-[10px] font-bold mb-2 uppercase flex items-center gap-1"><Coins className="w-3 h-3 text-indigo-600" /> 已投入資金</div>
-                        <div className="text-base sm:text-xl font-mono font-bold text-indigo-700">
-                          NT$ {formatTWD(calculatedData.totalInvested, isPrivacyMode)}
-                          <span className="text-xs block font-bold text-indigo-400 mt-1">佔比 {investedRatio.toFixed(1)}%</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <PerformanceChart transactions={portfolio.transactions.filter(t => t.isMartingale !== true)} isPrivacyMode={isPrivacyMode} />
-                </div>
-                <div className="md:col-span-4 lg:col-span-3 order-2 md:order-1">
-                  <IndustryAnalysis data={calculatedData.industryData} totalValue={calculatedData.totalMarketValue} isPrivacyMode={isPrivacyMode} />
-                </div>
-              </div>
-            )}
             <div id="tour-summary-table">
               {activeCategoryId ? (
                 <DetailTable category={calculatedData.categories.find(c => c.id === activeCategoryId)!} assets={calculatedData.categories.find(c => c.id === activeCategoryId)!.assets} totalCapital={portfolio.totalCapital} onBack={() => setActiveCategoryId(null)} onExecuteOrder={handleExecuteOrder} onUpdateAssetPrice={handleUpdateAssetPrice} onUpdateCategoryPrices={handleRefreshCategory} onUpdateAssetNote={() => { }} defaultExchangeRate={portfolio.settings.usExchangeRate} isPrivacyMode={isPrivacyMode} settings={portfolio.settings} forceShowOrderModal={isTourForceOrderOpen} />
               ) : (
                 <>
-                  <SummaryTable categories={calculatedData.categories} totalCapital={portfolio.totalCapital} onUpdateAllocation={handleUpdateAllocation} onSelectCategory={setActiveCategoryId} onRefreshCategory={handleRefreshCategory} isPrivacyMode={isPrivacyMode} />
+                  <PersonalDashboard
+                    categories={calculatedData.categories}
+                    totalCapital={portfolio.totalCapital}
+                    transactions={portfolio.transactions}
+                    industryData={calculatedData.industryData}
+                    onDeposit={() => setShowCapitalModal(true)}
+                    onReset={() => {
+                      if (confirm('確定要重置所有倉位資料嗎？此操作無法復原。')) {
+                        setPortfolio(initialPortfolioState);
+                        savePortfolioToCloud(user!.uid, initialPortfolioState); // Force save
+                      }
+                    }}
+                    isPrivacyMode={isPrivacyMode}
+                  />
+                  <PersonalSummary
+                    categories={calculatedData.categories}
+                    totalCapital={portfolio.totalCapital}
+                    onUpdateAllocation={handleUpdateAllocation}
+                    onSelectCategory={setActiveCategoryId}
+                    onRefreshCategory={handleRefreshCategory}
+                    onDeleteCategory={handleDeleteCategory}
+                    onMoveCategory={(id, dir) => {
+                      const idx = portfolio.categories.findIndex(c => c.id === id);
+                      if (idx === -1) return;
+                      const newCats = [...portfolio.categories];
+                      if (dir === 'up' && idx > 0) {
+                        [newCats[idx], newCats[idx - 1]] = [newCats[idx - 1], newCats[idx]];
+                      } else if (dir === 'down' && idx < newCats.length - 1) {
+                        [newCats[idx], newCats[idx + 1]] = [newCats[idx + 1], newCats[idx]];
+                      }
+                      saveAndSetPortfolio({ ...portfolio, categories: newCats });
+                    }}
+                    onAddCategory={() => setIsAddCategoryModalOpen(true)}
+                    isPrivacyMode={isPrivacyMode}
+                  />
 
                   {/* Restore Teaser for Unauthorized Users */}
                   {(userRole !== 'admin' && userRole !== 'member' && userRole !== 'vip') && (calculatedData as any).martingale && (
