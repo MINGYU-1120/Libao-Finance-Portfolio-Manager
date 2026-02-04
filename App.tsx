@@ -97,7 +97,20 @@ const App: React.FC = () => {
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isStartingFresh, setIsStartingFresh] = useState(false);
   const [authInitializing, setAuthInitializing] = useState(true);
-  const [isCheckingRedirect, setIsCheckingRedirect] = useState(true); // NEW: Redirect Check Lock
+  const [isCheckingRedirect, setIsCheckingRedirect] = useState(true);
+
+  // 🚀 PWA/啟動安全逾時機制：防止在行動端或 PWA 模式下因驗證延遲而卡死
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (authInitializing || isCheckingRedirect || isSyncing) {
+        console.log("[App] 啟動/同步逾時保護：強制跳過載入畫面。");
+        setAuthInitializing(false);
+        setIsCheckingRedirect(false);
+        setIsSyncing(false);
+      }
+    }, 10000); // 10 秒安全牆
+    return () => clearTimeout(timer);
+  }, [authInitializing, isCheckingRedirect, isSyncing]);
 
   // --- UI State ---
   const [showTutorial, setShowTutorial] = useState(false);
