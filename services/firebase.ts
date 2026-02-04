@@ -146,43 +146,22 @@ export const handleRedirectResult = async (): Promise<User | null> => {
   }
 
   try {
-    console.log("[Auth] Checking for redirect result...");
-
-    // CRITICAL FIX: Only call getRedirectResult if we're actually coming from a redirect
-    // Check if there's a redirect marker in the URL or session
-    const urlParams = new URLSearchParams(window.location.search);
-    const hasRedirectParams = urlParams.has('state') || urlParams.has('code');
-
-    // Also check if current user is already authenticated
-    const currentUser = auth.currentUser;
-
-    if (currentUser) {
-      console.log("[Auth] User already authenticated, skipping redirect check");
-      return null;
-    }
-
-    if (!hasRedirectParams) {
-      console.log("[Auth] No redirect parameters found, skipping getRedirectResult");
-      return null;
-    }
-
-    console.log("[Auth] Redirect parameters detected, calling getRedirectResult...");
+    // MUST call getRedirectResult() on every page load
+    // It returns null if no redirect happened (safe to call always)
+    // It returns the user ONLY ONCE after redirect (then null forever)
     const result = await getRedirectResult(auth);
 
     if (result) {
-      console.log("[Auth] ✅ Redirect result found! User logged in:", result.user.email);
+      console.log("[Auth] ✅ Redirect login successful:", result.user.email);
       return result.user;
-    } else {
-      console.log("[Auth] No redirect result (might have been consumed already)");
-      return null;
     }
+
+    return null;
   } catch (error: any) {
-    console.error("[Auth] ❌ Redirect result error:", error.code, error.message);
+    console.error("[Auth] Redirect error:", error.code);
 
     if (error.code === 'auth/unauthorized-domain') {
-      alert(`【網域未授權】請在 Firebase 控制台新增: ${window.location.hostname}`);
-    } else if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
-      console.error("[Auth] Unexpected redirect error:", error);
+      alert(`網域未授權: ${window.location.hostname}`);
     }
 
     return null;
