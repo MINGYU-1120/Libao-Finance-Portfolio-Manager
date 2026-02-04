@@ -1227,16 +1227,18 @@ const App: React.FC = () => {
     const newTransactions = portfolio.transactions.filter(t => {
       if (t.type !== 'DIVIDEND') return true; // Keep non-dividends
 
-      // 1. Explicit Check
-      if (t.isMartingale !== undefined) {
-        if (target === 'martingale' && t.isMartingale === true) return false;
-        if (target === 'my' && t.isMartingale === false) return false;
+      // 1. Explicit Flag Preference
+      if (t.isMartingale === true) {
+        return target !== 'martingale'; // If target is mart, remove. If target is my, keep.
+      }
+      if (t.isMartingale === false) {
+        return target !== 'my'; // If target is my, remove. If target is mart, keep.
       }
 
-      // 2. Name Match Check (Legacy/Fallback)
+      // 2. Legacy/Fallback Naming Logic (Only for undefined isMartingale)
       const isMartName = martNames.includes(t.categoryName);
       if (target === 'martingale' && isMartName) return false;
-      if (target === 'my' && !isMartName && t.isMartingale === undefined) return false;
+      if (target === 'my' && !isMartName) return false;
 
       return true; // Keep others
     });
@@ -1516,19 +1518,19 @@ const App: React.FC = () => {
     const martNames = (Array.isArray(portfolio.martingale) ? portfolio.martingale : []).map(c => c.name);
 
     const newTransactions = portfolio.transactions.filter(t => {
-      // 1. If explicitly marked as Martingale, remove it
-      if (t.isMartingale === true) return false;
+      // 1. Explicit Flag Preference
+      if (t.isMartingale === true) return false; // This is a Martingale reset, remove all Martingale
+      if (t.isMartingale === false) return true; // KEEP all Personal
 
-      // 2. If it matches a Martingale category name...
+      // 2. Legacy/Fallback Naming Logic
       const isMartName = martNames.includes(t.categoryName);
       if (isMartName) {
-        // If it's a legacy dividend with no flag, or a transaction with no portfolioRatio, remove it.
-        // If it has portfolioRatio > 0, we assume it's a personal transaction and KEEP it.
+        // If it matches a Martingale name but has ratio, it's personal.
         if (t.portfolioRatio && t.portfolioRatio > 0) return true;
         return false;
       }
 
-      return true;
+      return true; // Keep everything else
     });
 
     // 2. Clear Assets AND Realized PnL in Martingale Categories
