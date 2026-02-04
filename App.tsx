@@ -137,7 +137,7 @@ const App: React.FC = () => {
   const portfolioRef = useRef(portfolio);
   useEffect(() => { portfolioRef.current = portfolio; }, [portfolio]);
 
-  const [viewMode, setViewMode] = useState<'PORTFOLIO' | 'HISTORY' | 'DIVIDENDS' | 'AI_PICKS' | 'VIP_PORTFOLIO'>('PORTFOLIO');
+  const [viewMode, setViewMode] = useState<'PORTFOLIO' | 'HISTORY' | 'DIVIDENDS' | 'AI_PICKS' | 'VIP_PORTFOLIO' | 'ADMIN'>('PORTFOLIO');
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
 
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -1658,7 +1658,7 @@ const App: React.FC = () => {
         onConfirm={handleConfirmDividends}
         isLoading={isScanningDividends}
       />  <CapitalModal isOpen={showCapitalModal} onClose={() => setShowCapitalModal(false)} capitalLogs={portfolio.capitalLogs} onAddLog={(l) => { const newState = { ...portfolio, capitalLogs: [...portfolio.capitalLogs, { ...l, id: uuidv4() }] }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }} onDeleteLog={(id) => { const newState = { ...portfolio, capitalLogs: portfolio.capitalLogs.filter(l => l.id !== id) }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }} isPrivacyMode={isPrivacyMode} />
-      <AdminPanel isOpen={showAdminPanel} currentUser={user} onClose={() => setShowAdminPanel(false)} />
+
 
       <nav className="bg-gray-900 text-white shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1712,8 +1712,8 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2 md:gap-4">
               {userRole === 'admin' && (
                 <button
-                  onClick={() => setShowAdminPanel(true)}
-                  className={`px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${showAdminPanel ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
+                  onClick={() => setViewMode('ADMIN')}
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${viewMode === 'ADMIN' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
                 >
                   <Shield className="w-4 h-4" /> 管理
                 </button>
@@ -1779,13 +1779,13 @@ const App: React.FC = () => {
               <div className="space-y-4">
                 <div className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] px-1">功能列表</div>
                 <div className="grid grid-cols-1 gap-2">
-                  <button onClick={() => { setViewMode('PORTFOLIO'); setIsSidebarOpen(false); }} className={`w-full flex items-center justify-between p-3.5 rounded-xl transition-all ${viewMode === 'PORTFOLIO' ? 'bg-gray-700 text-white shadow-sm' : 'bg-gray-800 hover:bg-gray-700'}`}>
+                  <button onClick={() => { setViewMode('PORTFOLIO'); setIsSidebarOpen(false); setShowAdminPanel(false); }} className={`w-full flex items-center justify-between p-3.5 rounded-xl transition-all ${viewMode === 'PORTFOLIO' ? 'bg-gray-700 text-white shadow-sm' : 'bg-gray-800 hover:bg-gray-700'}`}>
                     <div className="flex items-center gap-3"><LayoutDashboard className={`w-5 h-5 ${viewMode === 'PORTFOLIO' ? 'text-libao-gold' : 'text-gray-400'}`} /><span className="text-sm font-medium">我的持倉</span></div>
                     <ChevronRight className="w-4 h-4 text-gray-600" />
                   </button>
 
                   {(userRole === 'admin' || userRole === 'member' || userRole === 'vip') && (
-                    <button onClick={() => { setViewMode('VIP_PORTFOLIO'); setIsSidebarOpen(false); }} className={`w-full flex items-center justify-between p-3.5 rounded-xl transition-all border ${viewMode === 'VIP_PORTFOLIO' ? 'bg-gradient-to-r from-yellow-700 to-yellow-900 text-yellow-100 border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)]' : 'bg-gray-800 border-transparent hover:border-yellow-500/50 hover:bg-yellow-900/10'}`}>
+                    <button onClick={() => { setViewMode('VIP_PORTFOLIO'); setIsSidebarOpen(false); setShowAdminPanel(false); }} className={`w-full flex items-center justify-between p-3.5 rounded-xl transition-all border ${viewMode === 'VIP_PORTFOLIO' ? 'bg-gradient-to-r from-yellow-700 to-yellow-900 text-yellow-100 border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)]' : 'bg-gray-800 border-transparent hover:border-yellow-500/50 hover:bg-yellow-900/10'}`}>
                       <div className="flex items-center gap-3">
                         <div className="relative">
                           <Briefcase className={`w-5 h-5 ${viewMode === 'VIP_PORTFOLIO' ? 'text-yellow-200' : 'text-yellow-500'}`} />
@@ -1800,17 +1800,17 @@ const App: React.FC = () => {
                     </button>
                   )}
 
-                  <button onClick={() => { setViewMode('HISTORY'); setIsSidebarOpen(false); }} className={`w-full flex items-center justify-between p-3.5 rounded-xl transition-all ${viewMode === 'HISTORY' ? 'bg-gray-700 text-white shadow-sm' : 'bg-gray-800 hover:bg-gray-700'}`}>
+                  <button onClick={() => { setViewMode('HISTORY'); setIsSidebarOpen(false); setShowAdminPanel(false); }} className={`w-full flex items-center justify-between p-3.5 rounded-xl transition-all ${viewMode === 'HISTORY' ? 'bg-gray-700 text-white shadow-sm' : 'bg-gray-800 hover:bg-gray-700'}`}>
                     <div className="flex items-center gap-3"><History className={`w-5 h-5 ${viewMode === 'HISTORY' ? 'text-libao-gold' : 'text-gray-400'}`} /><span className="text-sm font-medium">交易紀錄</span></div>
                     <ChevronRight className="w-4 h-4 text-gray-600" />
                   </button>
 
-                  <button onClick={() => { setViewMode('DIVIDENDS'); setIsSidebarOpen(false); }} className={`w-full flex items-center justify-between p-3.5 rounded-xl transition-all ${viewMode === 'DIVIDENDS' ? 'bg-purple-900/30 text-purple-200 border border-purple-500/50 shadow-sm' : 'bg-gray-800 hover:bg-gray-700'}`}>
+                  <button onClick={() => { setViewMode('DIVIDENDS'); setIsSidebarOpen(false); setShowAdminPanel(false); }} className={`w-full flex items-center justify-between p-3.5 rounded-xl transition-all ${viewMode === 'DIVIDENDS' ? 'bg-purple-900/30 text-purple-200 border border-purple-500/50 shadow-sm' : 'bg-gray-800 hover:bg-gray-700'}`}>
                     <div className="flex items-center gap-3"><Coins className={`w-5 h-5 ${viewMode === 'DIVIDENDS' ? 'text-purple-400' : 'text-gray-400'}`} /><span className="text-sm font-medium">股息帳本</span></div>
                     <ChevronRight className="w-4 h-4 text-gray-600" />
                   </button>
 
-                  <button onClick={() => { setViewMode('AI_PICKS'); setIsSidebarOpen(false); }} className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gray-800 hover:bg-gray-700 transition-all">
+                  <button onClick={() => { setViewMode('AI_PICKS'); setIsSidebarOpen(false); setShowAdminPanel(false); }} className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gray-800 hover:bg-gray-700 transition-all">
                     <div className="flex items-center gap-3"><Brain className="w-5 h-5 text-indigo-500" /><span className="text-sm font-medium">AI 選股</span></div>
                     <ChevronRight className="w-4 h-4 text-gray-600" />
                   </button>
@@ -1834,7 +1834,7 @@ const App: React.FC = () => {
                 <div className="space-y-4">
                   <div className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] px-1">管理員專區</div>
                   <div className="grid grid-cols-1 gap-2">
-                    <button onClick={() => { setShowAdminPanel(true); setIsSidebarOpen(false); }} className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gray-800 hover:bg-gray-700 transition-all group">
+                    <button onClick={() => { setViewMode('ADMIN'); setIsSidebarOpen(false); }} className={`w-full flex items-center justify-between p-3.5 rounded-xl transition-all group ${viewMode === 'ADMIN' ? 'bg-gray-700 text-white' : 'bg-gray-800 hover:bg-gray-700'}`}>
                       <div className="flex items-center gap-3"><Shield className="w-5 h-5 text-yellow-500 group-hover:scale-110 transition-transform" /><span className="text-sm font-medium">管理員面板</span></div>
                       <ChevronRight className="w-4 h-4 text-gray-600" />
                     </button>
@@ -2063,7 +2063,12 @@ const App: React.FC = () => {
             />
           </div>
         )}
-      </main>
+        {viewMode === 'ADMIN' && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <AdminPanel currentUser={user} />
+          </div>
+        )}
+      </main >
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around p-3 z-40">
         <button id="nav-mobile-dashboard" onClick={() => { setViewMode('PORTFOLIO'); setActiveCategoryId(null); setShowAdminPanel(false); }} className={`flex flex-col items-center gap-1 ${viewMode === 'PORTFOLIO' ? 'text-blue-600' : 'text-gray-400'}`}><LayoutDashboard className="w-6 h-6" /><span className="text-[10px]">持倉</span></button>
