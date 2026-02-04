@@ -60,8 +60,16 @@ try {
   app = initializeApp(firebaseConfig);
 
   if (typeof window !== 'undefined') {
-    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-      (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    const isLocalhost = location.hostname === 'localhost' ||
+      location.hostname === '127.0.0.1' ||
+      location.hostname.startsWith('192.168.') ||
+      location.hostname.startsWith('10.');
+
+    if (isLocalhost) {
+      // 使用固定的 Debug Token，請將此 Token 新增至 Firebase Console > App Check > Manage Debug Tokens
+      const FIXED_DEBUG_TOKEN = "libao-dev-debug-token-2025";
+      (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = FIXED_DEBUG_TOKEN;
+      console.log(`Firebase App Check: Debug mode enabled with fixed token: ${FIXED_DEBUG_TOKEN}`);
     }
 
     initializeAppCheck(app, {
@@ -94,35 +102,24 @@ export const loginWithGoogle = async () => {
     prompt: 'select_account'
   });
 
-  // Broader mobile check including tablets
-  const isMobileOrTablet = window.innerWidth <= 1024 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-  if (isMobileOrTablet) {
-    console.log("[Auth] Mobile/Tablet environment detected, using direct Redirect.");
-    await signInWithRedirect(auth, provider);
-    return null;
-  }
-
-  // Desktop Flow
+  console.log("[Auth] 嘗試使用彈窗 (Popup) 登入...");
   try {
     const result = await signInWithPopup(auth, provider);
+    console.log("[Auth] ✅ 彈窗登入成功:", result.user.email);
     return result.user;
   } catch (error: any) {
-    console.warn("[Auth] Popup failure:", error.code);
+    console.warn("[Auth] 彈窗登入失敗，嘗試回退至重導向 (Redirect)...", error.code);
 
-    // Explicit Fallback for popup block
-    if (error.code === 'auth/popup-blocked' || error.code === 'auth/operation-not-supported-in-this-environment') {
-      console.log("[Auth] Falling back to Redirect for Desktop...");
-      await signInWithRedirect(auth, provider);
-      return null;
+    // 如果彈窗被擋住、不支援此環境或是其他非取消的錯誤，則回退到 Redirect
+    if (error.code !== 'auth/popup-closed-by-user') {
+      try {
+        await signInWithRedirect(auth, provider);
+        return null;
+      } catch (redirectError) {
+        console.error("[Auth] ❌ 重導向登入亦失敗:", redirectError);
+        throw redirectError;
+      }
     }
-
-    if (error.code === 'auth/unauthorized-domain') {
-      alert(`【網域未授權】請在 Firebase 控制台新增: ${window.location.hostname}`);
-    } else if (error.code !== 'auth/popup-closed-by-user') {
-      alert(`登入遭遇進階錯誤: ${error.message}`);
-    }
-
     return null;
   }
 };
@@ -152,13 +149,16 @@ export const handleRedirectResult = async (): Promise<User | null> => {
     const result = await getRedirectResult(auth);
 
     if (result) {
-      console.log("[Auth] ✅ Redirect login successful:", result.user.email);
+      console.log("[Auth] ✅ 成功從重導向取得使用者:", result.user.email);
       return result.user;
     }
 
+    console.log("[Auth] ℹ️ getRedirectResult 回傳為空 (可能非跳轉回來或是資訊已過期)");
     return null;
   } catch (error: any) {
-    console.error("[Auth] Redirect error:", error.code);
+    console.error("[Auth] ❌ getRedirectResult 發生異常錯誤:", error);
+    console.error("[Auth] 錯誤代碼:", error.code);
+    console.error("[Auth] 錯誤訊息:", error.message);
 
     if (error.code === 'auth/unauthorized-domain') {
       alert(`網域未授權: ${window.location.hostname}`);

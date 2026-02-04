@@ -96,6 +96,8 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isStartingFresh, setIsStartingFresh] = useState(false);
+  const [authInitializing, setAuthInitializing] = useState(true);
+  const [isCheckingRedirect, setIsCheckingRedirect] = useState(true); // NEW: Redirect Check Lock
 
   // --- UI State ---
   const [showTutorial, setShowTutorial] = useState(false);
@@ -196,87 +198,68 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Handle redirect result on app startup (critical for PWA standalone mode)
+  // --- Consolidated Auth & Redirect Logic ---
   useEffect(() => {
-    const checkRedirect = async () => {
-      console.log("[App] Checking redirect result on startup...");
+    const initAuth = async () => {
+      console.log("[App] 🏁 初始化認證流程...");
 
       try {
+        // 1. 先處理重導向結果
+        console.log("[App] 🚀 檢查重導向...");
         const redirectUser = await handleRedirectResult();
-
         if (redirectUser) {
-          console.log("[App] Redirect login successful, auth state will update automatically");
-          // onAuthStateChanged will handle the rest (loading portfolio, etc.)
+          console.log("[App] ✅ 重導向成功:", redirectUser.email);
+          setUser(redirectUser);
         }
       } catch (e) {
-        console.error("[App] Redirect check failed:", e);
-        setIsSyncing(false);
+        console.error("[App] ❌ 重導向錯誤:", e);
+      } finally {
+        setIsCheckingRedirect(false);
       }
+
+      // 2. 啟動長期監聽
+      console.log("[App] 📡 啟動身分狀態監聽...");
+      const unsubscribe = subscribeToAuthChanges(async (currentUser) => {
+        console.log("[App] 👤 身份狀態更新:", currentUser ? currentUser.email : "未登入");
+        setUser(currentUser);
+
+        if (currentUser) {
+          setIsSyncing(true);
+          try {
+            const role = await syncUserProfile(currentUser);
+            setUserRole(role);
+
+            // 載入資料
+            const cloudData = await loadPortfolioFromCloud(currentUser.uid);
+            if (cloudData) {
+              saveAndSetPortfolio({ ...initialPortfolioState, ...cloudData });
+            } else {
+              const localData = localStorage.getItem('libao-portfolio');
+              if (localData) setPortfolio(JSON.parse(localData));
+            }
+          } catch (err) {
+            console.error("[App] 資料載入失敗:", err);
+          } finally {
+            setIsSyncing(false);
+            setAuthInitializing(false);
+          }
+        } else {
+          // 處理未登入
+          const localData = localStorage.getItem('libao-portfolio');
+          if (localData) setPortfolio(JSON.parse(localData));
+          setIsDataLoaded(true);
+          setAuthInitializing(false);
+        }
+      });
+
+      return unsubscribe;
     };
 
-    checkRedirect();
-  }, []); // Run once on mount
-
-  useEffect(() => {
-    const unsubscribe = subscribeToAuthChanges(async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        setIsSyncing(true);
-        try {
-          // Sync User Profile (and fetch role)
-          const role = await syncUserProfile(currentUser);
-          console.log(`[App] Initial User Role: ${role}`);
-          setUserRole(role);
-
-          // Subscribe to Real-time Role Changes
-          subscribeToUserRole(currentUser.uid, (newRole) => {
-            console.log(`[App] Role updated realtime: ${newRole}`);
-            setUserRole(newRole);
-            showToast(`權限已更新為: ${newRole.toUpperCase()}`, "info");
-          });
-
-          // Load Portfolio
-          const cloudData = await loadPortfolioFromCloud(currentUser.uid);
-          if (cloudData) {
-            saveAndSetPortfolio({ ...initialPortfolioState, ...cloudData, martingale: cloudData.martingale || initialPortfolioState.martingale });
-            localStorage.setItem('libao-onboarding-v1', 'true');
-            fetchStockNews();
-          } else {
-            const localData = localStorage.getItem('libao-portfolio');
-            if (localData) {
-              const parsed = JSON.parse(localData);
-              setPortfolio({ ...initialPortfolioState, ...parsed, martingale: parsed.martingale || initialPortfolioState.martingale });
-              setIsDataLoaded(true);
-              await savePortfolioToCloud(currentUser.uid, parsed);
-              fetchStockNews();
-            } else {
-              setShowOnboarding(true);
-            }
-          }
-        } catch (e) { console.error(e); } finally { setIsSyncing(false); }
-      } else {
-        console.log("[App] User logged out, resetting state.");
-        setUserRole('viewer'); // Reset role
-        setPortfolio(initialPortfolioState); // Clear sensitive data
-        setIsDataLoaded(false); // Force reload for next user
-        setActiveCategoryId(null);
-        setMartingaleActiveId(null);
-        setShowAdminPanel(false); // Fix: Close admin panel on logout
-
-        // Load local only as fallback
-        const localData = localStorage.getItem('libao-portfolio');
-        if (localData) {
-          try {
-            const parsed = JSON.parse(localData);
-            setPortfolio(parsed);
-            setIsDataLoaded(true);
-            fetchStockNews();
-          } catch (e) { console.error(e); }
-        }
-      }
-    });
-    return () => unsubscribe();
-  }, [saveAndSetPortfolio, fetchStockNews]);
+    const authPromise = initAuth();
+    return () => {
+      authPromise.then(unsub => unsub && typeof unsub === 'function' && (unsub as any)());
+    };
+  }, [saveAndSetPortfolio, initialPortfolioState]);
 
   useEffect(() => {
     if (isDataLoaded && portfolio.transactions.length > 0) {
@@ -1610,7 +1593,29 @@ const App: React.FC = () => {
     showToast("分類已刪除", "info");
   };
 
-  if (!isDataLoaded && !user && !isStartingFresh) {
+  // 1. 優先權：身分驗證中 或 正在檢查跳轉結果
+  if (authInitializing || isCheckingRedirect) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Coins className="w-6 h-6 text-emerald-500 animate-pulse" />
+          </div>
+        </div>
+        <div className="text-emerald-500 font-medium animate-pulse tracking-wider">
+          身分驗證中...
+        </div>
+        <div className="text-slate-500 text-xs font-mono">
+          {isCheckingRedirect ? "正在確認回傳資訊..." : "正在同步帳號狀態..."}
+        </div>
+      </div>
+    );
+  }
+
+  // 2. 只有在驗證完成且真的沒有 user 時，才顯示歡迎頁
+  if (!authInitializing && !user && !isStartingFresh && !isSyncing) {
+    console.log("[App] 🏠 顯示歡迎/登入頁面");
     return (
       <div className="min-h-screen bg-[#0f172a] text-white flex flex-col items-center justify-center p-6 text-center overflow-hidden relative">
         <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-600/20 rounded-full blur-[120px]"></div>
