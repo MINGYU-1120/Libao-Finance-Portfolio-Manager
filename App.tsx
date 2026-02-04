@@ -136,6 +136,7 @@ const App: React.FC = () => {
   }), []);
 
   const [portfolio, setPortfolio] = useState<PortfolioState>(initialPortfolioState);
+  const lastMartingaleDataRef = useRef<string>(''); // To prevent duplicate toasts
   const portfolioRef = useRef(portfolio);
   useEffect(() => { portfolioRef.current = portfolio; }, [portfolio]);
 
@@ -632,17 +633,16 @@ const App: React.FC = () => {
 
     if (hasAccess) {
       console.log("[Sync] Authorized user detected, subscribing to public martingale...");
-      showToast("正在連接馬丁策略雲端資料...", "info");
-
       unsubscribe = subscribeToPublicMartingale((publicData) => {
         if (publicData) {
-          console.log("[Sync] Received Public Update. Cats:", publicData.categories.length, "Txs:", publicData.transactions.length);
+          const dataSig = `${publicData.categories.length}-${publicData.transactions.length}`;
+          const isInitialLoad = !lastMartingaleDataRef.current;
+
+          console.log("[Sync] Received Public Update. Sig:", dataSig);
 
           setPortfolio(prev => {
             const personalTxs = prev.transactions.filter(t => t.isMartingale !== true);
             const newMartingaleTxs = publicData.transactions.map(t => ({ ...t, isMartingale: true }));
-
-            setTimeout(() => showToast(`策略同步完成：${publicData.categories.length} 個分類`, "success"), 100);
 
             return {
               ...prev,
@@ -650,9 +650,16 @@ const App: React.FC = () => {
               transactions: [...personalTxs, ...newMartingaleTxs]
             };
           });
+
+          // Only show toast if data actually changed or it's the first load
+          if (lastMartingaleDataRef.current !== dataSig) {
+            lastMartingaleDataRef.current = dataSig;
+            if (!isInitialLoad) {
+              showToast(`策略同步完成：${publicData.categories.length} 個分類`, "success");
+            }
+          }
         } else {
           console.log("[Sync] Received null public data");
-          showToast("⚠️ 雲端策略資料為空 (NULL)，請聯繫管理員", "error");
         }
       });
     } else {
