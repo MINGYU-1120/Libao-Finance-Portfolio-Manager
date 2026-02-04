@@ -42,9 +42,11 @@ service cloud.firestore {
 
        // 2. Get Section's Min Tier from Config
        let configPath = /databases/$(database)/documents/config/permissions;
-       let hasConfig = exists(configPath);
-       let minTier = hasConfig && sectionKey in get(configPath).data 
-                     ? get(configPath).data[sectionKey] : 0; 
+       
+       // Handle cases where the document or individual fields are missing
+       let minTier = exists(configPath) && sectionKey in get(configPath).data 
+                     ? get(configPath).data[sectionKey] 
+                     : (sectionKey == 'market_insider' ? 3 : (sectionKey == 'ai_picks' ? 1 : (sectionKey == 'martingale' ? 1 : 0)));
        
        return userTier >= minTier;
     }

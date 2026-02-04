@@ -60,23 +60,32 @@ try {
   app = initializeApp(firebaseConfig);
 
   if (typeof window !== 'undefined') {
+    // --- App Check 初始化 ---
     const isLocalhost = location.hostname === 'localhost' ||
       location.hostname === '127.0.0.1' ||
       location.hostname.startsWith('192.168.') ||
       location.hostname.startsWith('10.');
 
-    if (isLocalhost) {
-      // 使用固定的 Debug Token，請將此 Token 新增至 Firebase Console > App Check > Manage Debug Tokens
+    // 取得網址參數中的偵錯標記 (例如 ?debug_appcheck=true)
+    const urlParams = new URLSearchParams(window.location.search);
+    const forceDebug = urlParams.get('debug_appcheck') === 'true';
+
+    if (isLocalhost || forceDebug) {
+      // 使用固定的 Debug Token，請在 Firebase Console > App Check > Manage Debug Tokens 新增此值
       const FIXED_DEBUG_TOKEN = "libao-dev-debug-token-2025";
       (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = FIXED_DEBUG_TOKEN;
-      console.log(`Firebase App Check: Debug mode enabled with fixed token: ${FIXED_DEBUG_TOKEN}`);
+      console.log(`[AppCheck] 偵錯模式已啟用。權杖: ${FIXED_DEBUG_TOKEN}`);
     }
 
-    initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider('6LcenV8sAAAAALGLE_IlW1I_ntJhlueuwyRARiLd'),
-      isTokenAutoRefreshEnabled: true
-    });
-    console.log("Firebase App Check initialized.");
+    try {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider('6LcenV8sAAAAALGLE_IlW1I_ntJhlueuwyRARiLd'),
+        isTokenAutoRefreshEnabled: true
+      });
+      console.log("[AppCheck] 初始化成功。");
+    } catch (err) {
+      console.error("[AppCheck] 初始化失敗 (可能是金鑰或網域問題):", err);
+    }
   }
 
   auth = getAuth(app);
