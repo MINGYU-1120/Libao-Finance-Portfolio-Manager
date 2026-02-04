@@ -147,13 +147,33 @@ export const handleRedirectResult = async (): Promise<User | null> => {
 
   try {
     console.log("[Auth] Checking for redirect result...");
+
+    // CRITICAL FIX: Only call getRedirectResult if we're actually coming from a redirect
+    // Check if there's a redirect marker in the URL or session
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasRedirectParams = urlParams.has('state') || urlParams.has('code');
+
+    // Also check if current user is already authenticated
+    const currentUser = auth.currentUser;
+
+    if (currentUser) {
+      console.log("[Auth] User already authenticated, skipping redirect check");
+      return null;
+    }
+
+    if (!hasRedirectParams) {
+      console.log("[Auth] No redirect parameters found, skipping getRedirectResult");
+      return null;
+    }
+
+    console.log("[Auth] Redirect parameters detected, calling getRedirectResult...");
     const result = await getRedirectResult(auth);
 
     if (result) {
       console.log("[Auth] ✅ Redirect result found! User logged in:", result.user.email);
       return result.user;
     } else {
-      console.log("[Auth] No redirect result found (normal for non-redirect flows)");
+      console.log("[Auth] No redirect result (might have been consumed already)");
       return null;
     }
   } catch (error: any) {
@@ -163,7 +183,6 @@ export const handleRedirectResult = async (): Promise<User | null> => {
       alert(`【網域未授權】請在 Firebase 控制台新增: ${window.location.hostname}`);
     } else if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
       console.error("[Auth] Unexpected redirect error:", error);
-      alert(`登入過程發生錯誤: ${error.message}`);
     }
 
     return null;
