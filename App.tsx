@@ -237,9 +237,6 @@ const App: React.FC = () => {
         setUserRole('viewer'); // Reset role
         setPortfolio(initialPortfolioState); // Clear sensitive data
         setIsDataLoaded(false); // Force reload for next user
-        setUserRole('viewer'); // Reset role
-        setPortfolio(initialPortfolioState); // Clear sensitive data
-        setIsDataLoaded(false); // Force reload for next user
         setActiveCategoryId(null);
         setMartingaleActiveId(null);
         setShowAdminPanel(false); // Fix: Close admin panel on logout
@@ -302,12 +299,20 @@ const App: React.FC = () => {
   };
 
   const handleLoginAction = async () => {
-    // Note: Calling this as directly as possible to avoid losing user gesture context on mobile
-    const loggedInUser = await loginWithGoogle();
-    if (!loggedInUser) {
+    setIsSyncing(true);
+    try {
+      const loggedInUser = await loginWithGoogle();
+      // If it's a redirect, the page will reload. 
+      // If it's a popup, it resolves here.
+      if (!loggedInUser) {
+        // On mobile, keep syncing (loading) state while waiting for redirect
+        const isMobile = window.innerWidth <= 768;
+        if (!isMobile) setIsSyncing(false);
+      }
+    } catch (e) {
+      console.error(e);
       setIsSyncing(false);
-    } else {
-      setIsSyncing(true); // Let the auth listener take over
+      showToast("登入過程發生錯誤", "error");
     }
   };
 

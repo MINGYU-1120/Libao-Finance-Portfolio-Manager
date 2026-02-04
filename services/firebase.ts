@@ -90,7 +90,7 @@ export const isFirebaseReady = () => isConfigured;
 export const loginWithGoogle = async () => {
   if (!isConfigured) {
     alert("Firebase 初始化失敗，請重新整理頁面。");
-    return;
+    return null;
   }
   const provider = new GoogleAuthProvider();
 
@@ -99,53 +99,54 @@ export const loginWithGoogle = async () => {
     prompt: 'select_account'
   });
 
-  // Mobile Detection: signInWithRedirect is much better for mobile browsers to avoid popup blocks
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
   if (isMobile) {
-    console.log("[Auth] Mobile detected, using signInWithRedirect...");
+    console.log("[Auth] Mobile environment detected, using Redirect...");
     try {
+      // For mobile, we explicitly use Redirect to avoid the common popup-blocked issue on mobile browsers
       await signInWithRedirect(auth, provider);
-      return null; // Page will redirect
-    } catch (e) {
-      console.error("Redirect failed", e);
+      return null;
+    } catch (e: any) {
+      console.error("[Auth] Redirect failed:", e);
+      // Rare fallback: try popup if redirect fails for some reason
+      try {
+        const res = await signInWithPopup(auth, provider);
+        return res.user;
+      } catch (popupError) {
+        console.error("[Auth] Fallback popup also failed:", popupError);
+        throw e;
+      }
     }
   }
 
+  // Desktop Flow: Try Popup first
   try {
     const result = await signInWithPopup(auth, provider);
     return result.user;
   } catch (error: any) {
-    // Handling Popup Blocked (Common on Mobile or some desktop settings)
+    console.warn("[Auth] Popup sign-in failed/blocked with code:", error.code);
+
+    // Handling Popup Blocked or other constraints
     if (error.code === 'auth/popup-blocked' || error.code === 'auth/operation-not-supported-in-this-environment') {
-      console.warn("Popup blocked, falling back to redirect...");
+      console.log("[Auth] Falling back to Redirect for Desktop...");
       try {
         await signInWithRedirect(auth, provider);
-        // Page will redirect, function won't return
         return null;
       } catch (redirectError) {
-        console.error("Redirect login failed", redirectError);
-        alert("登入失敗：無法開啟登入視窗，也無法跳轉。請嘗試使用其他瀏覽器。");
-        return null;
+        console.error("[Auth] Redirect fallback failed:", redirectError);
+        throw redirectError;
       }
     }
-    // Specific handling for Unauthorized Domain error
-    else if (error.code === 'auth/unauthorized-domain') {
+
+    // Handling Unauthorized Domain
+    if (error.code === 'auth/unauthorized-domain') {
       const domain = window.location.hostname;
-      console.warn(`[Firebase Auth] Domain '${domain}' is not authorized.`);
-      alert(
-        `【登入被阻擋：網域未授權】\n\n` +
-        `這是 Firebase 的安全機制 (Security Rule)。\n` +
-        `您目前的執行環境網域是：${domain}\n\n` +
-        `請前往 Firebase Console > Authentication > Settings > Authorized domains，\n` +
-        `新增上述網域即可正常登入。`
-      );
-    } else if (error.code === 'auth/popup-closed-by-user') {
-      console.log("User closed login popup.");
-    } else {
-      console.error("Login failed", error);
-      alert(`登入發生錯誤: ${error.message}`);
+      alert(`【登入錯誤】網域 '${domain}' 未在 Firebase 授權名單中。`);
+    } else if (error.code !== 'auth/popup-closed-by-user') {
+      alert(`登入錯誤: ${error.message}`);
     }
+
     return null;
   }
 };
