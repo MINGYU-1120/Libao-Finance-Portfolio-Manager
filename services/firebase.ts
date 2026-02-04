@@ -132,25 +132,37 @@ export const loginWithGoogle = async () => {
  * This is critical for PWA standalone mode where the app restarts after redirect
  */
 export const handleRedirectResult = async (): Promise<User | null> => {
-  if (!auth) return null;
+  // Wait for auth to be initialized
+  let retries = 0;
+  while (!auth && retries < 10) {
+    console.log("[Auth] Waiting for Firebase to initialize...");
+    await new Promise(resolve => setTimeout(resolve, 100));
+    retries++;
+  }
+
+  if (!auth) {
+    console.error("[Auth] Firebase auth not initialized after waiting");
+    return null;
+  }
 
   try {
     console.log("[Auth] Checking for redirect result...");
     const result = await getRedirectResult(auth);
 
     if (result) {
-      console.log("[Auth] Redirect result found, user logged in:", result.user.email);
+      console.log("[Auth] ✅ Redirect result found! User logged in:", result.user.email);
       return result.user;
     } else {
-      console.log("[Auth] No redirect result found");
+      console.log("[Auth] No redirect result found (normal for non-redirect flows)");
       return null;
     }
   } catch (error: any) {
-    console.error("[Auth] Redirect result error:", error.code, error.message);
+    console.error("[Auth] ❌ Redirect result error:", error.code, error.message);
 
     if (error.code === 'auth/unauthorized-domain') {
       alert(`【網域未授權】請在 Firebase 控制台新增: ${window.location.hostname}`);
-    } else if (error.code !== 'auth/popup-closed-by-user') {
+    } else if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
+      console.error("[Auth] Unexpected redirect error:", error);
       alert(`登入過程發生錯誤: ${error.message}`);
     }
 
