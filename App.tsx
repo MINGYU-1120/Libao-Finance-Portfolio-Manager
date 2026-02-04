@@ -299,20 +299,21 @@ const App: React.FC = () => {
   };
 
   const handleLoginAction = async () => {
-    setIsSyncing(true);
+    // Immediate log to check if button is reactive
+    console.log("[App] handleLoginAction triggered");
+
     try {
+      // Don't set full-screen isSyncing here yet, as re-render might break some mobile gestures
+      // Instead, we'll set it inside/after the login attempt
       const loggedInUser = await loginWithGoogle();
-      // If it's a redirect, the page will reload. 
-      // If it's a popup, it resolves here.
-      if (!loggedInUser) {
-        // On mobile, keep syncing (loading) state while waiting for redirect
-        const isMobile = window.innerWidth <= 768;
-        if (!isMobile) setIsSyncing(false);
+
+      if (loggedInUser || window.innerWidth <= 1024) {
+        setIsSyncing(true); // Show loading while waiting for sync or redirect
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error("[Login Error]", e);
       setIsSyncing(false);
-      showToast("登入過程發生錯誤", "error");
+      showToast(`登入遭遇問題: ${e.message || "未知錯誤"}`, "error");
     }
   };
 
