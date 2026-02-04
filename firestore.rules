@@ -25,8 +25,10 @@ service cloud.firestore {
 
     function isAdmin() {
       // 1. Identity-based Super Admin (Priority: Bootstrap safely even if DB doc doesn't exist)
-      let superAdminEmails = ['1033023@ntsu.edu.tw', 'libao.finance@gmail.com'];
-      let isIdentityAdmin = isSignedIn() && request.auth.token.email in superAdminEmails;
+      let isIdentityAdmin = isSignedIn() && (
+        request.auth.token.email == '1033023@ntsu.edu.tw' || 
+        request.auth.token.email == 'libao.finance@gmail.com'
+      );
 
       // 2. Role-based Admin (Dynamic: Check DB role)
       return isIdentityAdmin || (isSignedIn() && getUserRole() == 'admin');
