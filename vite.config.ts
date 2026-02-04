@@ -5,15 +5,19 @@ import basicSsl from '@vitejs/plugin-basic-ssl';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
+  const isDev = mode === 'development';
+
   return {
     server: {
       port: 3000,
       host: '0.0.0.0',
-      https: true, // 啟用 HTTPS
+      // 僅在本地開發模式啟用 HTTPS
+      https: isDev ? true : undefined,
     },
     plugins: [
       react(),
-      basicSsl() // 自動生成測試用憑證
+      // 僅在開發模式加入 SSL 插件
+      ...(isDev ? [basicSsl()] : [])
     ],
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
@@ -24,5 +28,5 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, '.'),
       }
     }
-  };
+  } as any;
 });
