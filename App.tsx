@@ -647,8 +647,8 @@ const App: React.FC = () => {
       console.log("[Sync] Admin detected, scheduling public update...");
       const timer = setTimeout(() => {
         console.log("[Sync] Executing updatePublicMartingale...");
-        // Pass both categories and transactions (filtered for martingale inside service, but we pass all or filtered? Service filters.)
-        updatePublicMartingale(portfolio.martingale as any, portfolio.transactions);
+        // Pass categories, transactions, and totalCapital
+        updatePublicMartingale(portfolio.martingale as any, portfolio.transactions, portfolio.totalCapital);
       }, 3000); // 3s debounce
       return () => clearTimeout(timer);
     }
@@ -679,6 +679,7 @@ const App: React.FC = () => {
 
               return {
                 ...prev,
+                totalCapital: publicData.totalCapital,
                 martingale: publicData.categories,
                 transactions: [...personalTxs, ...newMartingaleTxs]
               };

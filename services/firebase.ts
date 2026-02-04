@@ -298,10 +298,11 @@ export const getAuditLogs = async (limitCount: number = 50): Promise<AuditLog[]>
 type PublicMartingaleData = {
   categories: PositionCategory[];
   transactions: TransactionRecord[];
+  totalCapital: number;
   lastUpdated: number;
 }
 
-export const updatePublicMartingale = async (categories: PositionCategory[], transactions: TransactionRecord[]) => {
+export const updatePublicMartingale = async (categories: PositionCategory[], transactions: TransactionRecord[], totalCapital: number) => {
   if (!isConfigured) return;
   try {
     const docRef = doc(db, 'public_portfolios', 'martingale');
@@ -312,6 +313,7 @@ export const updatePublicMartingale = async (categories: PositionCategory[], tra
     const payload: PublicMartingaleData = {
       categories: cleanCategories,
       transactions: cleanTransactions,
+      totalCapital,
       lastUpdated: Date.now()
     };
 
@@ -321,7 +323,7 @@ export const updatePublicMartingale = async (categories: PositionCategory[], tra
   }
 };
 
-export const subscribeToPublicMartingale = (callback: (data: { categories: PositionCategory[], transactions: TransactionRecord[] } | null) => void) => {
+export const subscribeToPublicMartingale = (callback: (data: { categories: PositionCategory[], transactions: TransactionRecord[], totalCapital: number } | null) => void) => {
   if (!isConfigured) return () => { };
   const docRef = doc(db, 'public_portfolios', 'martingale');
 
@@ -330,7 +332,8 @@ export const subscribeToPublicMartingale = (callback: (data: { categories: Posit
       const data = docSnap.data();
       callback({
         categories: (data.categories || []) as PositionCategory[],
-        transactions: (data.transactions || []) as TransactionRecord[]
+        transactions: (data.transactions || []) as TransactionRecord[],
+        totalCapital: data.totalCapital || 0
       });
     } else {
       callback(null);
