@@ -87,8 +87,8 @@ const MartingalePanel: React.FC<MartingalePanelProps> = ({
                             totalCapital={totalCapital}
                             transactions={transactions}
                             industryData={industryData} // Pass it down
-                            onDeposit={onDeposit} // Pass it down
-                            onReset={onReset} // Pass it down
+                            onDeposit={isAdmin ? onDeposit : undefined} // Only admin can update capital
+                            onReset={isAdmin ? onReset : undefined} // Only admin can reset
                             isPrivacyMode={isPrivacyMode}
                         />
                     </div>
