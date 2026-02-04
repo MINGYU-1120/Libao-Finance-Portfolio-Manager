@@ -525,8 +525,6 @@ const App: React.FC = () => {
       // But for "Compare", applying Teacher's % to User's Capital makes sense. 
 
       let catInvested = 0;
-      let catRealizedPnL = 0; // Needs tracking if we want PnL
-
       const calcAssets: CalculatedAsset[] = cat.assets.map(asset => {
         const costBasis = asset.shares * asset.avgCost * marketRate;
         const marketValue = asset.shares * asset.currentPrice * marketRate;
@@ -551,6 +549,22 @@ const App: React.FC = () => {
       calcAssets.forEach(a => {
         a.portfolioRatio = projected > 0 ? (a.costBasis / projected) * 100 : 0;
       });
+
+      // Dynamic Realized PnL from Transactions (using same filter logic as chart)
+      const catRealizedPnL = portfolio.transactions
+        .filter(t => {
+          if (t.categoryName !== cat.name) return false;
+          if (t.type !== 'SELL' && t.type !== 'DIVIDEND') return false;
+
+          // 1. Explicit Flag Preference
+          if (t.isMartingale === true) return true;
+          if (t.isMartingale === false) return false;
+
+          // 2. Legacy Fallback
+          if (t.portfolioRatio && t.portfolioRatio > 0) return false;
+          return true;
+        })
+        .reduce((sum, t) => sum + (t.realizedPnL || 0), 0);
 
       return {
         ...cat,
@@ -1519,15 +1533,15 @@ const App: React.FC = () => {
 
     const newTransactions = portfolio.transactions.filter(t => {
       // 1. Explicit Flag Preference
-      if (t.isMartingale === true) return false; // This is a Martingale reset, remove all Martingale
-      if (t.isMartingale === false) return true; // KEEP all Personal
+      if (t.isMartingale === true) return false; // REMOVE Martingale
+      if (t.isMartingale === false) return true; // KEEP Personal
 
       // 2. Legacy/Fallback Naming Logic
       const isMartName = martNames.includes(t.categoryName);
       if (isMartName) {
-        // If it matches a Martingale name but has ratio, it's personal.
-        if (t.portfolioRatio && t.portfolioRatio > 0) return true;
-        return false;
+        // Strict Heuristic: If it has ratio > 0, it's a legacy Personal position
+        if (t.portfolioRatio && t.portfolioRatio > 0) return true; // KEEP Personal
+        return false; // REMOVE Martingale
       }
 
       return true; // Keep everything else
@@ -2052,13 +2066,15 @@ const App: React.FC = () => {
               activeCategoryId={martingaleActiveId}
               onSetActiveCategory={setMartingaleActiveId}
               transactions={portfolio.transactions.filter(t => {
-                const matchesMartingale = (calculatedData as any).martingale.some((c: any) => c.name === t.categoryName);
+                const matchesMartingale = (portfolio.martingale || []).some((c: any) => c.name === t.categoryName);
                 if (!matchesMartingale) return false;
 
-                // Allow explicit Martingale transactions regardless of other props
+                // 1. Explicit Flag Preference (STRICT)
                 if (t.isMartingale === true) return true;
+                if (t.isMartingale === false) return false;
 
-                // Strict Fix: Exclude Personal transactions (with ratio > 0) even if name collides
+                // 2. Legacy Fallback (Heuristic)
+                // If it has a ratio, it's from a personal category position
                 if (t.portfolioRatio && t.portfolioRatio > 0) return false;
                 return true;
               })}
