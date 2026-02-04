@@ -1222,30 +1222,23 @@ const App: React.FC = () => {
       return;
     }
 
+    const martNames = (Array.isArray(portfolio.martingale) ? portfolio.martingale : []).map(c => c.name);
+
     const newTransactions = portfolio.transactions.filter(t => {
       if (t.type !== 'DIVIDEND') return true; // Keep non-dividends
 
-      // Check if this dividend belongs to the target
-      // Logic mirrors the filter in DividendLedger and handleScanDividends
+      // 1. Explicit Check
       if (t.isMartingale !== undefined) {
-        // If explicit tag exists, remove if it matches target
-        return target === 'my' ? t.isMartingale : !t.isMartingale;
+        if (target === 'martingale' && t.isMartingale === true) return false;
+        if (target === 'my' && t.isMartingale === false) return false;
       }
 
-      // Legacy fallback (should be rare now with auto-fix, but safe to keep)
-      // If we are deleting Martingale, and it looks like Martingale, remove it.
-      if (target === 'martingale') {
-        const isMartingaleCategory = Array.isArray(portfolio.martingale) && portfolio.martingale.some(c => c.name === t.categoryName);
-        if (isMartingaleCategory) return false; // Remove
-      }
-      // If we are deleting Personal...
-      if (target === 'my') {
-        // Assume personal if not marked otherwise
-        const isMartingaleCategory = Array.isArray(portfolio.martingale) && portfolio.martingale.some(c => c.name === t.categoryName);
-        if (!isMartingaleCategory) return false; // Remove
-      }
+      // 2. Name Match Check (Legacy/Fallback)
+      const isMartName = martNames.includes(t.categoryName);
+      if (target === 'martingale' && isMartName) return false;
+      if (target === 'my' && !isMartName && t.isMartingale === undefined) return false;
 
-      return true; // Keep
+      return true; // Keep others
     });
 
     saveAndSetPortfolio({ ...portfolio, transactions: newTransactions });
@@ -1520,22 +1513,17 @@ const App: React.FC = () => {
     }
 
     // Execute Reset
+    const martNames = (Array.isArray(portfolio.martingale) ? portfolio.martingale : []).map(c => c.name);
+
     const newTransactions = portfolio.transactions.filter(t => {
-      // Keep Personal transactions. 
-      // Filter out Martingale ones.
-      // Logic: If explicitly Martingale OR matched by category name in old list, remove it.
+      // 1. If explicitly marked as Martingale, remove it
+      if (t.isMartingale === true) return false;
 
-      const isExplicitMartingale = t.isMartingale === true;
-      const isLegacyMartingaleName = Array.isArray(portfolio.martingale) && portfolio.martingale.some(c => c.name === t.categoryName);
-
-      // If it's explicitly marked, remove it.
-      if (isExplicitMartingale) return false;
-
-      // If legacy name match, we use our smart logic from before:
-      // If portfolioRatio is 0 (or undefined in some very old cases but usually generic imports have 0), it is likely Martingale.
-      // However, resetting entire Martingale section implies clearing anything associated with current Martingale categories.
-      if (isLegacyMartingaleName) {
-        // Smart Filter: If it has ratio, it's personal, keep it. If ratio 0, delete it.
+      // 2. If it matches a Martingale category name...
+      const isMartName = martNames.includes(t.categoryName);
+      if (isMartName) {
+        // If it's a legacy dividend with no flag, or a transaction with no portfolioRatio, remove it.
+        // If it has portfolioRatio > 0, we assume it's a personal transaction and KEEP it.
         if (t.portfolioRatio && t.portfolioRatio > 0) return true;
         return false;
       }
