@@ -117,7 +117,7 @@ export const isFirebaseReady = () => isConfigured;
 
 export const loginWithGoogle = async () => {
   if (!auth) {
-    alert("系統啟動中或 Firebase 配置錯誤，請稍後再試或重新整理。");
+    alert("系統啟動中或 Firebase 配置錯誤,請稍後再試或重新整理。");
     return null;
   }
 
@@ -126,21 +126,37 @@ export const loginWithGoogle = async () => {
     prompt: 'select_account'
   });
 
-  console.log("[Auth] 嘗試使用彈窗 (Popup) 登入...");
+  // 檢測是否為行動裝置或 PWA 模式
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const isPWA = window.matchMedia('(display-mode: standalone)').matches;
+
+  // 手機端或 PWA 模式直接使用 Redirect,避免 Popup 被擋
+  if (isMobile || isPWA) {
+    console.log("[Auth] 行動端/PWA 模式,使用 Redirect 登入...");
+    try {
+      await signInWithRedirect(auth, provider);
+      return null; // Redirect 會重新載入頁面
+    } catch (error) {
+      console.error("[Auth] ❌ Redirect 登入失敗:", error);
+      throw error;
+    }
+  }
+
+  // 桌面端嘗試 Popup
+  console.log("[Auth] 桌面端,嘗試使用 Popup 登入...");
   try {
     const result = await signInWithPopup(auth, provider);
-    console.log("[Auth] ✅ 彈窗登入成功:", result.user.email);
+    console.log("[Auth] ✅ Popup 登入成功:", result.user.email);
     return result.user;
   } catch (error: any) {
-    console.warn("[Auth] 彈窗登入失敗，嘗試回退至重導向 (Redirect)...", error.code);
+    console.warn("[Auth] Popup 失敗,回退至 Redirect...", error.code);
 
-    // 如果彈窗被擋住、不支援此環境或是其他非取消的錯誤，則回退到 Redirect
     if (error.code !== 'auth/popup-closed-by-user') {
       try {
         await signInWithRedirect(auth, provider);
         return null;
       } catch (redirectError) {
-        console.error("[Auth] ❌ 重導向登入亦失敗:", redirectError);
+        console.error("[Auth] ❌ Redirect 登入亦失敗:", redirectError);
         throw redirectError;
       }
     }
