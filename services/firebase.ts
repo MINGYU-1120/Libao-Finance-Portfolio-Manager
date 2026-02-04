@@ -71,8 +71,8 @@ try {
     const forceDebug = urlParams.get('debug_appcheck') === 'true';
 
     if (isLocalhost || forceDebug) {
-      // 使用固定的 Debug Token，請在 Firebase Console > App Check > Manage Debug Tokens 新增此值
-      const FIXED_DEBUG_TOKEN = "libao-dev-debug-token-2025";
+      // 使用標準 UUID v4 格式的 Debug Token
+      const FIXED_DEBUG_TOKEN = "c3a8b273-5a0a-4fb1-b3f5-62d47d95b583";
       (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = FIXED_DEBUG_TOKEN;
       console.log(`[AppCheck] 偵錯模式已啟用。權杖: ${FIXED_DEBUG_TOKEN}`);
     }
