@@ -98,6 +98,14 @@ const App: React.FC = () => {
   const [isStartingFresh, setIsStartingFresh] = useState(false);
   const [authInitializing, setAuthInitializing] = useState(true);
   const [isCheckingRedirect, setIsCheckingRedirect] = useState(true);
+  const [debugInfo, setDebugInfo] = useState<any>({}); // Auth 診斷狀態
+
+  // 註冊診斷監聽
+  useEffect(() => {
+    import('./services/firebase').then(m => {
+      m.setAuthDebug((info) => setDebugInfo((prev: any) => ({ ...prev, ...info })));
+    });
+  }, []);
 
   // 🚀 PWA/啟動安全逾時機制：防止在行動端或 PWA 模式下因驗證延遲而卡死
   useEffect(() => {
@@ -321,13 +329,18 @@ const App: React.FC = () => {
 
     try {
       setIsSyncing(true); // Show loading immediately
-      const loggedInUser = await loginWithGoogle();
+      const result = await loginWithGoogle();
 
-      // If redirect started (returns null), keep loading state
-      // The page will reload and handleRedirectResult will complete the flow
-      if (!loggedInUser) {
+      if (result === 'PWA_RESTRICTED') {
+        setIsSyncing(false);
+        // 觸發導流提示
+        showToast("iOS PWA 登入受限，請點擊下方的「外部登入」引導。", "info");
+        setDebugInfo((prev: any) => ({ ...prev, showBreakoutUI: true }));
+        return;
+      }
+
+      if (!result) {
         console.log("[App] Redirect started, keeping loading state...");
-        // Don't set isSyncing(false) - let the redirect happen
       }
     } catch (e: any) {
       console.error("[Login Error]", e);
@@ -2151,7 +2164,61 @@ const App: React.FC = () => {
         <button id="nav-mobile-dividend" onClick={() => { setViewMode('DIVIDENDS'); setShowAdminPanel(false); }} className={`flex flex-col items-center gap-1 ${viewMode === 'DIVIDENDS' ? 'text-purple-600' : 'text-gray-400'}`}><Coins className="w-6 h-6" /><span className="text-[10px]">股息</span></button>
         <button id="nav-mobile-ai" onClick={() => { setViewMode('AI_PICKS'); setShowAdminPanel(false); }} className={`flex flex-col items-center gap-1 ${viewMode === 'AI_PICKS' ? 'text-indigo-600' : 'text-gray-400'}`}><Brain className="w-6 h-6" /><span className="text-[10px]">AI選股</span></button>
       </div>
-    </div >
+      {/* 認證診斷層 (僅在開發偵測時顯示或長按顯示，此處為求 Debug 直接顯示在底端) */}
+      <DebugOverlay info={debugInfo} onDismiss={() => setDebugInfo({})} />
+
+      {/* PWA 導流 Modal */}
+      {debugInfo.showBreakoutUI && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center space-y-4">
+            <div className="flex justify-center"><ExternalLink className="w-12 h-12 text-blue-500" /></div>
+            <h3 className="text-xl font-bold">iOS PWA 登入限制</h3>
+            <p className="text-gray-600 text-sm">
+              由於 Google 安全政策，無法直接在主畫面模式登入。請點擊按鈕開啟 Safari 完成登入後，再重新開啟本程式。
+            </p>
+            <button
+              onClick={() => {
+                window.location.href = window.location.origin + '?mode=safari_breakout';
+              }}
+              className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium"
+            >
+              在 Safari 中開啟
+            </button>
+            <button onClick={() => setDebugInfo((p: any) => ({ ...p, showBreakoutUI: false }))} className="text-gray-400 text-sm">暫時關閉</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Debug Overlay Component (不使用 Monkey Patch) ---
+const DebugOverlay: React.FC<{ info: any, onDismiss: () => void }> = ({ info, onDismiss }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  if (!isVisible) return (
+    <button
+      onClick={() => setIsVisible(true)}
+      className="fixed bottom-2 right-2 z-[9999] p-2 bg-gray-800 text-white rounded-full opacity-20 hover:opacity-100"
+    >
+      <HelpCircle size={16} />
+    </button>
+  );
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-[9999] bg-black/90 text-[10px] p-2 font-mono text-green-400 space-y-1">
+      <div className="flex justify-between border-b border-gray-700 pb-1 mb-1">
+        <span className="font-bold">AUTH DIAGNOSTICS</span>
+        <button onClick={() => setIsVisible(false)} className="px-2 bg-red-900 rounded">CLOSE</button>
+      </div>
+      <div>UA: {navigator.userAgent}</div>
+      <div className="grid grid-cols-2">
+        <div>STANDALONE: {String(info.isStandalone)}</div>
+        <div>MODE: {info.displayMode}</div>
+      </div>
+      <div>STATUS: <span className="text-yellow-400">{info.status || 'IDLE'}</span></div>
+      <div>LAST ERROR: <span className="text-red-400">{info.error || 'NONE'}</span></div>
+      {info.user && <div>USER: {info.user}</div>}
+    </div>
   );
 };
 

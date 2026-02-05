@@ -74,7 +74,9 @@ try {
 
 export const isFirebaseReady = () => isConfigured;
 
-// --- Auth Functions ---
+// --- Auth Debug Support ---
+let debugCallback: ((info: any) => void) | null = null;
+export const setAuthDebug = (cb: (info: any) => void) => { debugCallback = cb; };
 
 export const loginWithGoogle = async () => {
   if (!auth) {
@@ -83,47 +85,44 @@ export const loginWithGoogle = async () => {
   }
 
   const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({
-    prompt: 'select_account'
-  });
+  provider.setCustomParameters({ prompt: 'select_account' });
 
-  // 預先取得環境與 User Agent 以利診斷
   const ua = navigator.userAgent;
-  const isIOS = /iPad|iPhone|iPod/.test(ua);
   const isStandalone = (window.matchMedia('(display-mode: standalone)').matches) || (navigator as any).standalone === true;
-  const isPWA = isIOS && isStandalone;
 
-  console.log(`[Auth Check] Environment: ${isPWA ? 'iOS PWA' : isIOS ? 'iOS Browser' : 'Other'}`);
-  console.log(`[Auth Check] UserAgent: ${ua}`);
-
-  // 針對 iOS PWA 模式，優先使用 Redirect 模式
-  // Google 認證在 Standalone 模式下若缺失 Version 標籤常會被標記為不安全
-  if (isPWA) {
-    console.log("[Auth] 檢測到 iOS PWA 模式，執行 signInWithRedirect...");
-    try {
-      await signInWithRedirect(auth, provider);
-      return null;
-    } catch (error) {
-      console.error("[Auth] Redirect 模式失敗:", error);
-      throw error;
-    }
+  if (debugCallback) {
+    debugCallback({
+      ua,
+      isStandalone,
+      displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
+      lastAction: 'login_clicked'
+    });
   }
 
-  // 其他桌面端或行動端優先嘗試 Popup
+  // 1) 判斷 PWA Standalone：由於 Google 硬性阻擋，此處改為拋出信號由 UI 引導
+  if (isStandalone) {
+    console.log("[Auth] iOS PWA Standalone detected. Sign-in restricted by Google.");
+    if (debugCallback) debugCallback({ status: 'pwa_restricted' });
+    // 返回 null 或拋出特定錯誤，讓 App.tsx 決定是否顯示「跳轉 Safari」的提示
+    return 'PWA_RESTRICTED';
+  }
+
+  // 2) 一般環境：嘗試使用 Popup
   console.log("[Auth] 嘗試使用 Popup 登入...");
   try {
     const result = await signInWithPopup(auth, provider);
-    console.log("[Auth] ✅ Popup 登入成功:", result.user.email);
+    if (debugCallback) debugCallback({ status: 'popup_success', user: result.user.email });
     return result.user;
   } catch (error: any) {
     console.warn("[Auth] Popup 失敗, 回退至 Redirect...", error.code);
+    if (debugCallback) debugCallback({ status: 'popup_failed', error: error.code });
 
     if (error.code !== 'auth/popup-closed-by-user') {
       try {
         await signInWithRedirect(auth, provider);
         return null;
-      } catch (redirectError) {
-        console.error("[Auth] ❌ Redirect 亦失敗:", redirectError);
+      } catch (redirectError: any) {
+        if (debugCallback) debugCallback({ status: 'redirect_failed', error: redirectError.code });
         throw redirectError;
       }
     }
