@@ -87,24 +87,30 @@ export const loginWithGoogle = async () => {
     prompt: 'select_account'
   });
 
-  // 檢測環境：行動端或 PWA (Standalone) 模式
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+  // 預先取得環境與 User Agent 以利診斷
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua);
+  const isStandalone = (window.matchMedia('(display-mode: standalone)').matches) || (navigator as any).standalone === true;
+  const isPWA = isIOS && isStandalone;
 
-  // 行動端或 PWA 模式強制使用 Redirect，因為 Google 會阻擋這些環境下的 Popup 登入（顯示「瀏覽器不安全」）
-  if (isMobile || isStandalone) {
-    console.log("[Auth] 檢測到行動端/PWA 模式，使用 Redirect 模式登入以確保安全...");
+  console.log(`[Auth Check] Environment: ${isPWA ? 'iOS PWA' : isIOS ? 'iOS Browser' : 'Other'}`);
+  console.log(`[Auth Check] UserAgent: ${ua}`);
+
+  // 針對 iOS PWA 模式，優先使用 Redirect 模式
+  // Google 認證在 Standalone 模式下若缺失 Version 標籤常會被標記為不安全
+  if (isPWA) {
+    console.log("[Auth] 檢測到 iOS PWA 模式，執行 signInWithRedirect...");
     try {
       await signInWithRedirect(auth, provider);
       return null;
     } catch (error) {
-      console.error("[Auth] ❌ Redirect 登入失敗:", error);
+      console.error("[Auth] Redirect 模式失敗:", error);
       throw error;
     }
   }
 
-  // 桌面端瀏覽器嘗試使用 Popup
-  console.log("[Auth] 桌面端，嘗試使用 Popup 登入...");
+  // 其他桌面端或行動端優先嘗試 Popup
+  console.log("[Auth] 嘗試使用 Popup 登入...");
   try {
     const result = await signInWithPopup(auth, provider);
     console.log("[Auth] ✅ Popup 登入成功:", result.user.email);
@@ -117,7 +123,7 @@ export const loginWithGoogle = async () => {
         await signInWithRedirect(auth, provider);
         return null;
       } catch (redirectError) {
-        console.error("[Auth] ❌ Redirect 登入亦失敗:", redirectError);
+        console.error("[Auth] ❌ Redirect 亦失敗:", redirectError);
         throw redirectError;
       }
     }
