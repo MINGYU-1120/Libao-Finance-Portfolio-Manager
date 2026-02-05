@@ -10,7 +10,7 @@ import {
   onAuthStateChanged,
   User
 } from 'firebase/auth';
-import { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
+// import { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider } from 'firebase/app-check'; // 完全移除 App Check import
 import {
   getFirestore,
   doc,
@@ -87,30 +87,30 @@ export const loginWithGoogle = async () => {
     prompt: 'select_account'
   });
 
-  // 檢測是否為行動裝置或 PWA 模式
+  // 檢測環境：行動端或 PWA (Standalone) 模式
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  const isPWA = window.matchMedia('(display-mode: standalone)').matches;
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
 
-  // 手機端或 PWA 模式直接使用 Redirect,避免 Popup 被擋
-  if (isMobile || isPWA) {
-    console.log("[Auth] 行動端/PWA 模式,使用 Redirect 登入...");
+  // 行動端或 PWA 模式強制使用 Redirect，因為 Google 會阻擋這些環境下的 Popup 登入（顯示「瀏覽器不安全」）
+  if (isMobile || isStandalone) {
+    console.log("[Auth] 檢測到行動端/PWA 模式，使用 Redirect 模式登入以確保安全...");
     try {
       await signInWithRedirect(auth, provider);
-      return null; // Redirect 會重新載入頁面
+      return null;
     } catch (error) {
       console.error("[Auth] ❌ Redirect 登入失敗:", error);
       throw error;
     }
   }
 
-  // 桌面端嘗試 Popup
-  console.log("[Auth] 桌面端,嘗試使用 Popup 登入...");
+  // 桌面端瀏覽器嘗試使用 Popup
+  console.log("[Auth] 桌面端，嘗試使用 Popup 登入...");
   try {
     const result = await signInWithPopup(auth, provider);
     console.log("[Auth] ✅ Popup 登入成功:", result.user.email);
     return result.user;
   } catch (error: any) {
-    console.warn("[Auth] Popup 失敗,回退至 Redirect...", error.code);
+    console.warn("[Auth] Popup 失敗, 回退至 Redirect...", error.code);
 
     if (error.code !== 'auth/popup-closed-by-user') {
       try {
@@ -144,9 +144,9 @@ export const handleRedirectResult = async (): Promise<User | null> => {
   }
 
   try {
-    // MUST call getRedirectResult() on every page load
-    // It returns null if no redirect happened (safe to call always)
-    // It returns the user ONLY ONCE after redirect (then null forever)
+    // 增加一點延遲，確保 Firebase 內部狀態在 PWA 從重導向回來後已就緒
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     const result = await getRedirectResult(auth);
 
     if (result) {
