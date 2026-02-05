@@ -75,9 +75,6 @@ try {
 
 export const isFirebaseReady = () => isConfigured;
 
-// --- Auth Debug Support ---
-let debugCallback: ((info: any) => void) | null = null;
-export const setAuthDebug = (cb: (info: any) => void) => { debugCallback = cb; };
 
 export const loginWithGoogle = async () => {
   if (!auth) {
@@ -91,24 +88,14 @@ export const loginWithGoogle = async () => {
   const ua = navigator.userAgent;
   const isStandalone = (window.matchMedia('(display-mode: standalone)').matches) || (navigator as any).standalone === true;
 
-  if (debugCallback) {
-    debugCallback({
-      ua,
-      isStandalone,
-      displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
-      lastAction: 'login_clicked'
-    });
-  }
 
   // 使用 Custom Auth Domain 後，Google 會信任 PWA 內的 Redirect
   if (isStandalone) {
     console.log("[Auth] PWA Standalone detected. Using Custom Auth Domain Redirect...");
-    if (debugCallback) debugCallback({ status: 'redirecting_custom_domain' });
     try {
       await signInWithRedirect(auth, provider);
       return null;
     } catch (error: any) {
-      if (debugCallback) debugCallback({ status: 'pwa_redirect_failed', error: error.code });
       throw error;
     }
   }
@@ -116,7 +103,6 @@ export const loginWithGoogle = async () => {
   // 其他環境優先嘗試 Popup
   try {
     const result = await signInWithPopup(auth, provider);
-    if (debugCallback) debugCallback({ status: 'popup_success' });
     return result.user;
   } catch (error: any) {
     if (error.code !== 'auth/popup-closed-by-user') {

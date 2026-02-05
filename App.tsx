@@ -101,14 +101,6 @@ const App: React.FC = () => {
   const [isStartingFresh, setIsStartingFresh] = useState(false);
   const [authInitializing, setAuthInitializing] = useState(true);
   const [isCheckingRedirect, setIsCheckingRedirect] = useState(true);
-  const [debugInfo, setDebugInfo] = useState<any>({}); // Auth 診斷狀態
-
-  // 註冊診斷監聽
-  useEffect(() => {
-    import('./services/firebase').then(m => {
-      m.setAuthDebug((info) => setDebugInfo((prev: any) => ({ ...prev, ...info })));
-    });
-  }, []);
 
   // 🚀 PWA/啟動安全逾時機制：防止在行動端或 PWA 模式下因驗證延遲而卡死
   useEffect(() => {
@@ -1668,8 +1660,6 @@ const App: React.FC = () => {
           <p className="text-[10px] text-gray-600 font-mono">Libao Portfolio Manager v5.5.0 • Authorized Students Only</p>
         </div>
 
-        {/* 診斷面板 (保留以利驗證) */}
-        <DebugOverlay info={debugInfo} onDismiss={() => setDebugInfo({})} />
       </div>
     );
   }
@@ -1682,7 +1672,6 @@ const App: React.FC = () => {
           <Briefcase className="w-6 h-6 text-libao-gold absolute inset-0 m-auto" />
         </div>
         <p className="text-white font-bold animate-pulse">正在從雲端加密同步資料...</p>
-        <DebugOverlay info={debugInfo} onDismiss={() => setDebugInfo({})} />
       </div>
     );
   }
@@ -2187,41 +2176,9 @@ const App: React.FC = () => {
         <button id="nav-mobile-dividend" onClick={() => { setViewMode('DIVIDENDS'); setShowAdminPanel(false); }} className={`flex flex-col items-center gap-1 ${viewMode === 'DIVIDENDS' ? 'text-purple-600' : 'text-gray-400'}`}><Coins className="w-6 h-6" /><span className="text-[10px]">股息</span></button>
         <button id="nav-mobile-ai" onClick={() => { setViewMode('AI_PICKS'); setShowAdminPanel(false); }} className={`flex flex-col items-center gap-1 ${viewMode === 'AI_PICKS' ? 'text-indigo-600' : 'text-gray-400'}`}><Brain className="w-6 h-6" /><span className="text-[10px]">AI選股</span></button>
       </div>
-      <DebugOverlay info={debugInfo} onDismiss={() => setDebugInfo({})} />
     </div>
   );
 };
 
-// --- 重構：提取導流視窗組件以利複用 ---
-// --- 重構：提取導流視窗組件以利複用 ---
-// --- Debug Overlay Component (不使用 Monkey Patch) ---
-const DebugOverlay: React.FC<{ info: any, onDismiss: () => void }> = ({ info, onDismiss }) => {
-  const [isVisible, setIsVisible] = useState(false);
-  if (!isVisible) return (
-    <button
-      onClick={() => setIsVisible(true)}
-      className="fixed bottom-2 right-2 z-[9999] p-2 bg-gray-800 text-white rounded-full opacity-20 hover:opacity-100"
-    >
-      <HelpCircle size={16} />
-    </button>
-  );
-
-  return (
-    <div className="fixed bottom-0 left-0 right-0 z-[9999] bg-black/90 text-[10px] p-2 font-mono text-green-400 space-y-1">
-      <div className="flex justify-between border-b border-gray-700 pb-1 mb-1">
-        <span className="font-bold">AUTH DIAGNOSTICS</span>
-        <button onClick={() => setIsVisible(false)} className="px-2 bg-red-900 rounded">CLOSE</button>
-      </div>
-      <div>UA: {navigator.userAgent}</div>
-      <div className="grid grid-cols-2">
-        <div>STANDALONE: {String(info.isStandalone)}</div>
-        <div>MODE: {info.displayMode}</div>
-      </div>
-      <div>STATUS: <span className="text-yellow-400">{info.status || 'IDLE'}</span></div>
-      <div>LAST ERROR: <span className="text-red-400">{info.error || 'NONE'}</span></div>
-      {info.user && <div>USER: {info.user}</div>}
-    </div>
-  );
-};
 
 export default App;
