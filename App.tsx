@@ -1672,6 +1672,10 @@ const App: React.FC = () => {
           </div>
           <p className="text-[10px] text-gray-600 font-mono">Libao Portfolio Manager v5.5.0 • Authorized Students Only</p>
         </div>
+
+        {/* 診斷面板與導流 UI (確保在歡迎頁也能顯示) */}
+        <DebugOverlay info={debugInfo} onDismiss={() => setDebugInfo({})} />
+        {debugInfo.showBreakoutUI && <BreakoutUI info={debugInfo} setInfo={setDebugInfo} />}
       </div>
     );
   }
@@ -1684,6 +1688,7 @@ const App: React.FC = () => {
           <Briefcase className="w-6 h-6 text-libao-gold absolute inset-0 m-auto" />
         </div>
         <p className="text-white font-bold animate-pulse">正在從雲端加密同步資料...</p>
+        <DebugOverlay info={debugInfo} onDismiss={() => setDebugInfo({})} />
       </div>
     );
   }
@@ -2164,33 +2169,42 @@ const App: React.FC = () => {
         <button id="nav-mobile-dividend" onClick={() => { setViewMode('DIVIDENDS'); setShowAdminPanel(false); }} className={`flex flex-col items-center gap-1 ${viewMode === 'DIVIDENDS' ? 'text-purple-600' : 'text-gray-400'}`}><Coins className="w-6 h-6" /><span className="text-[10px]">股息</span></button>
         <button id="nav-mobile-ai" onClick={() => { setViewMode('AI_PICKS'); setShowAdminPanel(false); }} className={`flex flex-col items-center gap-1 ${viewMode === 'AI_PICKS' ? 'text-indigo-600' : 'text-gray-400'}`}><Brain className="w-6 h-6" /><span className="text-[10px]">AI選股</span></button>
       </div>
-      {/* 認證診斷層 (僅在開發偵測時顯示或長按顯示，此處為求 Debug 直接顯示在底端) */}
       <DebugOverlay info={debugInfo} onDismiss={() => setDebugInfo({})} />
-
-      {/* PWA 導流 Modal */}
-      {debugInfo.showBreakoutUI && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center space-y-4">
-            <div className="flex justify-center"><ExternalLink className="w-12 h-12 text-blue-500" /></div>
-            <h3 className="text-xl font-bold">iOS PWA 登入限制</h3>
-            <p className="text-gray-600 text-sm">
-              由於 Google 安全政策，無法直接在主畫面模式登入。請點擊按鈕開啟 Safari 完成登入後，再重新開啟本程式。
-            </p>
-            <button
-              onClick={() => {
-                window.location.href = window.location.origin + '?mode=safari_breakout';
-              }}
-              className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium"
-            >
-              在 Safari 中開啟
-            </button>
-            <button onClick={() => setDebugInfo((p: any) => ({ ...p, showBreakoutUI: false }))} className="text-gray-400 text-sm">暫時關閉</button>
-          </div>
-        </div>
-      )}
+      {debugInfo.showBreakoutUI && <BreakoutUI info={debugInfo} setInfo={setDebugInfo} />}
     </div>
   );
 };
+
+// --- 重構：提取導流視窗組件以利複用 ---
+const BreakoutUI: React.FC<{ info: any, setInfo: React.Dispatch<React.SetStateAction<any>> }> = ({ info, setInfo }) => (
+  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4">
+    <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center space-y-4">
+      <div className="flex justify-center"><ExternalLink className="w-12 h-12 text-blue-500" /></div>
+      <h3 className="text-xl font-bold">iOS PWA 登入限制</h3>
+      <p className="text-gray-600 text-sm">
+        由於 Google 安全政策，無法直接在主畫面模式登入。請點擊下方的按鈕跳轉至內建 Safari 完成登入後，再重新開啟本程式。
+      </p>
+      <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-left space-y-2">
+        <p className="text-blue-800 text-xs font-bold font-sans">💡 登入秘訣：</p>
+        <ol className="text-blue-700 text-xs list-decimal pl-4 space-y-1">
+          <li>點擊下方按鈕跳轉至 Safari</li>
+          <li>在 Safari 完成 Google 登入</li>
+          <li>登入成功後跳回本程式即可使用</li>
+        </ol>
+      </div>
+      <button
+        onClick={() => {
+          // 強制跳轉，帶上標記以免無限循環
+          window.location.href = window.location.origin + '?login_mode=safari_breakout';
+        }}
+        className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-lg active:scale-95 transition-transform"
+      >
+        跳轉至 Safari 登入
+      </button>
+      <button onClick={() => setInfo((p: any) => ({ ...p, showBreakoutUI: false }))} className="text-gray-400 text-sm py-2">關閉視窗</button>
+    </div>
+  </div>
+);
 
 // --- Debug Overlay Component (不使用 Monkey Patch) ---
 const DebugOverlay: React.FC<{ info: any, onDismiss: () => void }> = ({ info, onDismiss }) => {
