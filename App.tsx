@@ -2127,10 +2127,13 @@ const App: React.FC = () => {
         {viewMode === 'VIP_PORTFOLIO' && (calculatedData as any).martingale && (
           <div className="mt-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="mb-6 flex items-center justify-between">
-              <button onClick={() => setViewMode('PORTFOLIO')} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
-                <ArrowLeft className="w-4 h-4" /> 返回儀表板
+              <button
+                onClick={() => setViewMode('PORTFOLIO')}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl border border-gray-700 transition-all font-bold shadow-md active:scale-95 group"
+              >
+                <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                返回我的持倉
               </button>
-              {/* Add Strategy Button moved nicely into Summary Header via MartingalePanel -> MartingaleSummary */}
             </div>
 
             <MartingalePanel

@@ -128,9 +128,9 @@ const DetailTable: React.FC<DetailTableProps> = ({
       {/* 頂部紅標 Banner */}
       <div id="detail-header" className={`px-4 py-6 text-white flex flex-wrap justify-between items-center gap-4 ${category.market === 'TW' ? 'bg-gradient-to-r from-red-700 to-red-600' : 'bg-gradient-to-r from-blue-800 to-indigo-700'} shadow-inner`}>
         <div className="flex items-center gap-4 w-full sm:w-auto">
-          <button onClick={onBack} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl transition-all font-bold shrink-0">
-            <ArrowLeft className="w-5 h-5" />
-            <span className="text-sm">返回</span>
+          <button onClick={onBack} className="flex items-center gap-1.5 px-4 py-2 bg-white/15 hover:bg-white/25 rounded-xl transition-all font-bold shrink-0 shadow-sm active:scale-95 group">
+            <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
+            <span className="text-sm">返回我的持倉</span>
           </button>
           <div className="flex-1 min-w-0">
             <h2 className="text-2xl font-black flex items-center gap-2 truncate">
@@ -397,7 +397,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
       <div className="p-6 border-t bg-gray-50 flex justify-center">
         <button onClick={onBack} className="group flex items-center gap-2 px-10 py-2.5 bg-gray-900 hover:bg-black rounded-xl text-white font-bold transition-all shadow-lg active:scale-95 text-sm">
           <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-          <span>返回持倉總覽 (Back)</span>
+          <span>返回我的持倉 (Back)</span>
         </button>
       </div>
     </div >
