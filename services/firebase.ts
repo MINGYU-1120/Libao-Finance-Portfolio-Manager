@@ -60,55 +60,8 @@ try {
   app = initializeApp(firebaseConfig);
 
   if (typeof window !== 'undefined') {
-    // --- App Check 初始化 ---
-    const isLocalhost = location.hostname === 'localhost' ||
-      location.hostname === '127.0.0.1' ||
-      location.hostname.startsWith('192.168.') ||
-      location.hostname.startsWith('10.');
-
-    // 取得網址參數中的偵錯標記 (例如 ?debug_appcheck=true)
-    const urlParams = new URLSearchParams(window.location.search);
-    const forceDebug = urlParams.get('debug_appcheck') === 'true';
-
-    if (isLocalhost || forceDebug) {
-      // 使用標準 UUID v4 格式的 Debug Token
-      const FIXED_DEBUG_TOKEN = "c3a8b273-5a0a-4fb1-b3f5-62d47d95b583";
-      (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = FIXED_DEBUG_TOKEN;
-      console.log(`[AppCheck] --- DEBUG MODE ENABLED ---`);
-      console.log(`[AppCheck] Source: ${isLocalhost ? 'Localhost' : 'URL Force Debug'}`);
-      console.log(`[AppCheck] UUID: ${FIXED_DEBUG_TOKEN}`);
-    }
-
-    // --- reCAPTCHA Enterprise 網站金鑰配置 ---
-    const RECAPTCHA_SITE_KEY = '6LcenV8sAAAAALGLE_llW1I_ntJhlueuwyRARiLd';
-
-    try {
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      const isStandalone = !!(window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone);
-      const isIOSPWA = isIOS && isStandalone;
-
-      console.log(`[AppCheck] 診斷: ${isMobile ? '行動端' : '電腦版'}, 網域: ${location.hostname}, PWA: ${isStandalone}`);
-
-      if (isIOSPWA) {
-        console.log("[AppCheck] 檢測到 iOS PWA (加入主畫面) 模式，跳過 App Check 初始化以避免潛在問題。");
-      } else {
-        // 非同步初始化，避免阻塞 Auth/Firestore
-        setTimeout(() => {
-          try {
-            initializeAppCheck(app, {
-              provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY),
-              isTokenAutoRefreshEnabled: true
-            });
-            console.log("[AppCheck] 註冊程序已非同步啟動 (reCAPTCHA Enterprise)");
-          } catch (e) {
-            console.warn("[AppCheck] 初始化失敗:", e);
-          }
-        }, 1000);
-      }
-    } catch (err: any) {
-      console.error("[AppCheck] 嚴重錯誤:", err?.message || err);
-    }
+    // App Check 已停用 (reCAPTCHA 導致 iOS PWA 等環境登入問題)
+    console.log("[AppCheck] App Check 初始化已停用。");
   }
 
   auth = getAuth(app);
