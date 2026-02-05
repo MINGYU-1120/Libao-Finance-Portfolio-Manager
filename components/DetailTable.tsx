@@ -125,34 +125,69 @@ const DetailTable: React.FC<DetailTableProps> = ({
         }}
       />
 
-      {/* 頂部紅標 Banner */}
-      <div id="detail-header" className={`px-4 py-6 text-white flex flex-wrap justify-between items-center gap-4 ${category.market === 'TW' ? 'bg-gradient-to-r from-red-700 to-red-600' : 'bg-gradient-to-r from-blue-800 to-indigo-700'} shadow-inner`}>
-        <div className="flex items-center gap-4 w-full sm:w-auto">
-          <button onClick={onBack} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl transition-all font-bold shrink-0">
-            <ArrowLeft className="w-5 h-5" />
-            <span className="text-sm">返回</span>
-          </button>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-2xl font-black flex items-center gap-2 truncate">
-              {category.name}
-              <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded tracking-widest uppercase font-mono">{category.market === 'TW' ? '台股' : '美股'}</span>
-            </h2>
-            <div className="flex items-center gap-4 text-xs opacity-90 mt-1 font-bold">
-              <span className="bg-white/10 px-2 py-0.5 rounded">上限: {formatCurrency(category.projectedInvestment, isUS ? 'USD' : 'TWD', isPrivacyMode)}</span>
-              <span className="flex items-center gap-1 text-yellow-300 bg-black/10 px-2 py-0.5 rounded"><Wallet className="w-3.5 h-3.5" /> 現金: {formatCurrency(category.remainingCash, isUS ? 'USD' : 'TWD', isPrivacyMode)}</span>
+      {/* 策略持倉摘要 (Strategy Holding Summary) - 專業投研風格 */}
+      <div id="detail-header" className="relative px-6 py-8 bg-slate-950 text-white overflow-hidden border-b border-white/5">
+        {/* 市場背景裝飾軌跡 */}
+        <div className={`absolute left-0 top-0 bottom-0 w-1 ${category.market === 'TW' ? 'bg-red-500' : 'bg-blue-500'}`} />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/[0.02] rounded-full -mr-48 -mt-48 blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+          <div className="flex items-start gap-6">
+            <button
+              onClick={onBack}
+              className="mt-1 flex items-center justify-center w-10 h-10 bg-white/5 hover:bg-white/10 rounded-full transition-all border border-white/10 group"
+              title="返回 (Back)"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
+            </button>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <h2 className="text-3xl font-bold tracking-tight text-gray-100">
+                  {category.name}
+                </h2>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase border ${category.market === 'TW' ? 'text-red-400 border-red-500/30 bg-red-500/5' : 'text-blue-400 border-blue-500/30 bg-blue-500/5'}`}>
+                  {category.market === 'TW' ? '台股' : '美股'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-6 mt-1">
+                <div className="flex flex-col">
+                  <span className="text-[13px] text-gray-500 uppercase font-black tracking-tighter">上限</span>
+                  <span className="text-sm font-mono font-medium text-gray-300">
+                    {formatCurrency(category.projectedInvestment, isUS ? 'USD' : 'TWD', isPrivacyMode)}
+                  </span>
+                </div>
+                <div className="w-px h-6 bg-white/10" />
+                <div className="flex flex-col">
+                  <span className="text-[13px] text-gray-500 uppercase font-black tracking-tighter">剩餘可用現金</span>
+                  <div className="flex items-center gap-1.5 text-sm font-mono font-medium text-amber-400/90">
+                    <Wallet className="w-3.5 h-3.5 opacity-70" />
+                    {formatCurrency(category.remainingCash, isUS ? 'USD' : 'TWD', isPrivacyMode)}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex gap-8 text-right w-full sm:w-auto justify-between sm:justify-end border-t sm:border-none border-white/10 pt-4 sm:pt-0">
-          <div>
-            <div className="text-[10px] opacity-70 uppercase font-black tracking-widest mb-1">已投入資金</div>
-            <div className="text-3xl font-mono font-black leading-none">{formatCurrency(category.investedAmount, isUS ? 'USD' : 'TWD', isPrivacyMode)} <span className="text-[10px] opacity-60">({category.investmentRatio.toFixed(1)}%)</span></div>
-          </div>
-          <div>
-            <div className="text-[10px] opacity-70 uppercase font-black tracking-widest mb-1">未實現損益</div>
-            <div className={`text-3xl font-mono font-black leading-none ${totalUnrealized >= 0 ? 'text-white' : 'text-green-300'}`}>
-              {totalUnrealized > 0 ? '+' : ''}{maskValue(formatCurrency(totalUnrealized, isUS ? 'USD' : 'TWD', isPrivacyMode))}
+          <div className="flex items-center gap-12 w-full md:w-auto pt-6 md:pt-0 border-t md:border-t-0 border-white/5">
+            <div className="flex flex-col items-end">
+              <span className="text-[13px] text-gray-500 uppercase font-black tracking-tighter mb-1">已投入資金</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-mono font-bold tracking-tighter">
+                  {formatCurrency(category.investedAmount, isUS ? 'USD' : 'TWD', isPrivacyMode)}
+                </span>
+                <span className="text-xs font-mono text-gray-500 font-bold">
+                  {category.investmentRatio.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-end">
+              <span className="text-[13px] text-gray-500 uppercase font-black tracking-tighter mb-1">未實現損益</span>
+              <div className={`text-3xl font-mono font-bold tracking-tighter ${totalUnrealized >= 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                {totalUnrealized > 0 ? '+' : ''}{maskValue(formatCurrency(totalUnrealized, isUS ? 'USD' : 'TWD', isPrivacyMode))}
+              </div>
             </div>
           </div>
         </div>
@@ -197,17 +232,17 @@ const DetailTable: React.FC<DetailTableProps> = ({
 
       <div className="md:hidden divide-y divide-gray-100 min-h-[400px]">
         {/* Mobile Header Row */}
-        <div className="grid grid-cols-[1.3fr_1fr_1fr_1.1fr] gap-1 px-4 py-2 bg-gray-100 text-[11px] font-black text-gray-500 text-right sticky top-0 z-10 border-b border-gray-200 shadow-sm">
+        <div className="grid grid-cols-[1.3fr_1fr_1fr_1.1fr] gap-1 px-4 py-2 bg-gray-100 text-[13px] font-black text-gray-500 text-right sticky top-0 z-10 border-b border-gray-200 shadow-sm">
           <div className="text-left pl-1">名稱</div>
           <div>
-            <div>現價</div>
-            <div className="text-[9px] font-normal opacity-80">均價</div>
+            <div className="text-[13px]">現價</div>
+            <div className="text-[13px] font-normal opacity-80">均價</div>
           </div>
           <div>
-            <div>股數</div>
-            <div className="text-[9px] font-normal opacity-80">佔比</div>
+            <div className="text-[13px]">股數</div>
+            <div className="text-[13px] font-normal opacity-80">佔比</div>
           </div>
-          <div className="pr-1">損益</div>
+          <div className="text-[13px]pr-1">損益</div>
         </div>
 
         {filteredAssets.length === 0 ? (
@@ -227,7 +262,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
                 {/* Col 1: Name */}
                 <div className="text-left overflow-hidden">
                   <div className="font-black text-gray-900 truncate text-[15px]">{asset.name}</div>
-                  <div className="text-[11px] font-bold text-gray-400 font-mono truncate">{asset.symbol}</div>
+                  <div className="text-[15px] font-bold text-gray-400 font-mono truncate">{asset.symbol}</div>
                 </div>
 
                 {/* Col 2: Price / Avg */}
@@ -235,7 +270,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
                   <div className={`font-mono font-black text-[13px] ${asset.currentPrice > asset.avgCost ? 'text-red-600' : (asset.currentPrice < asset.avgCost ? 'text-green-600' : 'text-gray-900')}`}>
                     {strictMask(category.market === 'US' ? formatCurrency(asset.currentPrice, 'USD', isPrivacyMode) : asset.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 }))}
                   </div>
-                  <div className="text-[11px] text-gray-400 font-mono mt-0.5">
+                  <div className="text-[12px] text-gray-400 font-mono mt-0.5">
                     {strictMask(category.market === 'US' ? formatCurrency(asset.avgCost, 'USD', isPrivacyMode) : asset.avgCost.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 }))}
                   </div>
                 </div>
@@ -243,7 +278,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
                 {/* Col 3: Shares / Ratio */}
                 <div className="text-right">
                   <div className="font-mono font-black text-gray-800 text-[13px]">{strictMask(asset.shares)}</div>
-                  <div className="text-[11px] font-bold text-indigo-500 font-mono mt-0.5">{isMasked ? '****' : asset.portfolioRatio.toFixed(1)}%</div>
+                  <div className="text-[13px] font-bold text-indigo-500 font-mono mt-0.5">{isMasked ? '****' : asset.portfolioRatio.toFixed(1)}%</div>
                 </div>
 
                 {/* Col 4: P&L */}
@@ -251,7 +286,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
                   <div className={`font-mono font-black text-[13px] ${asset.unrealizedPnL >= 0 ? 'text-red-600' : 'text-green-600'}`}>
                     {maskValue(Math.round(asset.unrealizedPnL).toLocaleString())}
                   </div>
-                  <div className={`text-[11px] font-bold mt-0.5 ${asset.currentPrice > asset.avgCost ? 'text-red-500' : 'text-green-600'}`}>
+                  <div className={`text-[13px] font-bold mt-0.5 ${asset.currentPrice > asset.avgCost ? 'text-red-500' : 'text-green-600'}`}>
                     {asset.avgCost > 0 ? (asset.currentPrice > asset.avgCost ? '+' : '') + (isMasked ? '****' : ((asset.currentPrice - asset.avgCost) / asset.avgCost * 100).toFixed(2)) + '%' : '0.00%'}
                   </div>
                 </div>
@@ -397,7 +432,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
       <div className="p-6 border-t bg-gray-50 flex justify-center">
         <button onClick={onBack} className="group flex items-center gap-2 px-10 py-2.5 bg-gray-900 hover:bg-black rounded-xl text-white font-bold transition-all shadow-lg active:scale-95 text-sm">
           <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-          <span>返回持倉總覽 (Back)</span>
+          <span>返回我的持倉 (Back)</span>
         </button>
       </div>
     </div >
