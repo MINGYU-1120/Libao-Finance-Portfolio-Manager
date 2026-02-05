@@ -432,7 +432,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
       <div className="p-6 border-t bg-gray-50 flex justify-center">
         <button onClick={onBack} className="group flex items-center gap-2 px-10 py-2.5 bg-gray-900 hover:bg-black rounded-xl text-white font-bold transition-all shadow-lg active:scale-95 text-sm">
           <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-          <span>返回我的持倉 (Back)</span>
+          <span>返回持倉總覽</span>
         </button>
       </div>
     </div >
