@@ -2176,40 +2176,54 @@ const App: React.FC = () => {
 };
 
 // --- 重構：提取導流視窗組件以利複用 ---
+// --- 重構：提取導流視窗組件以利複用 ---
 const BreakoutUI: React.FC<{ info: any, setInfo: React.Dispatch<React.SetStateAction<any>> }> = ({ info, setInfo }) => (
   <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4">
-    <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center space-y-4">
-      <div className="flex justify-center"><ExternalLink className="w-12 h-12 text-blue-500" /></div>
-      <h3 className="text-xl font-bold">iOS PWA 登入限制</h3>
-      <p className="text-gray-600 text-sm">
-        由於 Google 安全政策，無法直接在主畫面模式登入。請點擊下方按鈕跳轉至 Safari 完成登入。
+    <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl space-y-5 animate-in zoom-in-95 duration-300">
+      <div className="flex justify-center">
+        <div className="p-4 bg-blue-50 rounded-full">
+          <Share className="w-10 h-10 text-blue-600" />
+        </div>
+      </div>
+      <h3 className="text-xl font-black text-gray-900 tracking-tight">無法直接在 PWA 登入</h3>
+      <p className="text-gray-500 text-sm leading-relaxed px-2">
+        Google 為了安全，會阻擋「主畫面模式」下的直接登入。請透過下方步驟開啟 Safari 瀏覽器完成認證。
       </p>
-      <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-left space-y-2">
-        <p className="text-blue-800 text-xs font-bold font-sans">💡 登入秘訣：</p>
-        <ol className="text-blue-700 text-xs list-decimal pl-4 space-y-1">
-          <li>點擊下方按鈕（或手動開啟 Safari）</li>
-          <li>在 Safari 內完成 Google 登入</li>
-          <li>登入成功後跳回本程式即可</li>
-        </ol>
-      </div>
-      {/* 使用 <a> 標籤搭配 target="_blank" 在 iOS PWA 中更有機會觸發外部瀏覽器 */}
-      <a
-        href={window.location.origin + '/?login_mode=safari_breakout'}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-lg active:scale-95 transition-transform no-underline"
-      >
-        跳轉至 Safari 登入
-      </a>
 
-      <div className="pt-2 border-t border-gray-100">
-        <p className="text-[10px] text-gray-500 leading-relaxed">
-          若按下按鈕沒反應，請點擊 iOS 最下方的 <span className="inline-block px-1 bg-gray-100 rounded border border-gray-200">分享圖示</span><br />
-          然後選擇 <span className="font-bold text-gray-700">「在 Safari 中開啟」</span> 完成登入
-        </p>
+      <div className="p-4 bg-gray-50 rounded-2xl text-left border border-gray-100">
+        <div className="space-y-4">
+          <div className="flex gap-3">
+            <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
+            <p className="text-sm font-bold text-gray-700">點擊最下方的「分享」按鈕</p>
+          </div>
+          <div className="flex gap-3">
+            <span className="flex-shrink-0 w-6 h-6 bg-gray-200 text-gray-500 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+            <p className="text-sm text-gray-600">尋找 <span className="font-bold text-blue-600">「在 Safari 中開啟」</span></p>
+          </div>
+          <div className="flex gap-3">
+            <span className="flex-shrink-0 w-6 h-6 bg-gray-200 text-gray-500 rounded-full flex items-center justify-center text-xs font-bold">3</span>
+            <p className="text-sm text-gray-600">重新點擊登入完成同步</p>
+          </div>
+        </div>
       </div>
 
-      <button onClick={() => setInfo((p: any) => ({ ...p, showBreakoutUI: false }))} className="text-gray-400 text-sm py-1">暫時關閉</button>
+      <div className="space-y-3">
+        {/* 雖然 iOS 常封鎖跳轉，但保留此按鈕作為備用嘗試 */}
+        <button
+          onClick={() => {
+            const url = window.location.origin + '/?mode=safari_breakout';
+            window.open(url, '_blank');
+            // 如果 window.open 沒反應，提示使用者手動
+            setTimeout(() => {
+              alert("若沒自動開啟，請直接點擊 iOS 最下方的「分享」圖框 -> 「在 Safari 中開啟」");
+            }, 500);
+          }}
+          className="w-full py-4 bg-blue-600 text-white rounded-xl font-black shadow-lg shadow-blue-200 active:scale-95 transition-all text-lg"
+        >
+          嘗試自動跳轉
+        </button>
+        <button onClick={() => setInfo((p: any) => ({ ...p, showBreakoutUI: false }))} className="text-gray-400 text-sm font-bold py-2 w-full">暫時關閉</button>
+      </div>
     </div>
   </div>
 );
