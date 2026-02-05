@@ -2182,26 +2182,34 @@ const BreakoutUI: React.FC<{ info: any, setInfo: React.Dispatch<React.SetStateAc
       <div className="flex justify-center"><ExternalLink className="w-12 h-12 text-blue-500" /></div>
       <h3 className="text-xl font-bold">iOS PWA 登入限制</h3>
       <p className="text-gray-600 text-sm">
-        由於 Google 安全政策，無法直接在主畫面模式登入。請點擊下方的按鈕跳轉至內建 Safari 完成登入後，再重新開啟本程式。
+        由於 Google 安全政策，無法直接在主畫面模式登入。請點擊下方按鈕跳轉至 Safari 完成登入。
       </p>
       <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-left space-y-2">
         <p className="text-blue-800 text-xs font-bold font-sans">💡 登入秘訣：</p>
         <ol className="text-blue-700 text-xs list-decimal pl-4 space-y-1">
-          <li>點擊下方按鈕跳轉至 Safari</li>
-          <li>在 Safari 完成 Google 登入</li>
-          <li>登入成功後跳回本程式即可使用</li>
+          <li>點擊下方按鈕（或手動開啟 Safari）</li>
+          <li>在 Safari 內完成 Google 登入</li>
+          <li>登入成功後跳回本程式即可</li>
         </ol>
       </div>
-      <button
-        onClick={() => {
-          // 強制跳轉，帶上標記以免無限循環
-          window.location.href = window.location.origin + '?login_mode=safari_breakout';
-        }}
-        className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-lg active:scale-95 transition-transform"
+      {/* 使用 <a> 標籤搭配 target="_blank" 在 iOS PWA 中更有機會觸發外部瀏覽器 */}
+      <a
+        href={window.location.origin + '/?login_mode=safari_breakout'}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-lg active:scale-95 transition-transform no-underline"
       >
         跳轉至 Safari 登入
-      </button>
-      <button onClick={() => setInfo((p: any) => ({ ...p, showBreakoutUI: false }))} className="text-gray-400 text-sm py-2">關閉視窗</button>
+      </a>
+
+      <div className="pt-2 border-t border-gray-100">
+        <p className="text-[10px] text-gray-500 leading-relaxed">
+          若按下按鈕沒反應，請點擊 iOS 最下方的 <span className="inline-block px-1 bg-gray-100 rounded border border-gray-200">分享圖示</span><br />
+          然後選擇 <span className="font-bold text-gray-700">「在 Safari 中開啟」</span> 完成登入
+        </p>
+      </div>
+
+      <button onClick={() => setInfo((p: any) => ({ ...p, showBreakoutUI: false }))} className="text-gray-400 text-sm py-1">暫時關閉</button>
     </div>
   </div>
 );
