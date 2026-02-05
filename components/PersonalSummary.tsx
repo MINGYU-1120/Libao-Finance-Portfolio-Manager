@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CalculatedCategory } from '../types';
-import { PieChart, RefreshCw, ChevronRight, ArrowRight, Quote, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
+import { PieChart, RefreshCw, ChevronRight, ArrowRight, Quote, ArrowUp, ArrowDown, Trash2, Edit3 } from 'lucide-react';
 import { formatTWD } from '../utils/formatting';
 
 interface PersonalSummaryProps {
@@ -31,6 +31,8 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
     readOnly = false
 }) => {
     const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
+    const [editingMobileId, setEditingMobileId] = useState<string | null>(null);
+    const [tempValue, setTempValue] = useState<string>('');
 
     const handleRefresh = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
@@ -88,7 +90,46 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                                     <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${cat.market === 'TW' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
                                         {cat.market === 'TW' ? '台股' : '美股'}
                                     </span>
-                                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{cat.allocationPercent}% 配置</span>
+                                    {!readOnly && onUpdateAllocation ? (
+                                        editingMobileId === cat.id ? (
+                                            <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                                <input
+                                                    autoFocus
+                                                    type="number"
+                                                    value={tempValue}
+                                                    onChange={e => setTempValue(e.target.value)}
+                                                    onBlur={() => {
+                                                        const val = Number(tempValue);
+                                                        if (!isNaN(val)) onUpdateAllocation(cat.id, val);
+                                                        setEditingMobileId(null);
+                                                    }}
+                                                    onKeyDown={e => {
+                                                        if (e.key === 'Enter') {
+                                                            const val = Number(tempValue);
+                                                            if (!isNaN(val)) onUpdateAllocation(cat.id, val);
+                                                            setEditingMobileId(null);
+                                                        }
+                                                    }}
+                                                    className="w-12 h-6 text-center bg-gray-800 border-b border-cyan-500 text-cyan-400 font-black p-0 text-sm focus:outline-none"
+                                                />
+                                                <span className="text-[10px] font-bold text-cyan-500">%</span>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditingMobileId(cat.id);
+                                                    setTempValue(cat.allocationPercent.toString());
+                                                }}
+                                                className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-cyan-400 transition-colors"
+                                            >
+                                                <span className="uppercase tracking-wider border-b border-transparent hover:border-cyan-400/50">{cat.allocationPercent}% 配置</span>
+                                                <Edit3 className="w-3 h-3 opacity-40" />
+                                            </button>
+                                        )
+                                    ) : (
+                                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{cat.allocationPercent}% 配置</span>
+                                    )}
                                 </div>
                                 <h3 className="text-xl font-bold text-white tracking-tight">{cat.name}</h3>
                             </div>
