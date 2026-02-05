@@ -84,20 +84,28 @@ try {
 
     try {
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      console.log(`[AppCheck] 診斷: ${isMobile ? '行動端' : '電腦版'}, 網域: ${location.hostname}`);
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isStandalone = !!(window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone);
+      const isIOSPWA = isIOS && isStandalone;
 
-      // 非同步初始化，避免阻塞 Auth/Firestore
-      setTimeout(() => {
-        try {
-          initializeAppCheck(app, {
-            provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY),
-            isTokenAutoRefreshEnabled: true
-          });
-          console.log("[AppCheck] 註冊程序已非同步啟動 (reCAPTCHA Enterprise)");
-        } catch (e) {
-          console.warn("[AppCheck] 行動端初始化略過:", e);
-        }
-      }, 1000);
+      console.log(`[AppCheck] 診斷: ${isMobile ? '行動端' : '電腦版'}, 網域: ${location.hostname}, PWA: ${isStandalone}`);
+
+      if (isIOSPWA) {
+        console.log("[AppCheck] 檢測到 iOS PWA (加入主畫面) 模式，跳過 App Check 初始化以避免潛在問題。");
+      } else {
+        // 非同步初始化，避免阻塞 Auth/Firestore
+        setTimeout(() => {
+          try {
+            initializeAppCheck(app, {
+              provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY),
+              isTokenAutoRefreshEnabled: true
+            });
+            console.log("[AppCheck] 註冊程序已非同步啟動 (reCAPTCHA Enterprise)");
+          } catch (e) {
+            console.warn("[AppCheck] 初始化失敗:", e);
+          }
+        }, 1000);
+      }
     } catch (err: any) {
       console.error("[AppCheck] 嚴重錯誤:", err?.message || err);
     }
