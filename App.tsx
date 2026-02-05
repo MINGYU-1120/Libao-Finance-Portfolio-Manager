@@ -39,7 +39,10 @@ import {
   ShieldAlert,
   GraduationCap,
   Plus,
-  ArrowLeft
+  ArrowLeft,
+  Star,
+  UserCheck,
+  User
 } from 'lucide-react';
 import { PortfolioState, PositionCategory, CalculatedCategory, CalculatedAsset, TransactionRecord, AppSettings, NewsItem, AssetLot, Asset, MarketType } from './types';
 import { DEFAULT_CATEGORIES, INITIAL_CAPITAL, DEFAULT_EXCHANGE_RATE } from './constants';
@@ -1861,8 +1864,32 @@ const App: React.FC = () => {
                     <img src={user.photoURL} className="w-12 h-12 rounded-full border-2 border-green-500 shadow-sm" />
                     <div className="text-xs truncate overflow-hidden flex-1">
                       <div className="font-bold text-white text-sm">{user.displayName || '使用者'}</div>
-                      <div className="text-gray-400">{user.email}</div>
-                      <div className="flex items-center gap-1 text-green-400 mt-1 font-bold"><Cloud className="w-3 h-3" /> 資料已安全同步</div>
+                      <div className="text-gray-400 mb-1">{user.email}</div>
+
+                      {/* 權限等級標籤 */}
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {userRole === 'admin' && (
+                          <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold">
+                            <Shield className="w-3 h-3" /> 管理員
+                          </span>
+                        )}
+                        {userRole === 'vip' && (
+                          <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 text-[10px] font-bold">
+                            <Star className="w-3 h-3" /> 第一航廈
+                          </span>
+                        )}
+                        {userRole === 'member' && (
+                          <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-bold">
+                            <UserCheck className="w-3 h-3" /> 成員
+                          </span>
+                        )}
+                        {userRole === 'viewer' && (
+                          <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30 text-[10px] font-bold">
+                            <User className="w-3 h-3" /> 訪客
+                          </span>
+                        )}
+                        <div className="flex items-center gap-1 text-green-400 font-bold"><Cloud className="w-3 h-3" /> 資料已安全同步</div>
+                      </div>
                     </div>
                   </div>
                   <button onClick={handleLogout} className="w-full py-2.5 bg-red-500/10 text-red-400 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-500/20 transition-colors"><LogOut className="w-4 h-4" /> 登出帳號</button>
