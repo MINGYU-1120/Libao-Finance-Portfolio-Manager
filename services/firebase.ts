@@ -43,7 +43,8 @@ import {
 // ==========================================
 const firebaseConfig = {
   apiKey: "AIzaSyD5A9UsWLO6vb5N0pcX5x8I4d9kzy5lvUU",
-  authDomain: "libao-finance-manager.firebaseapp.com",
+  // 使用 Vercel 網域作為 authDomain (配合 vercel.json 代理)
+  authDomain: "libao-finance-portfolio-manager.vercel.app",
   projectId: "libao-finance-manager",
   storageBucket: "libao-finance-manager.firebasestorage.app",
   messagingSenderId: "379106694870",
@@ -99,32 +100,28 @@ export const loginWithGoogle = async () => {
     });
   }
 
-  // 1) 判斷 PWA Standalone：由於 Google 硬性阻擋，此處改為拋出信號由 UI 引導
+  // 使用 Custom Auth Domain 後，Google 會信任 PWA 內的 Redirect
   if (isStandalone) {
-    console.log("[Auth] iOS PWA Standalone detected. Sign-in restricted by Google.");
-    if (debugCallback) debugCallback({ status: 'pwa_restricted' });
-    // 返回 null 或拋出特定錯誤，讓 App.tsx 決定是否顯示「跳轉 Safari」的提示
-    return 'PWA_RESTRICTED';
+    console.log("[Auth] PWA Standalone detected. Using Custom Auth Domain Redirect...");
+    if (debugCallback) debugCallback({ status: 'redirecting_custom_domain' });
+    try {
+      await signInWithRedirect(auth, provider);
+      return null;
+    } catch (error: any) {
+      if (debugCallback) debugCallback({ status: 'pwa_redirect_failed', error: error.code });
+      throw error;
+    }
   }
 
-  // 2) 一般環境：嘗試使用 Popup
-  console.log("[Auth] 嘗試使用 Popup 登入...");
+  // 其他環境優先嘗試 Popup
   try {
     const result = await signInWithPopup(auth, provider);
-    if (debugCallback) debugCallback({ status: 'popup_success', user: result.user.email });
+    if (debugCallback) debugCallback({ status: 'popup_success' });
     return result.user;
   } catch (error: any) {
-    console.warn("[Auth] Popup 失敗, 回退至 Redirect...", error.code);
-    if (debugCallback) debugCallback({ status: 'popup_failed', error: error.code });
-
     if (error.code !== 'auth/popup-closed-by-user') {
-      try {
-        await signInWithRedirect(auth, provider);
-        return null;
-      } catch (redirectError: any) {
-        if (debugCallback) debugCallback({ status: 'redirect_failed', error: redirectError.code });
-        throw redirectError;
-      }
+      await signInWithRedirect(auth, provider);
+      return null;
     }
     return null;
   }

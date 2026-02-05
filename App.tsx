@@ -331,16 +331,8 @@ const App: React.FC = () => {
       setIsSyncing(true); // Show loading immediately
       const result = await loginWithGoogle();
 
-      if (result === 'PWA_RESTRICTED') {
-        setIsSyncing(false);
-        // 觸發導流提示
-        showToast("iOS PWA 登入受限，請點擊下方的「外部登入」引導。", "info");
-        setDebugInfo((prev: any) => ({ ...prev, showBreakoutUI: true }));
-        return;
-      }
-
       if (!result) {
-        console.log("[App] Redirect started, keeping loading state...");
+        console.log("[App] Redirect started or failed, keeping loading state...");
       }
     } catch (e: any) {
       console.error("[Login Error]", e);
@@ -1673,9 +1665,8 @@ const App: React.FC = () => {
           <p className="text-[10px] text-gray-600 font-mono">Libao Portfolio Manager v5.5.0 • Authorized Students Only</p>
         </div>
 
-        {/* 診斷面板與導流 UI (確保在歡迎頁也能顯示) */}
+        {/* 診斷面板 (保留以利驗證) */}
         <DebugOverlay info={debugInfo} onDismiss={() => setDebugInfo({})} />
-        {debugInfo.showBreakoutUI && <BreakoutUI info={debugInfo} setInfo={setDebugInfo} />}
       </div>
     );
   }
@@ -2170,64 +2161,12 @@ const App: React.FC = () => {
         <button id="nav-mobile-ai" onClick={() => { setViewMode('AI_PICKS'); setShowAdminPanel(false); }} className={`flex flex-col items-center gap-1 ${viewMode === 'AI_PICKS' ? 'text-indigo-600' : 'text-gray-400'}`}><Brain className="w-6 h-6" /><span className="text-[10px]">AI選股</span></button>
       </div>
       <DebugOverlay info={debugInfo} onDismiss={() => setDebugInfo({})} />
-      {debugInfo.showBreakoutUI && <BreakoutUI info={debugInfo} setInfo={setDebugInfo} />}
     </div>
   );
 };
 
 // --- 重構：提取導流視窗組件以利複用 ---
 // --- 重構：提取導流視窗組件以利複用 ---
-const BreakoutUI: React.FC<{ info: any, setInfo: React.Dispatch<React.SetStateAction<any>> }> = ({ info, setInfo }) => (
-  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4">
-    <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl space-y-5 animate-in zoom-in-95 duration-300">
-      <div className="flex justify-center">
-        <div className="p-4 bg-blue-50 rounded-full">
-          <Share className="w-10 h-10 text-blue-600" />
-        </div>
-      </div>
-      <h3 className="text-xl font-black text-gray-900 tracking-tight">無法直接在 PWA 登入</h3>
-      <p className="text-gray-500 text-sm leading-relaxed px-2">
-        Google 為了安全，會阻擋「主畫面模式」下的直接登入。請透過下方步驟開啟 Safari 瀏覽器完成認證。
-      </p>
-
-      <div className="p-4 bg-gray-50 rounded-2xl text-left border border-gray-100">
-        <div className="space-y-4">
-          <div className="flex gap-3">
-            <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
-            <p className="text-sm font-bold text-gray-700">點擊最下方的「分享」按鈕</p>
-          </div>
-          <div className="flex gap-3">
-            <span className="flex-shrink-0 w-6 h-6 bg-gray-200 text-gray-500 rounded-full flex items-center justify-center text-xs font-bold">2</span>
-            <p className="text-sm text-gray-600">尋找 <span className="font-bold text-blue-600">「在 Safari 中開啟」</span></p>
-          </div>
-          <div className="flex gap-3">
-            <span className="flex-shrink-0 w-6 h-6 bg-gray-200 text-gray-500 rounded-full flex items-center justify-center text-xs font-bold">3</span>
-            <p className="text-sm text-gray-600">重新點擊登入完成同步</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {/* 雖然 iOS 常封鎖跳轉，但保留此按鈕作為備用嘗試 */}
-        <button
-          onClick={() => {
-            const url = window.location.origin + '/?mode=safari_breakout';
-            window.open(url, '_blank');
-            // 如果 window.open 沒反應，提示使用者手動
-            setTimeout(() => {
-              alert("若沒自動開啟，請直接點擊 iOS 最下方的「分享」圖框 -> 「在 Safari 中開啟」");
-            }, 500);
-          }}
-          className="w-full py-4 bg-blue-600 text-white rounded-xl font-black shadow-lg shadow-blue-200 active:scale-95 transition-all text-lg"
-        >
-          嘗試自動跳轉
-        </button>
-        <button onClick={() => setInfo((p: any) => ({ ...p, showBreakoutUI: false }))} className="text-gray-400 text-sm font-bold py-2 w-full">暫時關閉</button>
-      </div>
-    </div>
-  </div>
-);
-
 // --- Debug Overlay Component (不使用 Monkey Patch) ---
 const DebugOverlay: React.FC<{ info: any, onDismiss: () => void }> = ({ info, onDismiss }) => {
   const [isVisible, setIsVisible] = useState(false);
