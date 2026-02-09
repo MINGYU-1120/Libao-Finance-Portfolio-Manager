@@ -369,6 +369,11 @@ const AIPicks: React.FC<AIPicksProps> = ({ userRole }) => {
             return;
         }
 
+        if (Number(newPick.entryPrice) > 100000000) {
+            showToast("價格數值過大，請檢查是否輸入錯誤", "error");
+            return;
+        }
+
         setIsAdding(true);
         try {
             await addAIPick({
@@ -870,6 +875,7 @@ const AIPicks: React.FC<AIPicksProps> = ({ userRole }) => {
                                                 placeholder="訊號價格 (Signal Price)"
                                                 value={newPick.entryPrice}
                                                 onChange={e => setNewPick({ ...newPick, entryPrice: Number(e.target.value) })}
+                                                max="100000000"
                                                 className="bg-gray-800 border-gray-700 text-white rounded-lg px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
                                             />
                                             <select

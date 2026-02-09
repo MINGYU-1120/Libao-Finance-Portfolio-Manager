@@ -26,6 +26,10 @@ const AddCategoryModal: React.FC<AddCategoryModalProps> = ({ isOpen, onClose, on
             alert('請輸入有效的資金佔比');
             return;
         }
+        if (allocVal > 100) {
+            alert('資金佔比不能超過 100%');
+            return;
+        }
         onConfirm(name.trim(), market, allocVal);
         // Reset form
         setName('');

@@ -475,6 +475,11 @@ const OrderModal: React.FC<OrderModalProps> = ({
       return;
     }
 
+    if (p > 100000000 || s > 10000000000 || rate > 1000000) {
+      showToast("輸入數值過大，請檢查是否輸入錯誤", 'error');
+      return;
+    }
+
     if (action === 'SELL' && initialAsset) {
       if (s > initialAsset.shares) {
         showToast(`賣出股數 (${s}) 超過持有股數 (${initialAsset.shares})`, 'error');
@@ -686,6 +691,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
                 type="number"
                 value={price}
                 onChange={(e) => { setPrice(e.target.value); setPriceError(false); }}
+                max="100000000"
                 className={`w-full p-2 border rounded-lg font-mono font-bold bg-white ${priceError ? 'border-red-500 focus:ring-red-200' : `${ringColor} border-gray-300`}`}
                 placeholder="0.00"
               />
@@ -703,6 +709,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
                   type="number"
                   value={exchangeRate}
                   onChange={(e) => setExchangeRate(e.target.value)}
+                  max="1000000"
                   className="w-full p-2 border rounded-lg font-mono text-center bg-white border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
@@ -749,6 +756,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
                 type="number"
                 value={sharesInput}
                 onChange={(e) => setSharesInput(e.target.value)}
+                max="10000000000"
                 placeholder="0"
                 className={`w-full p-2 border rounded-lg font-mono text-xl font-bold text-right bg-white border-gray-300 ${ringColor}`}
               />
@@ -763,6 +771,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
                   type="number"
                   value={percentInput}
                   onChange={(e) => setPercentInput(e.target.value)}
+                  max="100"
                   placeholder="%"
                   className={`w-full p-2 border rounded-lg font-mono text-xl font-bold text-right bg-white border-gray-300 ${ringColor}`}
                 />

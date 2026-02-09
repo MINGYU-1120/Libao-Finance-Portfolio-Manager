@@ -156,6 +156,10 @@ const DividendModal: React.FC<DividendModalProps> = ({
     if (selected.some(i => i.rate <= 0)) {
       if (!window.confirm("部分選取項目的配息金額為 0，確定要入帳嗎？")) return;
     }
+    if (selected.some(i => i.rate > 1000000 || i.shares > 10000000000)) {
+      alert("部分項目的數值過大，請檢查配息金額或股數。");
+      return;
+    }
     onConfirm(selected);
     onClose();
   };
@@ -293,6 +297,7 @@ const DividendModal: React.FC<DividendModalProps> = ({
                           <input
                             type="number"
                             min="0"
+                            max="1000000"
                             step="0.01"
                             value={item.rate}
                             onChange={(e) => handleUpdateItem(idx, 'rate', parseFloat(e.target.value))}
@@ -323,6 +328,7 @@ const DividendModal: React.FC<DividendModalProps> = ({
                           <input
                             type="number"
                             min="0"
+                            max="10000000000"
                             step="1"
                             value={item.shares}
                             onChange={(e) => handleUpdateItem(idx, 'shares', parseFloat(e.target.value) || 0)}
@@ -429,6 +435,7 @@ const DividendModal: React.FC<DividendModalProps> = ({
                             <input
                               type="number"
                               min="0"
+                              max="10000000000"
                               step="1"
                               value={item.shares}
                               onChange={(e) => handleUpdateItem(idx, 'shares', parseFloat(e.target.value) || 0)}
@@ -444,6 +451,7 @@ const DividendModal: React.FC<DividendModalProps> = ({
                               <input
                                 type="number"
                                 min="0"
+                                max="1000000"
                                 step="0.01"
                                 value={item.rate}
                                 onChange={(e) => handleUpdateItem(idx, 'rate', parseFloat(e.target.value))}

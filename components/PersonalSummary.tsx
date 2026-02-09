@@ -231,9 +231,10 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                                     {!readOnly && onUpdateAllocation ? (
                                         <div className="flex items-center justify-center gap-0.5">
                                             <input
-                                                type="text"
+                                                type="number"
                                                 value={isMasked ? '****' : cat.allocationPercent}
                                                 onChange={(e) => onUpdateAllocation(cat.id, Number(e.target.value))}
+                                                max="100"
                                                 disabled={isMasked}
                                                 className="w-12 text-center border-b border-cyan-500 bg-transparent font-mono font-black text-cyan-400 focus:outline-none focus:border-white disabled:text-gray-500 text-lg"
                                             />

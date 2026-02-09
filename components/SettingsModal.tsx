@@ -63,6 +63,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       return;
     }
 
+    if (numRate > 1000000) {
+      showToast("匯率數值過大，請檢查是否輸入錯誤", 'error');
+      return;
+    }
+
     let finalNotifyState = enableNotifications;
     if ("Notification" in window && Notification.permission === 'denied') {
       finalNotifyState = false;
@@ -210,6 +215,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   type="number"
                   value={rate}
                   onChange={(e) => setRate(e.target.value)}
+                  max="1000000"
                   className="w-full p-2 border rounded-lg font-mono font-bold text-right pr-8 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">TWD</span>

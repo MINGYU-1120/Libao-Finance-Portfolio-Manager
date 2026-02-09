@@ -58,6 +58,7 @@ const StatsEditModal: React.FC<StatsEditModalProps> = ({ isOpen, onClose, curren
                                 type="number"
                                 value={stats.winRate}
                                 onChange={e => setStats({ ...stats, winRate: parseFloat(e.target.value) })}
+                                max="100"
                                 className="w-full p-2 border rounded font-mono font-bold text-lg"
                             />
                         </div>
@@ -80,6 +81,7 @@ const StatsEditModal: React.FC<StatsEditModalProps> = ({ isOpen, onClose, curren
                                 type="number"
                                 value={stats.avgReturn}
                                 onChange={e => setStats({ ...stats, avgReturn: parseFloat(e.target.value) })}
+                                max="1000"
                                 className="w-full p-2 border rounded font-mono font-bold text-lg text-indigo-600"
                             />
                         </div>
@@ -102,6 +104,7 @@ const StatsEditModal: React.FC<StatsEditModalProps> = ({ isOpen, onClose, curren
                                 type="number"
                                 value={stats.maxDrawdown}
                                 onChange={e => setStats({ ...stats, maxDrawdown: parseFloat(e.target.value) })}
+                                max="100"
                                 className="w-full p-2 border rounded font-mono font-bold text-lg text-gray-600"
                             />
                         </div>
