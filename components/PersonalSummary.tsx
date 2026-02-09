@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { CalculatedCategory } from '../types';
-import { PieChart, RefreshCw, ChevronRight, ArrowRight, Quote, ArrowUp, ArrowDown, Trash2, Edit3 } from 'lucide-react';
+import { PieChart, RefreshCw, ChevronRight, ArrowRight, Quote, ArrowUp, ArrowDown, Trash2, Edit3, ArrowRightLeft } from 'lucide-react';
 import { formatTWD } from '../utils/formatting';
+import { UserRole, AccessTier, getTier } from '../types';
 
 interface PersonalSummaryProps {
     categories: CalculatedCategory[];
@@ -12,6 +13,8 @@ interface PersonalSummaryProps {
     onDeleteCategory?: (id: string) => void;
     onMoveCategory?: (id: string, direction: 'up' | 'down') => void;
     onAddCategory?: () => void;
+    onCompare?: () => void;
+    userRole: UserRole;
     isPrivacyMode: boolean;
     isMasked?: boolean;
     readOnly?: boolean;
@@ -26,6 +29,8 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
     onDeleteCategory,
     onMoveCategory,
     onAddCategory,
+    onCompare,
+    userRole,
     isPrivacyMode,
     isMasked = false,
     readOnly = false
@@ -60,6 +65,21 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                         <h2 className="text-2xl font-black flex items-center gap-3 text-white tracking-wide">
                             <PieChart className="w-8 h-8 text-emerald-500" />
                             持倉總覽 (Overview)
+                            {onCompare && (
+                                <button
+                                    onClick={() => {
+                                        if (getTier(userRole) >= AccessTier.STANDARD) {
+                                            onCompare();
+                                        } else {
+                                            alert("僅限『會員以上』權限提供此功能");
+                                        }
+                                    }}
+                                    className="ml-2 flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-full text-amber-400 text-xs font-bold transition-all active:scale-95"
+                                >
+                                    <ArrowRightLeft className="w-3.5 h-3.5" />
+                                    倉位比對
+                                </button>
+                            )}
                         </h2>
                         {/* Quote could be restored if desired, or kept simple as per original */}
                     </div>

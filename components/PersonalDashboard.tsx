@@ -1,7 +1,7 @@
 import React from 'react';
 import { CalculatedCategory, TransactionRecord } from '../types';
 import { formatTWD } from '../utils/formatting';
-import { Briefcase, Wallet, TrendingUp, History, Coins } from 'lucide-react';
+import { Briefcase, Wallet, TrendingUp, History, Coins, ArrowRightLeft } from 'lucide-react';
 import MartingaleIndustryChart, { IndustryData } from './charts/MartingaleIndustryChart';
 import MartingalePerformanceChart from './charts/MartingalePerformanceChart';
 
@@ -76,11 +76,11 @@ const PersonalDashboard: React.FC<PersonalDashboardProps> = ({
                                 <div className="truncate mb-1">NT$ {mask(formatTWD(totalCapital, false))}</div>
                                 {onDeposit && (
                                     <div className="flex gap-2">
-                                        <button onClick={onDeposit} className="text-[10px] bg-emerald-500/10 px-2 py-1 rounded text-emerald-400 font-bold hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors w-fit">
+                                        <button onClick={onDeposit} className="text-[10px] bg-emerald-500/10 px-2 py-1 rounded text-emerald-400 font-bold hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors w-fit flex items-center gap-1">
                                             出/入金
                                         </button>
                                         {onReset && (
-                                            <button onClick={onReset} className="text-[10px] bg-red-500/10 px-2 py-1 rounded text-red-400 font-bold hover:bg-red-500/20 border border-red-500/20 transition-colors w-fit">
+                                            <button onClick={onReset} className="text-[10px] bg-red-500/10 px-2 py-1 rounded text-red-400 font-bold hover:bg-red-500/20 border border-red-500/20 transition-colors w-fit flex items-center gap-1">
                                                 重置
                                             </button>
                                         )}

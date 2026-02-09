@@ -33,6 +33,7 @@ import {
   Rocket,
   Shield,
   ArrowRight,
+  ArrowRightLeft,
   Download,
   Share,
   MoreVertical,
@@ -64,6 +65,7 @@ import SectionGate from './components/SectionGate';
 import NewFeatureModal from './components/NewFeatureModal';
 // MarketInsiderDemo removed
 import AIPicks from './components/AIPicks';
+import PortfolioCompareModal from './components/PortfolioCompareModal';
 
 import AddCategoryModal from './components/AddCategoryModal';
 import { stockService } from './services/StockService';
@@ -133,6 +135,7 @@ const App: React.FC = () => {
   const [pwaTab, setPwaTab] = useState<'iOS' | 'Android'>('iOS');
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [showNewFeatureModal, setShowNewFeatureModal] = useState(false);
+  const [isPortfolioCompareModalOpen, setIsPortfolioCompareModalOpen] = useState(false);
 
   useEffect(() => {
     // Check if user has seen the crypto announcement
@@ -1787,7 +1790,17 @@ const App: React.FC = () => {
         onCheckShares={handleCheckShares}
         onConfirm={handleConfirmDividends}
         isLoading={isScanningDividends}
-      />  <CapitalModal isOpen={showCapitalModal} onClose={() => setShowCapitalModal(false)} capitalLogs={portfolio.capitalLogs} onAddLog={(l) => { const newState = { ...portfolio, capitalLogs: [...portfolio.capitalLogs, { ...l, id: uuidv4() }] }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }} onDeleteLog={(id) => { const newState = { ...portfolio, capitalLogs: portfolio.capitalLogs.filter(l => l.id !== id) }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }} isPrivacyMode={isPrivacyMode} />
+      />
+      <PortfolioCompareModal
+        isOpen={isPortfolioCompareModalOpen}
+        onClose={() => setIsPortfolioCompareModalOpen(false)}
+        userCategories={calculatedData.categories}
+        martinCategories={calculatedData.martingale}
+        totalCapital={portfolio.totalCapital}
+        settings={portfolio.settings}
+        isPrivacyMode={isPrivacyMode}
+      />
+      <CapitalModal isOpen={showCapitalModal} onClose={() => setShowCapitalModal(false)} capitalLogs={portfolio.capitalLogs} onAddLog={(l) => { const newState = { ...portfolio, capitalLogs: [...portfolio.capitalLogs, { ...l, id: uuidv4() }] }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }} onDeleteLog={(id) => { const newState = { ...portfolio, capitalLogs: portfolio.capitalLogs.filter(l => l.id !== id) }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }} isPrivacyMode={isPrivacyMode} />
 
 
       <nav className="bg-gray-900 text-white shadow-md sticky top-0 z-50">
@@ -1954,6 +1967,11 @@ const App: React.FC = () => {
                     </button>
                   )}
 
+                  <button onClick={() => { setIsSidebarOpen(false); setIsPortfolioCompareModalOpen(true); }} className="w-full flex items-center justify-between p-3.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-all text-amber-200">
+                    <div className="flex items-center gap-3"><ArrowRightLeft className="w-5 h-5 text-amber-400" /><span className="text-sm font-bold">倉位落差比對</span></div>
+                    <ChevronRight className="w-4 h-4 text-amber-400" />
+                  </button>
+
                   <button onClick={() => { setViewMode('HISTORY'); setIsSidebarOpen(false); setShowAdminPanel(false); }} className={`w-full flex items-center justify-between p-3.5 rounded-xl transition-all ${viewMode === 'HISTORY' ? 'bg-gray-700 text-white shadow-sm' : 'bg-gray-800 hover:bg-gray-700'}`}>
                     <div className="flex items-center gap-3"><History className={`w-5 h-5 ${viewMode === 'HISTORY' ? 'text-libao-gold' : 'text-gray-400'}`} /><span className="text-sm font-medium">交易紀錄</span></div>
                     <ChevronRight className="w-4 h-4 text-gray-600" />
@@ -2079,6 +2097,8 @@ const App: React.FC = () => {
                   <PersonalSummary
                     categories={calculatedData.categories}
                     totalCapital={portfolio.totalCapital}
+                    userRole={userRole}
+                    onCompare={() => setIsPortfolioCompareModalOpen(true)}
                     onUpdateAllocation={handleUpdateAllocation}
                     onSelectCategory={setActiveCategoryId}
                     onRefreshCategory={handleRefreshCategory}
