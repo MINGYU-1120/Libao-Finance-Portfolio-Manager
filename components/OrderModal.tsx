@@ -308,7 +308,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
 
           const s = market === 'TW'
             ? Math.ceil(sharesNeeded)
-            : Math.ceil(sharesNeeded * 100) / 100;
+            : Math.ceil(sharesNeeded * 1000000) / 1000000;
 
           setSharesInput(s.toString());
           setCalculatedTotalOriginal(s * p);
@@ -320,7 +320,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
           if (calculationPriceTWD > 0) {
             const s = market === 'TW'
               ? Math.ceil(targetTWD / calculationPriceTWD)
-              : Math.ceil((targetTWD / calculationPriceTWD) * 100) / 100;
+              : Math.ceil((targetTWD / calculationPriceTWD) * 1000000) / 1000000;
 
             setSharesInput(s.toString());
             setCalculatedTotalOriginal(s * p);
@@ -446,7 +446,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
       if (market === 'TW') {
         maxShares = Math.floor(safeCash / priceInTWD);
       } else {
-        maxShares = Math.floor((safeCash / priceInTWD) * 100) / 100;
+        maxShares = Math.floor((safeCash / priceInTWD) * 1000000) / 1000000;
       }
 
       setSharesInput(maxShares.toString());

@@ -23,5 +23,9 @@ export const formatCurrency = (value: number, currency: string, isPrivacyMode: b
     }
 
     // Default for USD or others: keep decimals
+    // Special handling for small values (e.g. Crypto)
+    if (Math.abs(value) > 0 && Math.abs(value) < 1.0) {
+        return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+    }
     return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };

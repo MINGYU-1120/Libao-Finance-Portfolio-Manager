@@ -88,7 +88,7 @@ class StockService {
     const data = await this.fetchWithProxy(targetUrl);
     if (data?.quotes) {
       return data.quotes
-        .filter((q: any) => (q.quoteType === 'EQUITY' || q.quoteType === 'ETF') && (market === 'TW' ? (q.symbol.endsWith('.TW') || q.symbol.endsWith('.TWO')) : (!q.symbol.endsWith('.TW') && !q.symbol.endsWith('.TWO'))))
+        .filter((q: any) => (q.quoteType === 'EQUITY' || q.quoteType === 'ETF' || q.quoteType === 'CRYPTOCURRENCY') && (market === 'TW' ? (q.symbol.endsWith('.TW') || q.symbol.endsWith('.TWO')) : (!q.symbol.endsWith('.TW') && !q.symbol.endsWith('.TWO'))))
         .map((q: any) => ({ symbol: q.symbol.split('.')[0], name: q.shortname || q.longname || q.symbol, market: market }));
     }
     return [];

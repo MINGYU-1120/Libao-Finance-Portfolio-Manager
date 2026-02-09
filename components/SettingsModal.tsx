@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { X, Save, Upload, Download, Settings, Trash2, Bell, AlertTriangle, ShieldAlert, RefreshCw } from 'lucide-react';
-import { AppSettings, PortfolioState } from '../types';
+import { AppSettings, PortfolioState, UserRole } from '../types';
 import { useToast } from '../contexts/ToastContext';
 
 interface SettingsModalProps {
@@ -13,6 +13,7 @@ interface SettingsModalProps {
   onImportData: (data: PortfolioState) => void;
   onResetPortfolio: () => void;
   onRepairData: () => void;
+  userRole: UserRole;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -23,7 +24,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   fullPortfolio,
   onImportData,
   onResetPortfolio,
-  onRepairData
+  onRepairData,
+  userRole
 }) => {
   const { showToast } = useToast();
   const [rate, setRate] = useState(settings.usExchangeRate.toString());
@@ -103,7 +105,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleExport = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullPortfolio, null, 2));
+    // Clone logic based on permissions
+    let exportData = { ...fullPortfolio };
+
+    if (userRole !== 'admin') {
+      // 1. Clear Martingale Categories
+      if (exportData.martingale) {
+        exportData.martingale = [];
+      }
+
+      // 2. Filter Transactions
+      // Exclude:
+      // - Explicitly marked as martingale (isMartingale === true)
+      // - Legacy (isMartingale === undefined) BUT matched by category name (handled by simple 'isMartingale' check if data is migrated, but let's be safe)
+      // Actually, relying on isMartingale flag which is populated by App.tsx logic is safest.
+      exportData.transactions = exportData.transactions.filter(t => t.isMartingale !== true);
+    }
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
     downloadAnchorNode.setAttribute("download", `libao_portfolio_${new Date().toISOString().split('T')[0]}.json`);
@@ -128,8 +147,36 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             if (!parsed.categories || !parsed.totalCapital) {
               throw new Error("Invalid file format");
             }
-            if (window.confirm("確定要匯入此檔案嗎？這將會覆蓋當前的所有資料。")) {
-              onImportData(parsed);
+
+            let importMessage = "確定要匯入此檔案嗎？這將會覆蓋當前的所有資料。";
+            if (userRole === 'admin') {
+              importMessage = "【管理員模式】系統偵測到您是管理員。\n\n匯入此檔案將會「覆蓋個人持倉」，但會「保留目前的馬丁策略」資料。";
+            }
+
+            if (window.confirm(importMessage)) {
+              if (userRole === 'admin') {
+                // Smart Merge for Admin
+                // 1. Keep existing Martingale categories
+                const existingMartingale = fullPortfolio.martingale || [];
+                // 2. Keep existing Martingale transactions
+                const existingMartingaleTxs = fullPortfolio.transactions.filter(t => t.isMartingale === true);
+
+                // 3. Take new Personal categories
+                // 4. Take new Personal transactions (filter out any martingale trash from import file if valid)
+                const importedPersonalTxs = (parsed.transactions || []).filter((t: any) => t.isMartingale !== true);
+
+                // 5. Merge
+                const mergedData = {
+                  ...parsed,
+                  martingale: existingMartingale,
+                  transactions: [...existingMartingaleTxs, ...importedPersonalTxs]
+                };
+
+                onImportData(mergedData);
+              } else {
+                // Standard Overwrite for everyone else
+                onImportData(parsed);
+              }
               onClose();
             }
           }

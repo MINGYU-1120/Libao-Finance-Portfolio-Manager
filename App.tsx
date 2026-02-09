@@ -61,6 +61,7 @@ import OnboardingModal from './components/OnboardingModal';
 import NewsModal from './components/NewsModal';
 import GuidedTour, { TourStep } from './components/GuidedTour';
 import SectionGate from './components/SectionGate';
+import NewFeatureModal from './components/NewFeatureModal';
 // MarketInsiderDemo removed
 import AIPicks from './components/AIPicks';
 
@@ -131,6 +132,31 @@ const App: React.FC = () => {
   const [hasNewNews, setHasNewNews] = useState(false);
   const [pwaTab, setPwaTab] = useState<'iOS' | 'Android'>('iOS');
   const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [showNewFeatureModal, setShowNewFeatureModal] = useState(false);
+
+  useEffect(() => {
+    // Check if user has seen the crypto announcement
+    const hasSeen = localStorage.getItem('libao_crypto_feature_seen');
+    if (!hasSeen) {
+      // Wait a bit before showing to not conflict with other modals
+      const timer = setTimeout(() => {
+        // Double check in case they cleared it or it was set during timeout
+        if (!localStorage.getItem('libao_crypto_feature_seen')) {
+          setShowNewFeatureModal(true);
+        }
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const handleCloseNewFeatureModal = () => {
+    setShowNewFeatureModal(false);
+  };
+
+  const handleDismissNewFeatureModal = () => {
+    localStorage.setItem('libao_crypto_feature_seen', 'true');
+    setShowNewFeatureModal(false);
+  };
 
   const initialPortfolioState: PortfolioState = useMemo(() => ({
     totalCapital: INITIAL_CAPITAL,
@@ -258,6 +284,7 @@ const App: React.FC = () => {
           } finally {
             setIsSyncing(false);
             setAuthInitializing(false);
+            setIsDataLoaded(true);
           }
         } else {
           // 處理未登入
@@ -1686,9 +1713,20 @@ const App: React.FC = () => {
         onStepChange={handleTourStepChange}
       />
       <OnboardingModal isOpen={showOnboarding} initialCategories={DEFAULT_CATEGORIES} onComplete={(cap, cats) => { saveAndSetPortfolio({ ...portfolio, totalCapital: cap, categories: cats }); setShowOnboarding(false); localStorage.setItem('libao-onboarding-v1', 'true'); setTimeout(() => { setIsTourActive(true); fetchStockNews(); }, 1000); }} />
-      {showTutorial && (
-        <TutorialModal isOpen={showTutorial} onClose={handleTutorialClose} onLoginRequest={handleLoginAction} isLoggedIn={!!user} />
+      {showNewFeatureModal && (
+        <NewFeatureModal
+          isOpen={showNewFeatureModal}
+          onClose={handleCloseNewFeatureModal}
+          onDismiss={handleDismissNewFeatureModal}
+        />
       )}
+
+      {/* Tutorial Modal */}
+      {showTutorial && (
+        <TutorialModal
+          isOpen={showTutorial} onClose={handleTutorialClose} onLoginRequest={handleLoginAction} isLoggedIn={!!user} />
+      )}
+
       <NewsModal isOpen={showNewsModal} onClose={() => { setShowNewsModal(false); setHasNewNews(false); localStorage.setItem('libao-news-last-read', Date.now().toString()); }} newsItems={newsItems} isLoading={isFetchingNews} />
       <SettingsModal
         isOpen={showSettingsModal}
@@ -1733,6 +1771,7 @@ const App: React.FC = () => {
             }
           }
         }}
+        userRole={userRole} // Add this prop
       />
       <FeeSettingsModal isOpen={showFeeSettingsModal} onClose={() => setShowFeeSettingsModal(false)} settings={portfolio.settings} onUpdateSettings={handleUpdateSettings} />
       <DividendModal
