@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { TransactionRecord, PortfolioState, Asset, UserRole, AccessTier, getTier } from '../types';
 import { History, ArrowUpRight, ArrowDownLeft, Coins, Filter, Search, Calendar, ChevronDown, Trash2, AlertCircle, X, CheckCircle, Lock } from 'lucide-react';
-import { formatCurrency, formatTWD } from '../utils/formatting';
+import { formatCurrency, formatTWD, formatShares } from '../utils/formatting';
 
 interface TransactionHistoryProps {
   transactions: TransactionRecord[];
@@ -402,7 +402,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                       {isDiv ? '-' : maskValue(tx.price.toLocaleString())}
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
-                      {isDiv ? '-' : tx.shares.toLocaleString()}
+                      {isDiv ? '-' : formatShares(tx.shares, isPrivacyMode)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-bold text-gray-700">
                       {formatCurrency(tx.amount, isUS ? 'USD' : 'TWD', isPrivacyMode)}
@@ -498,7 +498,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                   {revokingTx.type !== 'DIVIDEND' && (
                     <div className="flex justify-between mb-2">
                       <span className="text-gray-500">股數</span>
-                      <span className="font-mono">{revokingTx.shares.toLocaleString()}</span>
+                      <span className="font-mono">{formatShares(revokingTx.shares, isPrivacyMode)}</span>
                     </div>
                   )}
                   <div className="flex justify-between mb-2">

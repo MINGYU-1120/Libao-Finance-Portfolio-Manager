@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Asset, CalculatedCategory, CalculatedAsset, AppSettings } from '../types';
 import { ArrowLeft, Plus, RefreshCw, NotebookPen, Wallet, Search } from 'lucide-react';
-import { formatCurrency } from '../utils/formatting';
+import { formatCurrency, formatShares } from '../utils/formatting';
 import OrderModal, { OrderData } from './OrderModal';
 import StockChartModal from './StockChartModal';
 import NoteModal from './NoteModal';
@@ -277,7 +277,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
 
                 {/* Col 3: Shares / Ratio */}
                 <div className="text-right">
-                  <div className="font-mono font-black text-gray-800 text-[13px]">{strictMask(asset.shares)}</div>
+                  <div className="font-mono font-black text-gray-800 text-[13px]">{formatShares(asset.shares, isPrivacyMode)}</div>
                   <div className="text-[13px] font-bold text-indigo-500 font-mono mt-0.5">{isMasked ? '****' : asset.portfolioRatio.toFixed(1)}%</div>
                 </div>
 
@@ -369,7 +369,7 @@ const DetailTable: React.FC<DetailTableProps> = ({
                     </div>
                   </td>
                   <td className="p-4 text-right">
-                    <div className="font-mono font-black text-gray-800">{strictMask(asset.shares)} <span className="text-gray-400 text-xs font-bold">股</span></div>
+                    <div className="font-mono font-black text-gray-800">{formatShares(asset.shares, isPrivacyMode)} <span className="text-gray-400 text-xs font-bold">股</span></div>
                   </td>
                   <td className="p-4 text-right font-mono text-indigo-900 font-black">
                     {maskValue(formatCurrency(asset.marketValue, isUS ? 'USD' : 'TWD', isPrivacyMode))}

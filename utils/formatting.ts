@@ -29,3 +29,15 @@ export const formatCurrency = (value: number, currency: string, isPrivacyMode: b
     }
     return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
+
+/**
+ * Formats share counts.
+ * Supports up to 6 decimal places for US/Crypto, removes trailing zeros.
+ */
+export const formatShares = (value: number, isPrivacyMode: boolean = false): string => {
+    if (isPrivacyMode) return '****';
+
+    // Remove unnecessary trailing zeros but keep up to 6 decimals
+    const formatted = parseFloat(value.toFixed(6));
+    return formatted.toLocaleString(undefined, { maximumFractionDigits: 6 });
+};
