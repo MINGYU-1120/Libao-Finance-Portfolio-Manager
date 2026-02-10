@@ -5,8 +5,8 @@
       "destination": "https://libao-finance-manager.firebaseapp.com/__/auth/:path*"
     },
     {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
+      "source": "/api/kajabi-webhook",
+      "destination": "/api/kajabi-webhook/index.js"
     },
     {
       "source": "/(.*)",
