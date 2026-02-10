@@ -66,6 +66,7 @@ import NewFeatureModal from './components/NewFeatureModal';
 // MarketInsiderDemo removed
 import AIPicks from './components/AIPicks';
 import PortfolioCompareModal from './components/PortfolioCompareModal';
+import LoginModal from './components/LoginModal';
 
 import AddCategoryModal from './components/AddCategoryModal';
 import { stockService } from './services/StockService';
@@ -87,7 +88,8 @@ import {
   updatePublicMartingale,
   subscribeToPublicMartingale,
   subscribeToUserRole,
-  handleRedirectResult
+  handleRedirectResult,
+  checkAndFinishEmailLogin
 } from './services/firebase';
 import { useToast } from './contexts/ToastContext';
 import { OrderData } from './components/OrderModal';
@@ -136,6 +138,8 @@ const App: React.FC = () => {
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [showNewFeatureModal, setShowNewFeatureModal] = useState(false);
   const [isPortfolioCompareModalOpen, setIsPortfolioCompareModalOpen] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginModalMode, setLoginModalMode] = useState<'default' | 'confirm-email'>('default');
 
   useEffect(() => {
     // Check if user has seen the crypto announcement
@@ -252,9 +256,21 @@ const App: React.FC = () => {
         // 1. 先處理重導向結果
         console.log("[App] 🚀 檢查重導向...");
         const redirectUser = await handleRedirectResult();
-        if (redirectUser) {
-          console.log("[App] ✅ 重導向成功:", redirectUser.email);
-          setUser(redirectUser);
+
+        // 2. 檢查是否為 Email Link 回跳
+        const emailLinkResult = await checkAndFinishEmailLogin();
+
+        if (emailLinkResult.needsEmail) {
+          console.log("[App] 需要手動確認 Email");
+          setLoginModalMode('confirm-email');
+          setShowLoginModal(true);
+        }
+
+        const emailUser = emailLinkResult.user;
+
+        if (redirectUser || emailUser) {
+          console.log("[App] ✅ 登入成功:", (redirectUser || emailUser)?.email);
+          setUser(redirectUser || emailUser);
         }
       } catch (e) {
         console.error("[App] ❌ 重導向錯誤:", e);
@@ -270,6 +286,18 @@ const App: React.FC = () => {
 
         if (currentUser) {
           setIsSyncing(true);
+
+          // 3. 登入後自動導向 /app 或清除 URL 參數
+          if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            const isLoginPath = url.pathname === '/login' || url.pathname === '/auth/finish';
+            // 如果在登入頁或有殘留參數 (apiKey, mode=signIn)
+            if (isLoginPath || url.searchParams.has('mode') || url.searchParams.has('apiKey')) {
+              console.log("[App] 🔀 Redirecting to /app (Clean URL)");
+              window.history.replaceState({}, document.title, '/app');
+            }
+          }
+
           try {
             const role = await syncUserProfile(currentUser);
             setUserRole(role);
@@ -350,20 +378,7 @@ const App: React.FC = () => {
   };
 
   const handleLoginAction = async () => {
-    console.log("[App] handleLoginAction triggered");
-
-    try {
-      setIsSyncing(true); // Show loading immediately
-      const result = await loginWithGoogle();
-
-      if (!result) {
-        console.log("[App] Redirect started or failed, keeping loading state...");
-      }
-    } catch (e: any) {
-      console.error("[Login Error]", e);
-      setIsSyncing(false);
-      showToast(`登入遭遇問題: ${e.message || "未知錯誤"}`, "error");
-    }
+    setShowLoginModal(true);
   };
 
   const handleLogout = async () => {
@@ -1675,7 +1690,7 @@ const App: React.FC = () => {
           <div className="grid grid-cols-1 gap-4">
             <button onClick={handleLoginAction} disabled={isSyncing} className="w-full py-4 bg-white text-gray-900 rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-2xl hover:bg-gray-100 transition-all active:scale-95 disabled:opacity-50">
               {isSyncing ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Cloud className="w-6 h-6 text-blue-600" />}
-              使用 Google 帳號同步
+              登入帳號雲端同步
             </button>
             <button onClick={handleStartFresh} className="w-full py-4 bg-white/5 text-white border border-white/10 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 hover:bg-white/10 transition-all active:scale-95">
               <Rocket className="w-6 h-6 text-libao-gold" />
@@ -1690,6 +1705,11 @@ const App: React.FC = () => {
           <p className="text-[10px] text-gray-600 font-mono">Libao Portfolio Manager v5.5.0 • Authorized Students Only</p>
         </div>
 
+        <LoginModal
+          isOpen={showLoginModal}
+          onClose={() => { setShowLoginModal(false); setLoginModalMode('default'); }}
+          initialMode={loginModalMode}
+        />
       </div>
     );
   }
@@ -2238,6 +2258,12 @@ const App: React.FC = () => {
         <button id="nav-mobile-dividend" onClick={() => { setViewMode('DIVIDENDS'); setShowAdminPanel(false); }} className={`flex flex-col items-center gap-1 ${viewMode === 'DIVIDENDS' ? 'text-purple-600' : 'text-gray-400'}`}><Coins className="w-6 h-6" /><span className="text-[10px]">股息</span></button>
         <button id="nav-mobile-ai" onClick={() => { setViewMode('AI_PICKS'); setShowAdminPanel(false); }} className={`flex flex-col items-center gap-1 ${viewMode === 'AI_PICKS' ? 'text-indigo-600' : 'text-gray-400'}`}><Brain className="w-6 h-6" /><span className="text-[10px]">AI選股</span></button>
       </div>
+
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => { setShowLoginModal(false); setLoginModalMode('default'); }}
+        initialMode={loginModalMode}
+      />
     </div>
   );
 };

@@ -8,7 +8,16 @@ import {
   GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
-  User
+  User,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
+  fetchSignInMethodsForEmail,
+  linkWithCredential,
+  OAuthProvider,
+  AuthError,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth';
 // import { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider } from 'firebase/app-check'; // 完全移除 App Check import
 import {
@@ -66,6 +75,12 @@ try {
   }
 
   auth = getAuth(app);
+
+  // Explicitly set persistence to LOCAL (default for web, but ensures PWA stability)
+  setPersistence(auth, browserLocalPersistence)
+    .then(() => console.log("[Auth] Persistence set to LOCAL"))
+    .catch((error) => console.error("[Auth] Failed to set persistence:", error));
+
   db = getFirestore(app);
   console.log("Firebase initialized successfully.");
 } catch (e) {
@@ -156,6 +171,109 @@ export const handleRedirectResult = async (): Promise<User | null> => {
     return null;
   }
 };
+
+// ==========================================
+// Email Link (Passwordless) Login
+// ==========================================
+
+export const sendMagicLink = async (email: string) => {
+  if (!auth) throw new Error("Firebase auth not initialized");
+
+  const actionCodeSettings = {
+    // 重導向回來的 URL。必須在 Firebase Console 加入此網域。
+    url: window.location.href,
+    handleCodeInApp: true
+  };
+
+  try {
+    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+    // 儲存 Email 以便使用者點擊連結回來時驗證 (避免再次詢問)
+    window.localStorage.setItem('emailForSignIn', email);
+    return true;
+  } catch (error) {
+    console.error("Error sending email link:", error);
+    throw error;
+  }
+};
+
+export const checkAndFinishEmailLogin = async (manualEmail?: string): Promise<{ user: User | null, needsEmail?: boolean }> => {
+  if (!auth) return { user: null };
+
+  // 檢查當前 URL 是否為 Email Link 登入連結
+  if (isSignInWithEmailLink(auth, window.location.href)) {
+    console.log("[Auth] Detected Email Link sign-in flow");
+
+    // 1. 優先使用手動輸入的 Email (如果有的話)
+    // 2. 其次是 LocalStorage 記住的 Email
+    let email = manualEmail || window.localStorage.getItem('emailForSignIn');
+
+    // 若完全沒有 Email (不同瀏覽器/裝置)，回傳 needsEmail 標記，通知前端顯示輸入框
+    if (!email) {
+      return { user: null, needsEmail: true };
+    }
+
+    // 若有 Email，嘗試完成登入
+    try {
+      const result = await signInWithEmailLink(auth, email, window.location.href);
+      window.localStorage.removeItem('emailForSignIn');
+      console.log("[Auth] Email Link login successful:", result.user.email);
+      // Clean URL & Redirect to App
+      if (window.history && window.history.replaceState) {
+        // Force replace to /app if user requested, or just clean search params
+        const newUrl = window.location.origin + window.location.pathname; // Clean search params
+        window.history.replaceState({}, document.title, newUrl);
+      }
+      return { user: result.user };
+    } catch (error: any) {
+      console.error("[Auth] Email Link login failed:", error);
+      // 如果 email 不對 (auth/invalid-email) 或連結失效 (auth/invalid-action-code)
+      throw error;
+    }
+  }
+  return { user: null };
+};
+
+// Helper to clean URL and redirect to app view
+export const redirectToApp = () => {
+  if (typeof window !== 'undefined') {
+    const url = new URL(window.location.href);
+    // If query params exist (like mode=signIn), clean them
+    if (url.search) {
+      url.search = '';
+      window.history.replaceState({}, document.title, url.toString());
+    }
+  }
+};
+
+/**
+ * Advanced: Handle Account Linking
+ * 如果使用者用 Google 登入，但該 Email 已有帳號 (例如 Email/Password) 且未自動連結，
+ * 或是反過來，會拋出 `auth/account-exists-with-different-credential`。
+ */
+export const handleAccountConflict = async (error: any) => {
+  if (error.code === 'auth/account-exists-with-different-credential') {
+    const email = error.customData.email;
+    const pendingCred = GoogleAuthProvider.credentialFromError(error); // 取得 Google 的憑證
+    // 或是 OAuthProvider.credentialFromError(error) 通用
+
+    if (!email || !pendingCred) return;
+
+    // 1. 查詢該 Email 已經存在的登入方式
+    const methods = await fetchSignInMethodsForEmail(auth, email);
+
+    // 2. 假設 methods 包含 'emailLink' 或 'password'
+    // 這裡回傳資訊讓前端決策：提示使用者改用 [methods[0]] 登入，
+    // 登入後再用 linkWithCredential(user, pendingCred) 把 Google 綁上去。
+    return {
+      isConflict: true,
+      email,
+      existingMethods: methods,
+      pendingCredential: pendingCred
+    };
+  }
+  return null;
+};
+
 
 export const logoutUser = async () => {
   if (!isConfigured) return;

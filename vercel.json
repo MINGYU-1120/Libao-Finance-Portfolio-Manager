@@ -3,6 +3,16 @@
     {
       "source": "/__/auth/:path*",
       "destination": "https://libao-finance-manager.firebaseapp.com/__/auth/:path*"
+    },
+    {
+      "source": "/api/:match*",
+      "destination": "/api/:match*"
     }
-  ]
+  ],
+  "functions": {
+    "api/*.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  }
 }
