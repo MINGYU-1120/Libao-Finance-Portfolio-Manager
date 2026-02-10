@@ -1928,15 +1928,7 @@ const App: React.FC = () => {
                 <button id="tour-privacy-btn" onClick={() => setIsPrivacyMode(!isPrivacyMode)} className="p-2 text-gray-300 hover:text-white">{isPrivacyMode ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button>
                 <button id="tour-update-btn" onClick={() => handleUpdatePrices(false)} className="p-2 text-gray-300 hover:text-white"><RefreshCw className={`w-5 h-5 ${isUpdatingPrices ? 'animate-spin' : ''}`} /></button>
 
-                {/* Desktop Role Badge */}
-                {user && (
-                  <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-gray-800 border border-gray-700 rounded-lg ml-2">
-                    <User className="w-4 h-4 text-gray-400" />
-                    <span className="text-xs font-bold text-gray-200 uppercase tracking-wider">
-                      {isFirstClassRole ? 'VIP頭等艙' : isMemberRole ? '成員' : '一般訪客'}
-                    </span>
-                  </div>
-                )}
+
 
                 <button id="tour-menu-btn" onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-300 hover:text-white"><Menu className="w-6 h-6" /></button>
               </div>
