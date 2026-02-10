@@ -17,7 +17,10 @@ import {
   OAuthProvider,
   AuthError,
   setPersistence,
-  browserLocalPersistence
+  browserLocalPersistence,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 // import { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider } from 'firebase/app-check'; // 完全移除 App Check import
 import {
@@ -173,7 +176,41 @@ export const handleRedirectResult = async (): Promise<User | null> => {
 };
 
 // ==========================================
-// Email Link (Passwordless) Login
+// Email/Password Login
+// ==========================================
+
+export const loginWithEmail = async (email: string, password: string): Promise<User> => {
+  if (!auth) throw new Error("Firebase auth not initialized");
+  try {
+    const result = await signInWithEmailAndPassword(auth, email, password);
+    return result.user;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const registerWithEmail = async (email: string, password: string): Promise<User> => {
+  if (!auth) throw new Error("Firebase auth not initialized");
+  try {
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+    return result.user;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const resetPassword = async (email: string) => {
+  if (!auth) throw new Error("Firebase auth not initialized");
+  try {
+    await sendPasswordResetEmail(auth, email);
+    return true;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// ==========================================
+// Email Link (Passwordless) Login - DEPRECATED
 // ==========================================
 
 export const sendMagicLink = async (email: string) => {

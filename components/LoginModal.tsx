@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { X, Mail, Check, AlertCircle, Loader2 } from 'lucide-react';
-import { loginWithGoogle, sendMagicLink, handleAccountConflict } from '../services/firebase';
+import { X, Mail, Check, AlertCircle, Loader2, Lock, ArrowRight, UserPlus, LogIn } from 'lucide-react';
+import { loginWithGoogle, loginWithEmail, registerWithEmail, resetPassword, handleAccountConflict, syncUserProfile } from '../services/firebase';
 
 interface LoginModalProps {
     onClose: () => void;
@@ -9,45 +9,39 @@ interface LoginModalProps {
     initialMode?: 'default' | 'confirm-email';
 }
 
-const LoginModal: React.FC<LoginModalProps> = ({ onClose, isOpen, initialMode = 'default' }) => {
-    const [mode, setMode] = useState<'default' | 'confirm-email'>(initialMode);
-
-    // Reset mode when isOpen changes
-    React.useEffect(() => {
-        if (isOpen) {
-            setMode(initialMode);
-        }
-    }, [isOpen, initialMode]);
+const LoginModal: React.FC<LoginModalProps> = ({ onClose, isOpen }) => {
+    const [isRegister, setIsRegister] = useState(false);
     const [email, setEmail] = useState('');
-    const [isSent, setIsSent] = useState(false);
+    const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [errorMSG, setErrorMSG] = useState('');
-    const [linkInfo, setLinkInfo] = useState<{ email: string } | null>(null);
-    const [countdown, setCountdown] = useState(0);
+    const [successMSG, setSuccessMSG] = useState('');
+    const [isForgotPassword, setIsForgotPassword] = useState(false);
 
-    // Moved early return to JSX render to prevent hook mismatch
-    // if (!isOpen) return null;
+    // Reset state when isOpen changes
+    React.useEffect(() => {
+        if (isOpen) {
+            setErrorMSG('');
+            setSuccessMSG('');
+            setPassword('');
+            setLoading(false);
+        }
+    }, [isOpen]);
 
     const handleGoogle = async () => {
         setLoading(true);
         setErrorMSG('');
-        setLinkInfo(null);
         try {
-            await loginWithGoogle();
-            // Redirect handling is in App.tsx
-            onClose();
+            const user = await loginWithGoogle();
+            if (user) {
+                await syncUserProfile(user);
+                onClose();
+            }
         } catch (e: any) {
             console.error("Login Error:", e);
-            // Check for account linking requirement
             const conflict = await handleAccountConflict(e);
             if (conflict && conflict.isConflict) {
                 setErrorMSG(`您之前使用 ${conflict.existingMethods.join(', ')} 登入過此 Email。請使用該方式登入以連結帳號。`);
-                // Here we could auto-trigger email link flow if existing method is emailLink
-                if (conflict.existingMethods.includes('emailLink')) {
-                    setLinkInfo({ email: conflict.email });
-                    setErrorMSG(`檢測到您之前使用 Email Link 登入過 (${conflict.email})。請點擊下方按鈕發送連結以合併帳號。`);
-                    setEmail(conflict.email);
-                }
             } else {
                 setErrorMSG(e.message || "登入失敗");
             }
@@ -56,61 +50,49 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, isOpen, initialMode = 
         }
     };
 
-    const handleEmailLink = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!email) return;
 
         setLoading(true);
         setErrorMSG('');
+        setSuccessMSG('');
+
         try {
-            await sendMagicLink(email);
-            setIsSent(true);
+            if (isForgotPassword) {
+                await resetPassword(email);
+                setSuccessMSG(`重設密碼信件已發送至 ${email}，請檢查信箱。`);
+                setIsForgotPassword(false);
+            } else if (isRegister) {
+                if (password.length < 6) {
+                    throw new Error("密碼長度至少需 6 個字元");
+                }
+                const user = await registerWithEmail(email, password);
+                if (user) {
+                    await syncUserProfile(user);
+                    onClose();
+                }
+            } else {
+                const user = await loginWithEmail(email, password);
+                if (user) {
+                    // Sync profile (updates last active)
+                    await syncUserProfile(user);
+                    onClose();
+                }
+            }
         } catch (e: any) {
-            console.error("Send Link Error:", e);
-            setErrorMSG(e.message || "發送失敗，請稍後再試");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleConfirmEmail = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!email) return;
-
-        setLoading(true);
-        setErrorMSG('');
-        try {
-            // Validate email again or just pass to finish
-            const { checkAndFinishEmailLogin } = await import('../services/firebase');
-            await checkAndFinishEmailLogin(email);
-            // checkAndFinishEmailLogin handles the sign in. If successful, auth state changes and App handles it.
-            // If it throws, we catch it here.
-            onClose();
-        } catch (e: any) {
-            console.error("Confirm Email Error:", e);
-            setErrorMSG(e.message || "驗證失敗，請確認 Email 是否正確");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    React.useEffect(() => {
-        let timer: NodeJS.Timeout;
-        if (countdown > 0) {
-            timer = setTimeout(() => setCountdown(c => c - 1), 1000);
-        }
-        return () => clearTimeout(timer);
-    }, [countdown]);
-
-    const handleResend = async () => {
-        if (countdown > 0 || !email) return;
-        setLoading(true);
-        try {
-            await sendMagicLink(email);
-            setCountdown(60); // 60s cool down
-            setErrorMSG('');
-        } catch (e: any) {
-            setErrorMSG("發送失敗，請稍後再試");
+            console.error("Auth Error:", e);
+            let msg = e.message;
+            if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
+                msg = "帳號或密碼錯誤";
+            } else if (e.code === 'auth/email-already-in-use') {
+                msg = "此 Email 已被註冊，請直接登入";
+            } else if (e.code === 'auth/weak-password') {
+                msg = "密碼強度不足 (至少 6 碼)";
+            } else if (e.code === 'auth/too-many-requests') {
+                msg = "登入嘗試次數過多，請稍後再試";
+            }
+            setErrorMSG(msg || "驗證失敗，請稍後再試");
         } finally {
             setLoading(false);
         }
@@ -131,16 +113,22 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, isOpen, initialMode = 
                 </button>
 
                 {/* Content */}
-                <div className="p-8 pt-10 space-y-8">
+                <div className="p-8 pt-10 space-y-6">
 
                     <div className="text-center space-y-2">
-                        <h2 className="text-2xl font-bold text-slate-800 dark:text-white">歡迎回來</h2>
-                        <p className="text-slate-500 text-sm">請選擇您習慣的登入方式</p>
+                        <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
+                            {isForgotPassword ? '重設密碼' : isRegister ? '註冊帳號' : '歡迎回來'}
+                        </h2>
+                        <p className="text-slate-500 text-sm">
+                            {isForgotPassword ? '輸入您的 Email 以接收重設連結' :
+                                isRegister ? '建立您的專屬投資組合' :
+                                    '登入以繼續您的投資旅程'}
+                        </p>
                     </div>
 
-                    {!isSent ? (
-                        <div className="space-y-6">
-                            {/* Google Login */}
+                    {/* Google Login (Only in Login/Register mode) */}
+                    {!isForgotPassword && (
+                        <>
                             <button
                                 onClick={handleGoogle}
                                 disabled={loading}
@@ -162,119 +150,135 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, isOpen, initialMode = 
                             </button>
 
                             <div className="relative flex justify-center text-xs">
-                                <span className="bg-white dark:bg-slate-900 px-3 text-slate-400 z-10 font-medium">學員登入 (Email)</span>
+                                <span className="bg-white dark:bg-slate-900 px-3 text-slate-400 z-10 font-medium">或使用 Email 登入</span>
                                 <div className="absolute inset-0 flex items-center -z-0">
                                     <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
                                 </div>
                             </div>
-
-                            {/* Email Link Form */}
-                            <form onSubmit={handleEmailLink} className="space-y-4">
-                                <div className="space-y-1.5">
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">電子信箱</label>
-                                    <input
-                                        type="email"
-                                        required
-                                        placeholder="name@example.com"
-                                        value={email}
-                                        onChange={e => setEmail(e.target.value)}
-                                        disabled={loading}
-                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400"
-                                    />
-                                </div>
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-xl transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10"
-                                >
-                                    {loading && email ? <Loader2 className="w-5 h-5 animate-spin" /> : <Mail className="w-5 h-5" />}
-                                    <span>發送登入連結</span>
-                                </button>
-                            </form>
-                        </div>
-                    ) : mode === 'default' && isSent ? (
-                        <div className="text-center py-6 animate-in fade-in zoom-in duration-300">
-                            <h4 className="text-xl font-bold text-slate-800 dark:text-white mb-3">請檢查您的信箱</h4>
-                            <p className="text-slate-600 dark:text-slate-400 mb-6 leading-relaxed text-sm">
-                                我們已發送登入連結至<br />
-                                <span className="font-semibold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">{email}</span>
-                            </p>
-
-                            <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl text-left text-sm text-amber-800 dark:text-amber-200 mb-6 border border-amber-100 dark:border-amber-900/30">
-                                <p className="font-bold mb-2 flex items-center gap-2">
-                                    <AlertCircle className="w-4 h-4" /> 沒收到信件？
-                                </p>
-                                <ul className="list-disc pl-5 space-y-1 opacity-90">
-                                    <li>請檢查 <strong>垃圾郵件</strong> 或 <strong>促銷內容</strong> 資料夾</li>
-                                    <li>若被歸類為垃圾郵件，請務必先點選 <strong>「回報為非垃圾郵件」</strong>，連結才會生效</li>
-                                    <li>搜尋關鍵字：<strong>Libao</strong> 或 <strong>noreply</strong></li>
-                                </ul>
-                            </div>
-
-                            <div className="space-y-3">
-                                <button
-                                    onClick={onClose}
-                                    className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-white dark:text-slate-900 text-white font-medium py-3.5 rounded-xl transition-colors shadow-lg shadow-slate-200/50 dark:shadow-none"
-                                >
-                                    完成，我已點擊連結
-                                </button>
-                                <button
-                                    onClick={handleResend}
-                                    disabled={countdown > 0 || loading}
-                                    className="w-full text-slate-500 hover:text-slate-700 dark:text-slate-400 text-sm py-2 disabled:opacity-50"
-                                >
-                                    {countdown > 0 ? `重新發送 (${countdown}s)` : "沒收到？重新發送"}
-                                </button>
-                                <button
-                                    onClick={() => { setIsSent(false); setCountdown(0); }}
-                                    className="w-full text-slate-400 hover:text-slate-600 dark:text-slate-500 text-xs py-1"
-                                >
-                                    更換 Email
-                                </button>
-                            </div>
-                        </div>
-                    ) : mode === 'confirm-email' ? (
-                        /* Manual Email Confirmation Mode */
-                        <div className="space-y-6 animate-in fade-in slide-in-from-right duration-300">
-                            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-900/30">
-                                <p className="text-sm text-blue-800 dark:text-blue-200 leading-relaxed">
-                                    <span className="font-bold block mb-1">為了確保帳號安全</span>
-                                    請再次確認您剛剛點擊連結的 Email 信箱。
-                                </p>
-                            </div>
-
-                            <form onSubmit={handleConfirmEmail} className="space-y-4">
-                                <div className="space-y-1.5">
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">確認 Email</label>
-                                    <input
-                                        type="email"
-                                        required
-                                        placeholder="name@example.com"
-                                        value={email}
-                                        onChange={e => setEmail(e.target.value)}
-                                        disabled={loading}
-                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400"
-                                    />
-                                </div>
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-xl transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10"
-                                >
-                                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
-                                    <span>驗證並登入</span>
-                                </button>
-                            </form>
-                        </div>
-                    ) : null /* Fallback for unexpected mode/state */}
-
-                    {errorMSG && (
-                        <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-xl flex items-start gap-3 border border-red-100 dark:border-red-900/30">
-                            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                            <span className="leading-snug">{errorMSG}</span>
-                        </div>
+                        </>
                     )}
 
+                    {/* Email/Password Form */}
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="space-y-4">
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Email</label>
+                                <div className="relative">
+                                    <Mail className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
+                                    <input
+                                        type="email"
+                                        required
+                                        placeholder="name@example.com"
+                                        value={email}
+                                        onChange={e => setEmail(e.target.value)}
+                                        disabled={loading}
+                                        className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400"
+                                    />
+                                </div>
+                            </div>
+
+                            {!isForgotPassword && (
+                                <div className="space-y-1.5">
+                                    <div className="flex justify-between">
+                                        <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Password</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsForgotPassword(true)}
+                                            className="text-xs text-blue-500 hover:text-blue-600 font-medium"
+                                        >
+                                            忘記密碼?
+                                        </button>
+                                    </div>
+                                    <div className="relative">
+                                        <Lock className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
+                                        <input
+                                            type="password"
+                                            required
+                                            placeholder="••••••••"
+                                            value={password}
+                                            onChange={e => setPassword(e.target.value)}
+                                            disabled={loading}
+                                            minLength={6}
+                                            className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Reminder Text */}
+                        <div className={`p-3 bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-100 dark:border-amber-900/30 flex gap-2 items-start ${isForgotPassword ? 'hidden' : ''}`}>
+                            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
+                            <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                                請使用與 <strong>Libao 財經學院</strong> 一致的 Email，以便後台審核您的權限。
+                            </p>
+                        </div>
+
+                        {errorMSG && (
+                            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg flex items-start gap-2 border border-red-100 dark:border-red-900/30 animate-in slide-in-from-top-1">
+                                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                                <span className="leading-snug">{errorMSG}</span>
+                            </div>
+                        )}
+
+                        {successMSG && (
+                            <div className="p-3 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-sm rounded-lg flex items-start gap-2 border border-green-100 dark:border-green-900/30 animate-in slide-in-from-top-1">
+                                <Check className="w-4 h-4 shrink-0 mt-0.5" />
+                                <span className="leading-snug">{successMSG}</span>
+                            </div>
+                        )}
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-xl transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10 mt-2"
+                        >
+                            {loading ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : isForgotPassword ? (
+                                <>
+                                    <Mail className="w-5 h-5" />
+                                    <span>發送重設連結</span>
+                                </>
+                            ) : isRegister ? (
+                                <>
+                                    <UserPlus className="w-5 h-5" />
+                                    <span>建立新帳號</span>
+                                </>
+                            ) : (
+                                <>
+                                    <LogIn className="w-5 h-5" />
+                                    <span>登入帳號</span>
+                                </>
+                            )}
+                        </button>
+                    </form>
+
+                    {/* Footer Toggle */}
+                    <div className="text-center">
+                        <button
+                            type="button"
+                            disabled={loading}
+                            onClick={() => {
+                                if (isForgotPassword) {
+                                    setIsForgotPassword(false);
+                                } else {
+                                    setIsRegister(!isRegister);
+                                }
+                                setErrorMSG('');
+                                setSuccessMSG('');
+                            }}
+                            className="text-sm text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors font-medium inline-flex items-center gap-1 group"
+                        >
+                            {isForgotPassword ? (
+                                <>返回登入畫面</>
+                            ) : isRegister ? (
+                                <>已有帳號？ <span className="text-blue-500 group-hover:underline">立即登入</span></>
+                            ) : (
+                                <>還沒有帳號？ <span className="text-blue-500 group-hover:underline">免費註冊</span></>
+                            )}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

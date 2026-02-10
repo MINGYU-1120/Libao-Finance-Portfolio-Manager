@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db, updateUserRole, getAllUsers, getAllSectionMinTiers, updateSectionMinTier, logAdminAction, getAuditLogs } from '../services/firebase';
 import { UserProfile, UserRole, AccessTier, AuditLog } from '../types';
-import { Shield, User, Clock, Search, Filter, AlertTriangle, CheckCircle, X, FileText, Activity } from 'lucide-react';
+import { Shield, User, Clock, Search, Filter, AlertTriangle, CheckCircle, X, FileText, Activity, Download } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 
 interface AdminPanelProps {
@@ -20,9 +20,23 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
     const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
     // Permission State
-    const [activeTab, setActiveTab] = useState<'users' | 'permissions' | 'logs'>('users');
-    const [permissionMatrix, setPermissionMatrix] = useState<Record<string, AccessTier>>({});
+    const [activeTab, setActiveTab] = useState<'users' | 'permissions' | 'batch' | 'logs'>('users');
+    const [permissionMatrix, setPermissionMatrix] = useState<Record<string, AccessTier>>({
+        'market_insider': AccessTier.ADMIN,
+        'ai_picks': AccessTier.STANDARD,
+        'martingale': AccessTier.STANDARD,
+    });
     const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+
+    // Batch Update State
+    const [batchEmails, setBatchEmails] = useState('');
+    const [batchRole, setBatchRole] = useState<UserRole>('vip');
+    const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+    const [batchResult, setBatchResult] = useState<{
+        success: number;
+        failed: number;
+        logs: Array<{ email: string; status: 'success' | 'error'; message: string }>;
+    } | null>(null);
 
     useEffect(() => {
         // Load on mount since it is now a page
@@ -97,6 +111,91 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
         }
     };
 
+    const handleBatchUpdate = async () => {
+        if (!currentUser) return;
+        setIsBatchProcessing(true);
+        setBatchResult(null);
+
+        const lines = batchEmails.split(/[\n,]+/).map(e => e.trim()).filter(e => e);
+        const results: Array<{ email: string; status: 'success' | 'error'; message: string }> = [];
+        let successCount = 0;
+        let failCount = 0;
+
+        try {
+            // Need to fetch all users to find by email since we don't have an email-to-uid index easily accessible without a query
+            // Optimization: If list is small, this is fine. If large, might need better approach.
+            // For now, client-side filtering from the 'users' state is fastest since we already loaded them.
+            // If 'users' state is not complete (e.g. pagination), we might miss people. 
+            // BUT getAllUsers() fetches ALL users currently.
+
+            for (const email of lines) {
+                // Basic format check
+                if (!email.includes('@')) {
+                    results.push({ email, status: 'error', message: 'Invalid format' });
+                    failCount++;
+                    continue;
+                }
+
+                // Find user
+                const targetUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+
+                if (!targetUser) {
+                    results.push({ email, status: 'error', message: 'User not found in database' });
+                    failCount++;
+                    continue;
+                }
+
+                if (targetUser.role === batchRole) {
+                    results.push({ email, status: 'error', message: `Already has role ${batchRole}` });
+                    failCount++; // Or consider this a skip? Counting as fail for now to draw attention.
+                    continue;
+                }
+
+                try {
+                    await updateUserRole(targetUser.uid, batchRole);
+                    // Update local state for consistency
+                    setUsers(prev => prev.map(u =>
+                        u.uid === targetUser.uid ? { ...u, role: batchRole } : u
+                    ));
+                    results.push({ email, status: 'success', message: `Updated to ${batchRole}` });
+                    successCount++;
+
+                    // Log each success? Or maybe one big log at end? 
+                    // Let's log individual for granularity if list is small, but to avoid spamming audit logs, maybe just one summary log?
+                    // Actually, individual logs are safer for auditing "Who changed X".
+                    await logAdminAction(
+                        "BATCH_UPDATE_ROLE",
+                        targetUser.uid,
+                        `Batch updated role to ${batchRole}`,
+                        currentUser.email
+                    );
+
+                } catch (err) {
+                    console.error(err);
+                    results.push({ email, status: 'error', message: 'Update failed (Network/Permission)' });
+                    failCount++;
+                }
+            }
+
+            setBatchResult({
+                success: successCount,
+                failed: failCount,
+                logs: results
+            });
+
+            showToast(`批次更新完成: ${successCount} 成功, ${failCount} 失敗`, "success");
+
+            // Refresh logs
+            getAuditLogs().then(setAuditLogs);
+
+        } catch (error) {
+            console.error(error);
+            showToast("批次處理發生未預期的錯誤", "error");
+        } finally {
+            setIsBatchProcessing(false);
+        }
+    };
+
     const handleChangeMinTier = async (sectionKey: string, tier: AccessTier) => {
         // Optimistic update
         const originalTier = permissionMatrix[sectionKey];
@@ -142,6 +241,51 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
         return new Date(timestamp).toLocaleString('zh-TW', { hour12: false });
     };
 
+    const handleExportUsers = () => {
+        // Helper to get friendly name
+        const getRoleDisplay = (r: string) => {
+            switch (r) {
+                case 'admin': return '管理員 (Admin)';
+                case 'vip': return 'VIP頭等艙 (VIP)';
+                case 'member': return '會員 (Member)';
+                case 'viewer': return '訪客 (Viewer)';
+                default: return r;
+            }
+        };
+
+        // Headers
+        const headers = ['UID', 'Email', 'Name', 'Role (Key)', 'Role (Display)', 'Last Active', 'Join Date'];
+
+        // Rows
+        const rows = users.map(user => [
+            user.uid,
+            user.email || '',
+            user.displayName || '',
+            user.role,
+            getRoleDisplay(user.role),
+            formatDate(user.lastActive),
+            user.createdAt ? formatDate(user.createdAt) : ''
+        ]);
+
+        // Combine
+        const csvContent = [
+            // Add BOM for Excel to read UTF-8 correctly
+            '\uFEFF' + headers.join(','),
+            ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        ].join('\n');
+
+        // Download
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `user_export_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     if (!currentUser) return null;
 
     return (
@@ -173,6 +317,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                     {[
                         { id: 'users', label: '使用者管理', icon: User },
                         { id: 'permissions', label: '板塊權限', icon: Shield },
+                        { id: 'batch', label: '批次權限', icon: Activity },
                         { id: 'logs', label: '操作日誌', icon: FileText }
                     ].map(tab => (
                         <button
@@ -225,7 +370,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                         <option value="all">⚡ 全部角色 (All Roles)</option>
                                         <option value="user">👤 User</option>
                                         <option value="admin">🛡️ Admin</option>
-                                        <option value="vip">👑 VIP</option>
+                                        <option value="vip">👑 VIP頭等艙</option>
                                         <option value="member">💠 Member</option>
                                         <option value="viewer">👀 Viewer</option>
                                     </select>
@@ -233,6 +378,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                         <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                                     </div>
                                 </div>
+                                <button
+                                    onClick={handleExportUsers}
+                                    className="bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-xl px-4 py-3 flex items-center gap-2 font-bold text-sm transition-all shadow-md active:scale-95"
+                                    title="匯出 CSV"
+                                >
+                                    <Download className="w-5 h-5" />
+                                    <span className="hidden md:inline">匯出 CSV</span>
+                                </button>
                             </div>
 
                             {/* List */}
@@ -385,7 +538,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                                                 >
                                                                     <option value={AccessTier.GUEST}>🔓 訪客 (Guest) - 公開</option>
                                                                     <option value={AccessTier.STANDARD}>👤 會員 (Standard) - 基本訂閱</option>
-                                                                    <option value={AccessTier.FIRST_CLASS}>👑 頭等艙 (VIP) - 高級訂閱</option>
+                                                                    <option value={AccessTier.FIRST_CLASS}>👑 VIP頭等艙 - 高級訂閱</option>
                                                                     <option value={AccessTier.ADMIN}>🛡️ 管理員 (Admin Only) - 內部測試</option>
                                                                 </select>
                                                                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
@@ -400,6 +553,118 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    )
+                }
+
+                {
+                    activeTab === 'batch' && (
+                        <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 animate-in fade-in duration-300">
+                            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                                <Activity className="w-5 h-5 text-indigo-400" /> 批次權限管理 (Batch Permission Manager)
+                            </h3>
+                            <p className="text-gray-400 text-sm mb-6">請輸入 Email 清單（每行一個），系統將自動為這些使用者開通指定權限。</p>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                {/* Input Area */}
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-gray-300">1. 選擇要賦予的角色 (Target Role)</label>
+                                        <select
+                                            value={batchRole}
+                                            onChange={(e) => setBatchRole(e.target.value as UserRole)}
+                                            className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        >
+                                            <option value="member">💠 Member (一般成員)</option>
+                                            <option value="vip">👑 VIP頭等艙 (高級訂閱)</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold text-gray-300 flex justify-between">
+                                            <span>2. 貼上 Email 清單 (Paste Emails)</span>
+                                            <span className="text-xs text-gray-500 font-normal">支援格式：換行分隔、逗號分隔</span>
+                                        </label>
+                                        <textarea
+                                            value={batchEmails}
+                                            onChange={(e) => setBatchEmails(e.target.value)}
+                                            placeholder={`user1@example.com\nuser2@example.com\nuser3@example.com`}
+                                            className="w-full h-64 bg-gray-950/50 border border-gray-700 rounded-xl p-4 text-sm font-mono text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 placeholder:text-gray-600 resize-none"
+                                        />
+                                    </div>
+
+                                    <button
+                                        onClick={handleBatchUpdate}
+                                        disabled={isBatchProcessing || !batchEmails.trim()}
+                                        className={`
+                                            w-full py-4 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all
+                                            ${isBatchProcessing || !batchEmails.trim()
+                                                ? 'bg-gray-700 cursor-not-allowed text-gray-500'
+                                                : 'bg-indigo-600 hover:bg-indigo-500 shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] active:scale-[0.98]'
+                                            }
+                                        `}
+                                    >
+                                        {isBatchProcessing ? (
+                                            <>
+                                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                處理中 (Processing)...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Activity className="w-5 h-5" />
+                                                開始批次更新 (Execute Batch Update)
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+
+                                {/* Results Area */}
+                                <div className="space-y-4">
+                                    <label className="text-sm font-bold text-gray-300">執行結果 (Results)</label>
+                                    <div className="h-[calc(100%-2rem)] bg-gray-900 rounded-xl border border-gray-700 overflow-hidden flex flex-col">
+
+                                        {!batchResult ? (
+                                            <div className="flex-1 flex flex-col items-center justify-center text-gray-600 p-8 text-center">
+                                                <FileText className="w-12 h-12 mb-3 opacity-20" />
+                                                <p className="text-sm">執行結果將顯示於此</p>
+                                            </div>
+                                        ) : (
+                                            <div className="flex-1 flex flex-col min-h-0">
+                                                {/* Summary Header */}
+                                                <div className="p-4 bg-gray-950/50 border-b border-gray-800 flex gap-4">
+                                                    <div className="flex-1 p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-center">
+                                                        <div className="text-xs text-green-500 font-bold uppercase mb-1">Success</div>
+                                                        <div className="text-2xl font-black text-green-400">{batchResult.success}</div>
+                                                    </div>
+                                                    <div className="flex-1 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-center">
+                                                        <div className="text-xs text-red-500 font-bold uppercase mb-1">Failed/Skipped</div>
+                                                        <div className="text-2xl font-black text-red-400">{batchResult.failed}</div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Log List */}
+                                                <div className="flex-1 overflow-y-auto p-4 space-y-2 font-mono text-xs">
+                                                    {batchResult.logs.length === 0 && (
+                                                        <div className="text-gray-500 text-center py-4">無詳細紀錄</div>
+                                                    )}
+                                                    {batchResult.logs.map((log, i) => (
+                                                        <div key={i} className={`flex items-start gap-2 p-2 rounded border ${log.status === 'success'
+                                                            ? 'bg-green-900/10 border-green-900/20 text-green-300'
+                                                            : 'bg-red-900/10 border-red-900/20 text-red-300'
+                                                            }`}>
+                                                            {log.status === 'success' ? <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" /> : <X className="w-4 h-4 mt-0.5 shrink-0" />}
+                                                            <div className="break-all">
+                                                                <span className="font-bold">{log.email}</span>
+                                                                <span className="opacity-70 ml-2">- {log.message}</span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )
                 }

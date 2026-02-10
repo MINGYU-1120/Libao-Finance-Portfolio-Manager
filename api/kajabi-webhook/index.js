@@ -19,79 +19,86 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
+// --- 1. 定義 Offer ID 與 Role 的對應表 ---
+// 請在這裡填入您 Kajabi Offer 的 ID
+const OFFER_ROLE_MAP = {
+    "2148785678": "member",      // 範例：標準會員 Offer ID
+    "2150744912": "vip",         // 範例：VIP頭等艙 Offer ID
+    // 您可以繼續新增更多對應...
+};
+
 export default async function handler(req, res) {
-    // 1. Verify Request Method
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    // 2. Secret Verification (Security)
-    // Check if 'secret' query param matches environment variable
     const { secret } = req.query;
     if (!process.env.KAJABI_SECRET || secret !== process.env.KAJABI_SECRET) {
-        console.warn("Unauthorized webhook attempt. Invalid or missing secret.");
-        // Intentionally vague error to avoid leaking secret existence
         return res.status(401).json({ error: 'Unauthorized' });
     }
 
     try {
-        // 3. Parse Request Body & Query
-        // Vercel automatically parses JSON bodies.
-        // If it's x-www-form-urlencoded, req.body works too.
         const body = req.body || {};
+        const event = body.event; // 例如: 'offer_granted' 或 'offer_revoked'
+        const payload = body.payload || {};
 
-        // Kajabi fields (payload usually contains these)
-        // Note: Kajabi might nest data differently depending on the event, 
-        // but typically 'email', 'name', 'external_user_id' are at root or inside 'payload'
-        // We will look at root first.
-        const { email, name, external_user_id } = body;
+        // 2. 解析 Kajabi 傳來的資訊 (處理可能嵌套的結構)
+        const email = (payload.member?.email || body.email || "").toLowerCase().trim();
+        const name = payload.member?.name || body.name || "";
+        const offerId = String(payload.offer?.id || "");
 
-        // Query parameters dictate the action and role
-        const { action, role } = req.query;
+        // 3. 決定使用的 Role
+        // 優先權：URL 參數指定 > 對應表判定
+        let role = req.query.role || OFFER_ROLE_MAP[offerId];
 
-        console.log(`Received Webhook: Action=${action}, Role=${role}, Email=${email}`);
+        console.log(`[Kajabi Webhook] Event=${event}, OfferID=${offerId}, Email=${email}, SelectedRole=${role}`);
 
-        if (!email || !action || !role) {
-            return res.status(400).json({ error: 'Missing required fields (email, action, or role)' });
+        if (!email) {
+            return res.status(400).json({ error: 'Missing email' });
         }
 
-        const userEmail = email.toLowerCase().trim();
-        const userRef = db.collection('users').doc(userEmail);
+        if (!role) {
+            console.warn(`[Kajabi] Offer ID ${offerId} has no mapped role and no role param provided.`);
+            return res.status(200).json({ ok: true, message: 'No role action taken' });
+        }
 
-        // 4. Perform Firestore Update
-        if (action === 'activate') {
+        const userRef = db.collection('users').doc(email);
+
+        // 4. 根據事件動作
+        // 支援多種「授予權限」的事件名稱
+        const isGrantEvent = [
+            'offer_granted',
+            'offer_purchased',
+            'payment_succeeded',
+            'cart_purchase'
+        ].includes(event) || req.query.action === 'activate';
+
+        if (isGrantEvent) {
             await userRef.set({
-                email: userEmail,
-                name: name || '', // Optional update if name exists
+                email,
+                name: name || '',
                 roles: admin.firestore.FieldValue.arrayUnion(role),
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                kajabiId: external_user_id || null // Optional sync
-            }, { merge: true }); // Merge ensures we don't overwrite existing fields like 'createdAt'
+                kajabi_last_event: event,
+                kajabi_offer_id: offerId
+            }, { merge: true });
 
-            console.log(`Activated role '${role}' for user '${userEmail}'`);
-
-        } else if (action === 'deactivate') {
-            // Check if user exists before trying to remove role (optional, but good practice)
-            const doc = await userRef.get();
-            if (doc.exists) {
-                await userRef.update({
-                    roles: admin.firestore.FieldValue.arrayRemove(role),
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
-                });
-                console.log(`Deactivated role '${role}' for user '${userEmail}'`);
-            } else {
-                console.log(`User '${userEmail}' not found, skipping deactivation.`);
-            }
-
-        } else {
-            return res.status(400).json({ error: 'Invalid action. Must be activate or deactivate.' });
+            console.log(`[Kajabi] Success: Activated '${role}' for ${email}`);
+        }
+        // 支援「移除權限」的事件
+        else if (event === 'offer_revoked' || req.query.action === 'deactivate') {
+            await userRef.update({
+                roles: admin.firestore.FieldValue.arrayRemove(role),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                kajabi_last_event: event
+            });
+            console.log(`[Kajabi] Success: Deactivated '${role}' for ${email}`);
         }
 
-        // 5. Success Response
         return res.status(200).json({ ok: true });
 
     } catch (error) {
         console.error("Webhook processing error:", error);
-        return res.status(500).json({ error: 'Internal Server Error', details: error.message });
+        return res.status(500).json({ error: 'Internal error', details: error.message });
     }
 }

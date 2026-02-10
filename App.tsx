@@ -1933,7 +1933,7 @@ const App: React.FC = () => {
                   <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-gray-800 border border-gray-700 rounded-lg ml-2">
                     <User className="w-4 h-4 text-gray-400" />
                     <span className="text-xs font-bold text-gray-200 uppercase tracking-wider">
-                      {isFirstClassRole ? 'First Class' : isMemberRole ? 'Member' : 'Guest'}
+                      {isFirstClassRole ? 'VIP頭等艙' : isMemberRole ? '成員' : '一般訪客'}
                     </span>
                   </div>
                 )}
@@ -1964,22 +1964,19 @@ const App: React.FC = () => {
 
                       {/* 權限等級標籤 */}
                       <div className="flex flex-wrap gap-2 mt-2">
-                        {roles.includes('admin') && (
+                        {roles.includes('admin') ? (
                           <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold">
                             <Shield className="w-3 h-3" /> 管理員
                           </span>
-                        )}
-                        {isFirstClassRole && (
+                        ) : isFirstClassRole ? (
                           <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 text-[10px] font-bold">
-                            <Star className="w-3 h-3" /> 第一航廈
+                            <Star className="w-3 h-3" /> VIP頭等艙
                           </span>
-                        )}
-                        {isMemberRole && !isFirstClassRole && (
+                        ) : isMemberRole ? (
                           <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-bold">
                             <UserCheck className="w-3 h-3" /> 成員
                           </span>
-                        )}
-                        {(roles.length === 0 || roles.includes('viewer')) && !isMemberRole && (
+                        ) : (
                           <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-gray-500/20 text-gray-400 border border-gray-700/30 text-[10px] font-bold">
                             <User className="w-3 h-3" /> 一般訪客
                           </span>
