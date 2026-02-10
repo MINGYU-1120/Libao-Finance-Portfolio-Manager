@@ -1844,7 +1844,7 @@ const App: React.FC = () => {
             </div>
             <div className="hidden lg:flex items-center bg-gray-800 rounded-lg p-1 mx-4">
               {/* VIP Gold Chip Button - Move to Front */}
-              {(userRole === 'admin' || userRole === 'member' || userRole === 'vip') && (
+              {isMemberRole && (
                 <button
                   id="nav-desktop-vip"
                   onClick={() => { setViewMode('VIP_PORTFOLIO'); setShowAdminPanel(false); }}
@@ -2008,7 +2008,7 @@ const App: React.FC = () => {
                     <ChevronRight className="w-4 h-4 text-gray-600" />
                   </button>
 
-                  {(userRole === 'admin' || userRole === 'member' || userRole === 'vip') && (
+                  {isMemberRole && (
                     <button onClick={() => { setViewMode('VIP_PORTFOLIO'); setIsSidebarOpen(false); setShowAdminPanel(false); }} className={`w-full flex items-center justify-between p-3.5 rounded-xl transition-all border ${viewMode === 'VIP_PORTFOLIO' ? 'bg-gradient-to-r from-yellow-700 to-yellow-900 text-yellow-100 border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)]' : 'bg-gray-800 border-transparent hover:border-yellow-500/50 hover:bg-yellow-900/10'}`}>
                       <div className="flex items-center gap-3">
                         <div className="relative">
@@ -2024,9 +2024,16 @@ const App: React.FC = () => {
                     </button>
                   )}
 
-                  <button onClick={() => { setIsSidebarOpen(false); setIsPortfolioCompareModalOpen(true); }} className="w-full flex items-center justify-between p-3.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-all text-amber-200">
-                    <div className="flex items-center gap-3"><ArrowRightLeft className="w-5 h-5 text-amber-400" /><span className="text-sm font-bold">倉位落差比對</span></div>
-                    <ChevronRight className="w-4 h-4 text-amber-400" />
+                  <button
+                    onClick={() => { setIsSidebarOpen(false); setIsPortfolioCompareModalOpen(true); }}
+                    className={`w-full flex items-center justify-between p-3.5 rounded-xl transition-all ${isMemberRole ? 'bg-amber-500/10 text-amber-200 border border-amber-500/20 hover:bg-amber-500/20' : 'bg-gray-800 text-gray-500 border border-transparent'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <ArrowRightLeft className={`w-5 h-5 ${isMemberRole ? 'text-amber-400' : 'text-gray-600'}`} />
+                      <span className="text-sm font-bold">倉位落差比對</span>
+                      {!isMemberRole && <Shield className="w-3 h-3 text-gray-600" />}
+                    </div>
+                    <ChevronRight className={`w-4 h-4 ${isMemberRole ? 'text-amber-400' : 'text-gray-600'}`} />
                   </button>
 
                   <button onClick={() => { setViewMode('HISTORY'); setIsSidebarOpen(false); setShowAdminPanel(false); }} className={`w-full flex items-center justify-between p-3.5 rounded-xl transition-all ${viewMode === 'HISTORY' ? 'bg-gray-700 text-white shadow-sm' : 'bg-gray-800 hover:bg-gray-700'}`}>

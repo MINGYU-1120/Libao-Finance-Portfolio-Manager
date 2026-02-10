@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CalculatedCategory } from '../types';
-import { PieChart, RefreshCw, ChevronRight, ArrowRight, Quote, ArrowUp, ArrowDown, Trash2, Edit3, ArrowRightLeft } from 'lucide-react';
+import { PieChart, RefreshCw, ChevronRight, ArrowRight, Quote, ArrowUp, ArrowDown, Trash2, Edit3, ArrowRightLeft, Shield } from 'lucide-react';
 import { formatTWD } from '../utils/formatting';
 import { UserRole, AccessTier, getTier } from '../types';
 
@@ -67,17 +67,15 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                             持倉總覽 (Overview)
                             {onCompare && (
                                 <button
-                                    onClick={() => {
-                                        if (getTier(userRole) >= AccessTier.STANDARD) {
-                                            onCompare();
-                                        } else {
-                                            alert("僅限『會員以上』權限提供此功能");
-                                        }
-                                    }}
-                                    className="ml-2 flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-full text-amber-400 text-xs font-bold transition-all active:scale-95"
+                                    onClick={onCompare}
+                                    className={`ml-2 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all active:scale-95 border ${getTier(userRole) >= AccessTier.STANDARD
+                                        ? "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-400"
+                                        : "bg-gray-800 border-gray-700 text-gray-500"
+                                        }`}
                                 >
                                     <ArrowRightLeft className="w-3.5 h-3.5" />
                                     倉位比對
+                                    {getTier(userRole) < AccessTier.STANDARD && <Shield className="w-3 h-3 ml-0.5" />}
                                 </button>
                             )}
                         </h2>

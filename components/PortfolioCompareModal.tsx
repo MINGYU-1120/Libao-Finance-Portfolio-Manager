@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { X, ArrowRightLeft, AlertCircle, CheckCircle2, MinusCircle, Info, TrendingUp, TrendingDown, Target } from 'lucide-react';
 import { CalculatedCategory, CalculatedAsset, AppSettings } from '../types';
 import { formatCurrency, formatShares } from '../utils/formatting';
+import { RequireRole } from './auth/RequireRole';
 
 interface PortfolioCompareModalProps {
     isOpen: boolean;
@@ -139,175 +140,179 @@ const PortfolioCompareModal: React.FC<PortfolioCompareModalProps> = ({
 
                 {/* Content */}
                 <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+                    <RequireRole role="member">
+                        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
 
-                    {/* Filters & Summary */}
-                    <div className="p-4 sm:p-6 bg-white space-y-3 sm:space-y-4 shrink-0 shadow-sm z-10">
-                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">我的持倉</label>
-                                <select
-                                    value={selectedUserCatId}
-                                    onChange={(e) => setSelectedUserCatId(e.target.value)}
-                                    className="w-full p-2.5 sm:p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-libao-gold outline-none text-sm"
-                                >
-                                    <option value="all">所有持倉</option>
-                                    {userCategories.map(c => (
-                                        <option key={c.id} value={c.id}>{c.name} ({c.market})</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">馬丁持倉</label>
-                                <select
-                                    value={selectedMartinCatId}
-                                    onChange={(e) => setSelectedMartinCatId(e.target.value)}
-                                    className="w-full p-2.5 sm:p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-libao-gold outline-none text-sm"
-                                >
-                                    <option value="all">馬丁所有持倉</option>
-                                    {martinCategories.map(c => (
-                                        <option key={c.id} value={c.id}>{c.name} ({c.market})</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
+                            {/* Filters & Summary */}
+                            <div className="p-4 sm:p-6 bg-white space-y-3 sm:space-y-4 shrink-0 shadow-sm z-10">
+                                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">我的持倉</label>
+                                        <select
+                                            value={selectedUserCatId}
+                                            onChange={(e) => setSelectedUserCatId(e.target.value)}
+                                            className="w-full p-2.5 sm:p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-libao-gold outline-none text-sm"
+                                        >
+                                            <option value="all">所有持倉</option>
+                                            {userCategories.map(c => (
+                                                <option key={c.id} value={c.id}>{c.name} ({c.market})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">馬丁持倉</label>
+                                        <select
+                                            value={selectedMartinCatId}
+                                            onChange={(e) => setSelectedMartinCatId(e.target.value)}
+                                            className="w-full p-2.5 sm:p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-libao-gold outline-none text-sm"
+                                        >
+                                            <option value="all">馬丁所有持倉</option>
+                                            {martinCategories.map(c => (
+                                                <option key={c.id} value={c.id}>{c.name} ({c.market})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
 
-                        <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                            <div className="bg-amber-50 rounded-xl sm:rounded-2xl p-2 sm:p-4 border border-amber-100 flex flex-col sm:flex-row items-center gap-1 sm:gap-4 text-center sm:text-left">
-                                <div className="bg-amber-100 p-1.5 sm:p-2 rounded-lg text-amber-600 hidden sm:block">
-                                    <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                                </div>
-                                <div>
-                                    <div className="text-[12px] sm:text-[12px] font-bold text-amber-500 uppercase leading-none mb-1">未跟進</div>
-                                    <div className="text-base sm:text-xl font-black text-amber-700">{stats.missing}<span className="text-[10px] sm:text-sm ml-0.5">檔</span></div>
+                                <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                                    <div className="bg-amber-50 rounded-xl sm:rounded-2xl p-2 sm:p-4 border border-amber-100 flex flex-col sm:flex-row items-center gap-1 sm:gap-4 text-center sm:text-left">
+                                        <div className="bg-amber-100 p-1.5 sm:p-2 rounded-lg text-amber-600 hidden sm:block">
+                                            <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                                        </div>
+                                        <div>
+                                            <div className="text-[12px] sm:text-[12px] font-bold text-amber-500 uppercase leading-none mb-1">未跟進</div>
+                                            <div className="text-base sm:text-xl font-black text-amber-700">{stats.missing}<span className="text-[10px] sm:text-sm ml-0.5">檔</span></div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-indigo-50 rounded-xl sm:rounded-2xl p-2 sm:p-4 border border-indigo-100 flex flex-col sm:flex-row items-center gap-1 sm:gap-4 text-center sm:text-left">
+                                        <div className="bg-indigo-100 p-1.5 sm:p-2 rounded-lg text-indigo-600 hidden sm:block">
+                                            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
+                                        </div>
+                                        <div>
+                                            <div className="text-[12px] sm:text-[12px] font-bold text-indigo-500 uppercase leading-none mb-1">比例不符</div>
+                                            <div className="text-base sm:text-xl font-black text-indigo-700">{stats.mismatch}<span className="text-[10px] sm:text-sm ml-0.5">檔</span></div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-xl sm:rounded-2xl p-2 sm:p-4 border border-gray-200 flex flex-col sm:flex-row items-center gap-1 sm:gap-4 text-center sm:text-left">
+                                        <div className="bg-gray-200 p-1.5 sm:p-2 rounded-lg text-gray-500 hidden sm:block">
+                                            <MinusCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                                        </div>
+                                        <div>
+                                            <div className="text-[12px] sm:text-[12px] font-bold text-gray-400 uppercase leading-none mb-1">非馬丁</div>
+                                            <div className="text-base sm:text-xl font-black text-gray-600">{stats.extra}<span className="text-[10px] sm:text-sm ml-0.5">檔</span></div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="bg-indigo-50 rounded-xl sm:rounded-2xl p-2 sm:p-4 border border-indigo-100 flex flex-col sm:flex-row items-center gap-1 sm:gap-4 text-center sm:text-left">
-                                <div className="bg-indigo-100 p-1.5 sm:p-2 rounded-lg text-indigo-600 hidden sm:block">
-                                    <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
-                                </div>
-                                <div>
-                                    <div className="text-[12px] sm:text-[12px] font-bold text-indigo-500 uppercase leading-none mb-1">比例不符</div>
-                                    <div className="text-base sm:text-xl font-black text-indigo-700">{stats.mismatch}<span className="text-[10px] sm:text-sm ml-0.5">檔</span></div>
-                                </div>
-                            </div>
-                            <div className="bg-gray-50 rounded-xl sm:rounded-2xl p-2 sm:p-4 border border-gray-200 flex flex-col sm:flex-row items-center gap-1 sm:gap-4 text-center sm:text-left">
-                                <div className="bg-gray-200 p-1.5 sm:p-2 rounded-lg text-gray-500 hidden sm:block">
-                                    <MinusCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                                </div>
-                                <div>
-                                    <div className="text-[12px] sm:text-[12px] font-bold text-gray-400 uppercase leading-none mb-1">非馬丁</div>
-                                    <div className="text-base sm:text-xl font-black text-gray-600">{stats.extra}<span className="text-[10px] sm:text-sm ml-0.5">檔</span></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
-                    {/* Result Table */}
-                    <div className="flex-1 p-3 sm:p-6 bg-gray-50 min-h-0 flex flex-col">
-                        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 overflow-y-auto overflow-x-auto flex-1 scrollbar-thin scrollbar-thumb-gray-200">
-                            <table className="w-full text-left border-collapse table-fixed min-w-[600px] sm:min-w-0">
-                                <thead className="sticky top-0 z-30 shadow-sm">
-                                    <tr className="border-b border-gray-100">
-                                        <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-white w-[180px]">標的</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center bg-white w-[80px]">馬丁 %</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center bg-white w-[80px]">我的 %</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center bg-white w-[100px]">落差</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-white">馬丁平均成本 / 比對</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50">
-                                    {comparisonData.map((row) => (
-                                        <tr key={row.symbol} className="hover:bg-gray-50/50 transition-colors group">
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-1 h-8 rounded-full ${row.status === 'MISSING' ? 'bg-amber-400' : (row.status === 'EXTRA' ? 'bg-gray-300' : 'bg-green-400')}`} />
-                                                    <div className="flex flex-col">
-                                                        <div className="font-mono font-black text-gray-800 text-base leading-tight">{row.symbol}</div>
-                                                        <div className="text-[10px] text-gray-400 font-medium truncate max-w-[120px] mb-1">{row.name}</div>
+                            {/* Result Table */}
+                            <div className="flex-1 p-3 sm:p-6 bg-gray-50 min-h-0 flex flex-col">
+                                <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 overflow-y-auto overflow-x-auto flex-1 scrollbar-thin scrollbar-thumb-gray-200">
+                                    <table className="w-full text-left border-collapse table-fixed min-w-[600px] sm:min-w-0">
+                                        <thead className="sticky top-0 z-30 shadow-sm">
+                                            <tr className="border-b border-gray-100">
+                                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-white w-[180px]">標的</th>
+                                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center bg-white w-[80px]">馬丁 %</th>
+                                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center bg-white w-[80px]">我的 %</th>
+                                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center bg-white w-[100px]">落差</th>
+                                                <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-white">馬丁平均成本 / 比對</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {comparisonData.map((row) => (
+                                                <tr key={row.symbol} className="hover:bg-gray-50/50 transition-colors group">
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-1 h-8 rounded-full ${row.status === 'MISSING' ? 'bg-amber-400' : (row.status === 'EXTRA' ? 'bg-gray-300' : 'bg-green-400')}`} />
+                                                            <div className="flex flex-col">
+                                                                <div className="font-mono font-black text-gray-800 text-base leading-tight">{row.symbol}</div>
+                                                                <div className="text-[10px] text-gray-400 font-medium truncate max-w-[120px] mb-1">{row.name}</div>
 
-                                                        {/* Category Sources */}
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {selectedMartinCatId === 'all' && row.martinCatNames.length > 0 && (
-                                                                <div className="flex flex-wrap gap-1 items-center">
-                                                                    <span className="text-[10px] bg-indigo-50 text-indigo-500 px-1 rounded font-bold border border-indigo-100/50">馬丁: {row.martinCatNames.join(', ')}</span>
+                                                                {/* Category Sources */}
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {selectedMartinCatId === 'all' && row.martinCatNames.length > 0 && (
+                                                                        <div className="flex flex-wrap gap-1 items-center">
+                                                                            <span className="text-[10px] bg-indigo-50 text-indigo-500 px-1 rounded font-bold border border-indigo-100/50">馬丁: {row.martinCatNames.join(', ')}</span>
+                                                                        </div>
+                                                                    )}
+                                                                    {selectedUserCatId === 'all' && row.userCatNames.length > 0 && (
+                                                                        <div className="flex flex-wrap gap-1 items-center">
+                                                                            <span className="text-[10px] bg-gray-100 text-gray-500 px-1 rounded font-bold border border-gray-200/50">我: {row.userCatNames.join(', ')}</span>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
-                                                            )}
-                                                            {selectedUserCatId === 'all' && row.userCatNames.length > 0 && (
-                                                                <div className="flex flex-wrap gap-1 items-center">
-                                                                    <span className="text-[10px] bg-gray-100 text-gray-500 px-1 rounded font-bold border border-gray-200/50">我: {row.userCatNames.join(', ')}</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className="font-mono font-bold text-gray-600">{row.martinRatio.toFixed(1)}%</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className="font-mono font-bold text-gray-800">{isPrivacyMode ? '***' : row.userRatio.toFixed(1)}%</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className={`font-mono font-black ${row.deltaRatio < -0.5 ? 'text-amber-500' : (row.deltaRatio > 0.5 ? 'text-indigo-500' : 'text-green-500')}`}>
-                                                    {row.deltaRatio > 0 ? '+' : ''}{row.deltaRatio.toFixed(1)}%
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {row.status === 'MISSING' ? (
-                                                    <div className="bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100 flex flex-col gap-1">
-                                                        <div className="flex items-center gap-2">
-                                                            <Target className="w-4 h-4 text-amber-600" />
-                                                            <div className="text-xs font-bold text-amber-700">馬丁有此標的，您尚未配置</div>
-                                                        </div>
-                                                        {row.martinCost > 0 && (
-                                                            <div className="text-[11px] font-mono font-bold text-amber-600">
-                                                                馬丁平均成本: {formatCurrency(row.martinCost, row.market === 'US' ? 'USD' : 'TWD', isPrivacyMode)}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ) : row.status === 'EXTRA' ? (
-                                                    <div className="bg-gray-50 text-gray-500 px-3 py-1.5 rounded-lg border border-gray-200 flex items-center gap-2">
-                                                        <Info className="w-4 h-4" />
-                                                        <div className="text-xs font-bold">非馬丁標的</div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-100 flex flex-col gap-1">
-                                                        <div className="flex items-center gap-2">
-                                                            {row.deltaRatio < -0.5 ? (
-                                                                <AlertCircle className="w-4 h-4 text-amber-500" />
-                                                            ) : row.deltaRatio > 0.5 ? (
-                                                                <TrendingUp className="w-4 h-4 text-indigo-500" />
-                                                            ) : (
-                                                                <CheckCircle2 className="w-4 h-4 text-green-500" />
-                                                            )}
-                                                            <div className={`text-xs font-bold ${row.deltaRatio < -0.5 ? 'text-amber-600' : row.deltaRatio > 0.5 ? 'text-indigo-600' : 'text-gray-600'}`}>
-                                                                {row.deltaRatio < -0.5 ? '配置比例不足' : row.deltaRatio > 0.5 ? '配置比例過高' : '配置比例理想'}
                                                             </div>
                                                         </div>
-                                                        {row.martinCost > 0 && (
-                                                            <div className="text-[11px] font-mono font-bold text-indigo-600">
-                                                                馬丁平均成本: {formatCurrency(row.martinCost, row.market === 'US' ? 'USD' : 'TWD', isPrivacyMode)}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {/* Cost Basis Comparison Badge */}
-                                                {row.status !== 'EXTRA' && row.userCost > 0 && row.martinCost > 0 && (
-                                                    <div className="mt-1 flex items-center gap-2 px-1">
-                                                        <span className="text-[9px] font-bold text-gray-400 uppercase">成本落差:</span>
-                                                        <span className={`text-[10px] font-bold ${row.userCost <= row.martinCost ? 'text-green-500' : 'text-red-500'}`}>
-                                                            {row.userCost <= row.martinCost ? '低於馬丁' : '高於馬丁'} ({Math.abs(((row.userCost - row.martinCost) / row.martinCost) * 100).toFixed(1)}%)
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className="font-mono font-bold text-gray-600">{row.martinRatio.toFixed(1)}%</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className="font-mono font-bold text-gray-800">{isPrivacyMode ? '***' : row.userRatio.toFixed(1)}%</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className={`font-mono font-black ${row.deltaRatio < -0.5 ? 'text-amber-500' : (row.deltaRatio > 0.5 ? 'text-indigo-500' : 'text-green-500')}`}>
+                                                            {row.deltaRatio > 0 ? '+' : ''}{row.deltaRatio.toFixed(1)}%
                                                         </span>
-                                                    </div>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        {row.status === 'MISSING' ? (
+                                                            <div className="bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100 flex flex-col gap-1">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Target className="w-4 h-4 text-amber-600" />
+                                                                    <div className="text-xs font-bold text-amber-700">馬丁有此標的，您尚未配置</div>
+                                                                </div>
+                                                                {row.martinCost > 0 && (
+                                                                    <div className="text-[11px] font-mono font-bold text-amber-600">
+                                                                        馬丁平均成本: {formatCurrency(row.martinCost, row.market === 'US' ? 'USD' : 'TWD', isPrivacyMode)}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ) : row.status === 'EXTRA' ? (
+                                                            <div className="bg-gray-50 text-gray-500 px-3 py-1.5 rounded-lg border border-gray-200 flex items-center gap-2">
+                                                                <Info className="w-4 h-4" />
+                                                                <div className="text-xs font-bold">非馬丁標的</div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-100 flex flex-col gap-1">
+                                                                <div className="flex items-center gap-2">
+                                                                    {row.deltaRatio < -0.5 ? (
+                                                                        <AlertCircle className="w-4 h-4 text-amber-500" />
+                                                                    ) : row.deltaRatio > 0.5 ? (
+                                                                        <TrendingUp className="w-4 h-4 text-indigo-500" />
+                                                                    ) : (
+                                                                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                                                    )}
+                                                                    <div className={`text-xs font-bold ${row.deltaRatio < -0.5 ? 'text-amber-600' : row.deltaRatio > 0.5 ? 'text-indigo-600' : 'text-gray-600'}`}>
+                                                                        {row.deltaRatio < -0.5 ? '配置比例不足' : row.deltaRatio > 0.5 ? '配置比例過高' : '配置比例理想'}
+                                                                    </div>
+                                                                </div>
+                                                                {row.martinCost > 0 && (
+                                                                    <div className="text-[11px] font-mono font-bold text-indigo-600">
+                                                                        馬丁平均成本: {formatCurrency(row.martinCost, row.market === 'US' ? 'USD' : 'TWD', isPrivacyMode)}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Cost Basis Comparison Badge */}
+                                                        {row.status !== 'EXTRA' && row.userCost > 0 && row.martinCost > 0 && (
+                                                            <div className="mt-1 flex items-center gap-2 px-1">
+                                                                <span className="text-[9px] font-bold text-gray-400 uppercase">成本落差:</span>
+                                                                <span className={`text-[10px] font-bold ${row.userCost <= row.martinCost ? 'text-green-500' : 'text-red-500'}`}>
+                                                                    {row.userCost <= row.martinCost ? '低於馬丁' : '高於馬丁'} ({Math.abs(((row.userCost - row.martinCost) / row.martinCost) * 100).toFixed(1)}%)
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    </RequireRole>
                 </div>
 
                 {/* Footer */}
