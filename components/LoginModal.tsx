@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { X, Mail, Check, AlertCircle, Loader2, Lock, ArrowRight, UserPlus, LogIn } from 'lucide-react';
+import { X, Mail, Check, AlertCircle, Loader2, Lock, ArrowRight, UserPlus, LogIn, Eye, EyeOff } from 'lucide-react';
 import { loginWithGoogle, loginWithEmail, registerWithEmail, resetPassword, handleAccountConflict, syncUserProfile } from '../services/firebase';
 
 interface LoginModalProps {
@@ -13,6 +13,8 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, isOpen }) => {
     const [isRegister, setIsRegister] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [errorMSG, setErrorMSG] = useState('');
     const [successMSG, setSuccessMSG] = useState('');
@@ -24,6 +26,8 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, isOpen }) => {
             setErrorMSG('');
             setSuccessMSG('');
             setPassword('');
+            setConfirmPassword('');
+            setShowPassword(false);
             setLoading(false);
         }
     }, [isOpen]);
@@ -66,6 +70,9 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, isOpen }) => {
             } else if (isRegister) {
                 if (password.length < 6) {
                     throw new Error("密碼長度至少需 6 個字元");
+                }
+                if (password !== confirmPassword) {
+                    throw new Error("兩次輸入的密碼不一致");
                 }
                 const user = await registerWithEmail(email, password);
                 if (user) {
@@ -178,31 +185,61 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, isOpen }) => {
                             </div>
 
                             {!isForgotPassword && (
-                                <div className="space-y-1.5">
-                                    <div className="flex justify-between">
-                                        <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Password</label>
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsForgotPassword(true)}
-                                            className="text-xs text-blue-500 hover:text-blue-600 font-medium"
-                                        >
-                                            忘記密碼?
-                                        </button>
+                                <>
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between">
+                                            <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Password</label>
+                                            {!isRegister && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsForgotPassword(true)}
+                                                    className="text-xs text-blue-500 hover:text-blue-600 font-medium"
+                                                >
+                                                    忘記密碼?
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="relative">
+                                            <Lock className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
+                                            <input
+                                                type={showPassword ? "text" : "password"}
+                                                required
+                                                placeholder="••••••••"
+                                                value={password}
+                                                onChange={e => setPassword(e.target.value)}
+                                                disabled={loading}
+                                                minLength={6}
+                                                className="w-full pl-11 pr-12 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-4 top-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                                            >
+                                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="relative">
-                                        <Lock className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
-                                        <input
-                                            type="password"
-                                            required
-                                            placeholder="••••••••"
-                                            value={password}
-                                            onChange={e => setPassword(e.target.value)}
-                                            disabled={loading}
-                                            minLength={6}
-                                            className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400"
-                                        />
-                                    </div>
-                                </div>
+
+                                    {isRegister && (
+                                        <div className="space-y-1.5 animate-in slide-in-from-top-2">
+                                            <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">Confirm Password</label>
+                                            <div className="relative">
+                                                <Lock className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
+                                                <input
+                                                    type={showPassword ? "text" : "password"}
+                                                    required
+                                                    placeholder="Confirm password"
+                                                    value={confirmPassword}
+                                                    onChange={e => setConfirmPassword(e.target.value)}
+                                                    disabled={loading}
+                                                    minLength={6}
+                                                    className="w-full pl-11 pr-12 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
 
