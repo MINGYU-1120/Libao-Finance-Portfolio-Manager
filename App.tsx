@@ -1979,8 +1979,8 @@ const App: React.FC = () => {
                             <UserCheck className="w-3 h-3" /> 成員
                           </span>
                         )}
-                        {roles.length === 0 && (
-                          <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30 text-[10px] font-bold">
+                        {(roles.length === 0 || roles.includes('viewer')) && !isMemberRole && (
+                          <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-gray-500/20 text-gray-400 border border-gray-700/30 text-[10px] font-bold">
                             <User className="w-3 h-3" /> 一般訪客
                           </span>
                         )}

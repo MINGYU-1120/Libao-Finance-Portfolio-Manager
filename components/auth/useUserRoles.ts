@@ -18,7 +18,8 @@ export const useUserRoles = (): UserRoles => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        let firestoreUnsub: (() => void) | undefined;
+        let firestoreUnsub1: (() => void) | undefined; // For uid-based user_directory
+        let firestoreUnsub2: (() => void) | undefined; // For email-based users
         let authUnsub: (() => void) | undefined;
 
         if (!auth) {
@@ -29,52 +30,86 @@ export const useUserRoles = (): UserRoles => {
         authUnsub = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
 
-            // Cleanup previous Firestore listener if user changes
-            if (firestoreUnsub) {
-                firestoreUnsub();
-                firestoreUnsub = undefined;
+            // Cleanup previous Firestore listeners
+            if (firestoreUnsub1) {
+                firestoreUnsub1();
+                firestoreUnsub1 = undefined;
+            }
+            if (firestoreUnsub2) {
+                firestoreUnsub2();
+                firestoreUnsub2 = undefined;
             }
 
-            if (!currentUser || !currentUser.email) {
+            if (!currentUser) {
                 setRoles([]);
                 setLoading(false);
                 return;
             }
 
-            setLoading(true); // User found, re-enable loader while checking permissions
+            setLoading(true);
 
-            const emailKey = currentUser.email.toLowerCase().trim();
-            const userRef = doc(db, 'users', emailKey);
+            // 1. System A: user_directory (By UID)
+            const userDirRef = doc(db, 'user_directory', currentUser.uid);
 
-            // Real-time listener for role updates
-            firestoreUnsub = onSnapshot(userRef, (docSnap) => {
+            // 2. System B: users (By Email - Webhook)
+            const emailKey = currentUser.email?.toLowerCase().trim();
+            const userRef = emailKey ? doc(db, 'users', emailKey) : null;
+
+            let rolesA: string[] = [];
+            let rolesB: string[] = [];
+
+            const updateMergedRoles = () => {
+                const combined = Array.from(new Set([...rolesA, ...rolesB]));
+                setRoles(combined);
+                setLoading(false);
+            };
+
+            // Listen to System A
+            firestoreUnsub1 = onSnapshot(userDirRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    const userRoles = Array.isArray(data.roles) ? data.roles : [];
-                    setRoles(userRoles);
+                    // System A uses 'role' as a single string
+                    rolesA = data.role ? [data.role] : [];
                 } else {
-                    // Doc doesn't exist = Guest
-                    setRoles([]);
+                    rolesA = [];
                 }
-                setLoading(false);
+                updateMergedRoles();
             }, (err) => {
-                console.error("Failed to fetch user roles:", err);
-                setRoles([]);
-                setLoading(false);
+                console.error("System A fetch failed:", err);
+                updateMergedRoles();
             });
+
+            // Listen to System B
+            if (userRef) {
+                firestoreUnsub2 = onSnapshot(userRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        // System B uses 'roles' as an array
+                        rolesB = Array.isArray(data.roles) ? data.roles : [];
+                    } else {
+                        rolesB = [];
+                    }
+                    updateMergedRoles();
+                }, (err) => {
+                    console.error("System B fetch failed:", err);
+                    updateMergedRoles();
+                });
+            } else {
+                updateMergedRoles();
+            }
         });
 
         return () => {
             if (authUnsub) authUnsub();
-            if (firestoreUnsub) firestoreUnsub();
+            if (firestoreUnsub1) firestoreUnsub1();
+            if (firestoreUnsub2) firestoreUnsub2();
         };
     }, []);
 
     const hasRole = (role: string) => roles.includes(role);
-    // 'first_class' implies 'member' privileges if logic requires, otherwise strict check.
-    // Assuming basic hierarchy:
-    const isMember = hasRole('member') || hasRole('first_class');
-    const isFirstClass = hasRole('first_class');
+    // Combined logic: member, vip, first_class or admin all qualify for member access
+    const isMember = hasRole('member') || hasRole('first_class') || hasRole('vip') || hasRole('admin');
+    const isFirstClass = hasRole('first_class') || hasRole('vip') || hasRole('admin');
 
     return { loading, user, roles, hasRole, isMember, isFirstClass };
 };
