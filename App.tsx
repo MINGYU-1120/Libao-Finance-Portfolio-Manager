@@ -2130,80 +2130,78 @@ const App: React.FC = () => {
 
       <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 pb-24 md:pb-8 ${activeCategoryId ? 'py-0' : 'py-8'}`}>
         {viewMode === 'PORTFOLIO' && (
-          <RequireRole role="member">
-            <div id="tour-summary-table">
-              {activeCategoryId ? (
-                <DetailTable category={calculatedData.categories.find(c => c.id === activeCategoryId)!} assets={calculatedData.categories.find(c => c.id === activeCategoryId)!.assets} totalCapital={portfolio.totalCapital} onBack={() => setActiveCategoryId(null)} onExecuteOrder={handleExecuteOrder} onUpdateAssetPrice={handleUpdateAssetPrice} onUpdateCategoryPrices={handleRefreshCategory} onUpdateAssetNote={() => { }} defaultExchangeRate={portfolio.settings.usExchangeRate} isPrivacyMode={isPrivacyMode} settings={portfolio.settings} forceShowOrderModal={isTourForceOrderOpen} />
-              ) : (
-                <>
-                  <PersonalDashboard
-                    categories={calculatedData.categories}
-                    totalCapital={portfolio.totalCapital}
-                    transactions={portfolio.transactions}
-                    industryData={calculatedData.industryData}
-                    onDeposit={() => setShowCapitalModal(true)}
-                    onReset={() => {
-                      if (confirm('確定要重置所有倉位資料嗎？此操作無法復原。')) {
-                        setPortfolio(initialPortfolioState);
-                        savePortfolioToCloud(user!.uid, initialPortfolioState); // Force save
-                      }
-                    }}
-                    isPrivacyMode={isPrivacyMode}
-                  />
-                  <PersonalSummary
-                    categories={calculatedData.categories}
-                    totalCapital={portfolio.totalCapital}
-                    userRole={userRole}
-                    onCompare={() => setIsPortfolioCompareModalOpen(true)}
-                    onUpdateAllocation={handleUpdateAllocation}
-                    onSelectCategory={setActiveCategoryId}
-                    onRefreshCategory={handleRefreshCategory}
-                    onDeleteCategory={handleDeleteCategory}
-                    onMoveCategory={(id, dir) => {
-                      const idx = portfolio.categories.findIndex(c => c.id === id);
-                      if (idx === -1) return;
-                      const newCats = [...portfolio.categories];
-                      if (dir === 'up' && idx > 0) {
-                        [newCats[idx], newCats[idx - 1]] = [newCats[idx - 1], newCats[idx]];
-                      } else if (dir === 'down' && idx < newCats.length - 1) {
-                        [newCats[idx], newCats[idx + 1]] = [newCats[idx + 1], newCats[idx]];
-                      }
-                      saveAndSetPortfolio({ ...portfolio, categories: newCats });
-                    }}
-                    onAddCategory={() => setIsAddCategoryModalOpen(true)}
-                    isPrivacyMode={isPrivacyMode}
-                  />
+          <div id="tour-summary-table">
+            {activeCategoryId ? (
+              <DetailTable category={calculatedData.categories.find(c => c.id === activeCategoryId)!} assets={calculatedData.categories.find(c => c.id === activeCategoryId)!.assets} totalCapital={portfolio.totalCapital} onBack={() => setActiveCategoryId(null)} onExecuteOrder={handleExecuteOrder} onUpdateAssetPrice={handleUpdateAssetPrice} onUpdateCategoryPrices={handleRefreshCategory} onUpdateAssetNote={() => { }} defaultExchangeRate={portfolio.settings.usExchangeRate} isPrivacyMode={isPrivacyMode} settings={portfolio.settings} forceShowOrderModal={isTourForceOrderOpen} />
+            ) : (
+              <>
+                <PersonalDashboard
+                  categories={calculatedData.categories}
+                  totalCapital={portfolio.totalCapital}
+                  transactions={portfolio.transactions}
+                  industryData={calculatedData.industryData}
+                  onDeposit={() => setShowCapitalModal(true)}
+                  onReset={() => {
+                    if (confirm('確定要重置所有倉位資料嗎？此操作無法復原。')) {
+                      setPortfolio(initialPortfolioState);
+                      savePortfolioToCloud(user!.uid, initialPortfolioState); // Force save
+                    }
+                  }}
+                  isPrivacyMode={isPrivacyMode}
+                />
+                <PersonalSummary
+                  categories={calculatedData.categories}
+                  totalCapital={portfolio.totalCapital}
+                  userRole={userRole}
+                  onCompare={() => setIsPortfolioCompareModalOpen(true)}
+                  onUpdateAllocation={handleUpdateAllocation}
+                  onSelectCategory={setActiveCategoryId}
+                  onRefreshCategory={handleRefreshCategory}
+                  onDeleteCategory={handleDeleteCategory}
+                  onMoveCategory={(id, dir) => {
+                    const idx = portfolio.categories.findIndex(c => c.id === id);
+                    if (idx === -1) return;
+                    const newCats = [...portfolio.categories];
+                    if (dir === 'up' && idx > 0) {
+                      [newCats[idx], newCats[idx - 1]] = [newCats[idx - 1], newCats[idx]];
+                    } else if (dir === 'down' && idx < newCats.length - 1) {
+                      [newCats[idx], newCats[idx + 1]] = [newCats[idx + 1], newCats[idx]];
+                    }
+                    saveAndSetPortfolio({ ...portfolio, categories: newCats });
+                  }}
+                  onAddCategory={() => setIsAddCategoryModalOpen(true)}
+                  isPrivacyMode={isPrivacyMode}
+                />
 
-                  {/* Restore Teaser for Unauthorized Users */}
-                  {(userRole !== 'admin' && userRole !== 'member' && userRole !== 'vip') && (calculatedData as any).martingale && (
-                    <div className="mt-12 relative border-t-4 border-libao-gold/20 pt-8">
-                      <SectionGate
-                        sectionKey="martingale"
-                        title="馬丁個人持倉（Model Portfolio）"
+                {/* Restore Teaser for Unauthorized Users */}
+                {(userRole !== 'admin' && userRole !== 'member' && userRole !== 'vip') && (calculatedData as any).martingale && (
+                  <div className="mt-12 relative border-t-4 border-libao-gold/20 pt-8">
+                    <SectionGate
+                      sectionKey="martingale"
+                      title="馬丁個人持倉（Model Portfolio）"
+                      userRole={userRole}
+                      allowPartial={true}
+                    >
+                      <MartingalePanel
+                        categories={scrubSensitiveData((calculatedData as any).martingale)}
+                        totalCapital={portfolio.totalCapital}
                         userRole={userRole}
-                        allowPartial={true}
-                      >
-                        <MartingalePanel
-                          categories={scrubSensitiveData((calculatedData as any).martingale)}
-                          totalCapital={portfolio.totalCapital}
-                          userRole={userRole}
-                          isPrivacyMode={isPrivacyMode}
-                          settings={portfolio.settings}
-                          onUpdateAllocation={handleMartingaleUpdateAllocation}
-                          onAddCategory={() => setIsAddCategoryModalOpen(true)}
-                          operations={handleMartingaleOperations}
-                          activeCategoryId={martingaleActiveId}
-                          onSetActiveCategory={setMartingaleActiveId}
-                          transactions={[]}
-                          industryData={[]}
-                        />
-                      </SectionGate>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </RequireRole>
+                        isPrivacyMode={isPrivacyMode}
+                        settings={portfolio.settings}
+                        onUpdateAllocation={handleMartingaleUpdateAllocation}
+                        onAddCategory={() => setIsAddCategoryModalOpen(true)}
+                        operations={handleMartingaleOperations}
+                        activeCategoryId={martingaleActiveId}
+                        onSetActiveCategory={setMartingaleActiveId}
+                        transactions={[]}
+                        industryData={[]}
+                      />
+                    </SectionGate>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
         {/* Modals outside main flow */}
         <AddCategoryModal
@@ -2240,7 +2238,7 @@ const App: React.FC = () => {
 
         {/* New Independnet View for VIP Portfolio */}
         {viewMode === 'VIP_PORTFOLIO' && (calculatedData as any).martingale && (
-          <RequireRole role="first_class">
+          <RequireRole role="member">
             <div className="mt-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="mb-6 flex items-center justify-between">
                 <button
@@ -2302,7 +2300,7 @@ const App: React.FC = () => {
         onClose={() => { setShowLoginModal(false); setLoginModalMode('default'); }}
         initialMode={loginModalMode}
       />
-    </div>
+    </div >
   );
 };
 
