@@ -7,6 +7,10 @@
     {
       "source": "/api/:match*",
       "destination": "/api/:match*"
+    },
+    {
+      "source": "/api/kajabi-webhook",
+      "destination": "/api/kajabi-webhook.js"
     }
   ],
   "functions": {
