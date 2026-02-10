@@ -97,10 +97,23 @@ import { UserRole, AccessTier, getTier } from './types';
 
 const maskValueFn = (val: string | number, isPrivacyMode: boolean) => isPrivacyMode ? '*******' : val;
 
+import { useUserRoles } from './components/auth/useUserRoles';
+import { RequireRole } from './components/auth/RequireRole';
+
 const App: React.FC = () => {
   const { showToast } = useToast();
-  const [user, setUser] = useState<any>(null);
-  const [userRole, setUserRole] = useState<UserRole>('viewer'); // NEW: Role State
+  // --- Consolidated User & Role Hook ---
+  const { user, loading: roleLoading, roles, hasRole, isMember: isMemberRole, isFirstClass: isFirstClassRole } = useUserRoles();
+  const [userRole, setUserRole] = useState<UserRole>('viewer'); // Backward compatibility for some old logic if needed, or replace with roles.
+
+  // Sync legacy user role state for backward compatibility
+  useEffect(() => {
+    if (roles.includes('admin')) setUserRole('admin');
+    else if (roles.includes('first_class')) setUserRole('vip');
+    else if (roles.includes('member')) setUserRole('member');
+    else setUserRole('viewer');
+  }, [roles]);
+
   const [isSyncing, setIsSyncing] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isStartingFresh, setIsStartingFresh] = useState(false);
@@ -110,7 +123,7 @@ const App: React.FC = () => {
   // 🚀 PWA/啟動安全逾時機制：防止在行動端或 PWA 模式下因驗證延遲而卡死
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (authInitializing || isCheckingRedirect || isSyncing) {
+      if (authInitializing || isCheckingRedirect || isSyncing || roleLoading) {
         console.log("[App] 啟動/同步逾時保護：強制跳過載入畫面。");
         setAuthInitializing(false);
         setIsCheckingRedirect(false);
@@ -118,7 +131,7 @@ const App: React.FC = () => {
       }
     }, 10000); // 10 秒安全牆
     return () => clearTimeout(timer);
-  }, [authInitializing, isCheckingRedirect, isSyncing]);
+  }, [authInitializing, isCheckingRedirect, isSyncing, roleLoading]);
 
   // --- UI State ---
   const [showTutorial, setShowTutorial] = useState(false);
@@ -270,7 +283,7 @@ const App: React.FC = () => {
 
         if (redirectUser || emailUser) {
           console.log("[App] ✅ 登入成功:", (redirectUser || emailUser)?.email);
-          setUser(redirectUser || emailUser);
+          // setUser(redirectUser || emailUser); // Handled by useUserRoles
         }
       } catch (e) {
         console.error("[App] ❌ 重導向錯誤:", e);
@@ -282,7 +295,6 @@ const App: React.FC = () => {
       console.log("[App] 📡 啟動身分狀態監聽...");
       const unsubscribe = subscribeToAuthChanges(async (currentUser) => {
         console.log("[App] 👤 身份狀態更新:", currentUser ? currentUser.email : "未登入");
-        setUser(currentUser);
 
         if (currentUser) {
           setIsSyncing(true);
@@ -1870,6 +1882,18 @@ const App: React.FC = () => {
                 <Brain className={`w-4 h-4 ${viewMode === 'AI_PICKS' ? 'text-white' : 'text-indigo-400 group-hover:text-indigo-300'}`} />
                 <span className={viewMode === 'AI_PICKS' ? '' : 'bg-gradient-to-r from-indigo-200 to-purple-200 bg-clip-text text-transparent group-hover:text-white transition-all'}>AI 選股</span>
               </button>
+
+              {/* Upgrade Button for Non-Members */}
+              {user && !isMemberRole && (
+                <a
+                  href="https://libao-finance-school.mykajabi.com/products"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hidden xl:flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-full text-sm font-bold shadow-lg hover:shadow-orange-500/30 transition-all active:scale-95"
+                >
+                  <Rocket className="w-4 h-4" /> 升級專業版
+                </a>
+              )}
             </div>
             {/* Right Side Grouping */}
             <div className="flex items-center gap-2 md:gap-4">
@@ -1903,6 +1927,17 @@ const App: React.FC = () => {
                 <button id="tour-news-btn" onClick={() => { setShowNewsModal(true); setHasNewNews(false); }} className="p-2 text-gray-300 hover:text-white relative"><Bell className="w-5 h-5" />{hasNewNews && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-gray-900"></span>}</button>
                 <button id="tour-privacy-btn" onClick={() => setIsPrivacyMode(!isPrivacyMode)} className="p-2 text-gray-300 hover:text-white">{isPrivacyMode ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button>
                 <button id="tour-update-btn" onClick={() => handleUpdatePrices(false)} className="p-2 text-gray-300 hover:text-white"><RefreshCw className={`w-5 h-5 ${isUpdatingPrices ? 'animate-spin' : ''}`} /></button>
+
+                {/* Desktop Role Badge */}
+                {user && (
+                  <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-gray-800 border border-gray-700 rounded-lg ml-2">
+                    <User className="w-4 h-4 text-gray-400" />
+                    <span className="text-xs font-bold text-gray-200 uppercase tracking-wider">
+                      {isFirstClassRole ? 'First Class' : isMemberRole ? 'Member' : 'Guest'}
+                    </span>
+                  </div>
+                )}
+
                 <button id="tour-menu-btn" onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-300 hover:text-white"><Menu className="w-6 h-6" /></button>
               </div>
             </div>
@@ -1929,27 +1964,29 @@ const App: React.FC = () => {
 
                       {/* 權限等級標籤 */}
                       <div className="flex flex-wrap gap-2 mt-2">
-                        {userRole === 'admin' && (
+                        {roles.includes('admin') && (
                           <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold">
                             <Shield className="w-3 h-3" /> 管理員
                           </span>
                         )}
-                        {userRole === 'vip' && (
+                        {isFirstClassRole && (
                           <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 text-[10px] font-bold">
                             <Star className="w-3 h-3" /> 第一航廈
                           </span>
                         )}
-                        {userRole === 'member' && (
+                        {isMemberRole && !isFirstClassRole && (
                           <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-bold">
                             <UserCheck className="w-3 h-3" /> 成員
                           </span>
                         )}
-                        {userRole === 'viewer' && (
+                        {roles.length === 0 && (
                           <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30 text-[10px] font-bold">
-                            <User className="w-3 h-3" /> 訪客
+                            <User className="w-3 h-3" /> 一般訪客
                           </span>
                         )}
-                        <div className="flex items-center gap-1 text-green-400 font-bold"><Cloud className="w-3 h-3" /> 資料已安全同步</div>
+                        <div className="w-full flex items-center gap-1 text-green-400 font-bold text-[10px] pt-1">
+                          <Cloud className="w-3 h-3" /> 雲端同步中
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2093,8 +2130,7 @@ const App: React.FC = () => {
 
       <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 pb-24 md:pb-8 ${activeCategoryId ? 'py-0' : 'py-8'}`}>
         {viewMode === 'PORTFOLIO' && (
-          <>
-
+          <RequireRole role="member">
             <div id="tour-summary-table">
               {activeCategoryId ? (
                 <DetailTable category={calculatedData.categories.find(c => c.id === activeCategoryId)!} assets={calculatedData.categories.find(c => c.id === activeCategoryId)!.assets} totalCapital={portfolio.totalCapital} onBack={() => setActiveCategoryId(null)} onExecuteOrder={handleExecuteOrder} onUpdateAssetPrice={handleUpdateAssetPrice} onUpdateCategoryPrices={handleRefreshCategory} onUpdateAssetNote={() => { }} defaultExchangeRate={portfolio.settings.usExchangeRate} isPrivacyMode={isPrivacyMode} settings={portfolio.settings} forceShowOrderModal={isTourForceOrderOpen} />
@@ -2167,7 +2203,7 @@ const App: React.FC = () => {
                 </>
               )}
             </div>
-          </>
+          </RequireRole>
         )}
         {/* Modals outside main flow */}
         <AddCategoryModal
@@ -2204,53 +2240,55 @@ const App: React.FC = () => {
 
         {/* New Independnet View for VIP Portfolio */}
         {viewMode === 'VIP_PORTFOLIO' && (calculatedData as any).martingale && (
-          <div className="mt-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="mb-6 flex items-center justify-between">
-              <button
-                onClick={() => setViewMode('PORTFOLIO')}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl border border-gray-700 transition-all font-bold shadow-md active:scale-95 group"
-              >
-                <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-                返回我的持倉
-              </button>
+          <RequireRole role="first_class">
+            <div className="mt-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="mb-6 flex items-center justify-between">
+                <button
+                  onClick={() => setViewMode('PORTFOLIO')}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl border border-gray-700 transition-all font-bold shadow-md active:scale-95 group"
+                >
+                  <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                  返回我的持倉
+                </button>
+              </div>
+
+              <MartingalePanel
+                categories={(calculatedData as any).martingale}
+                totalCapital={portfolio.totalCapital}
+                userRole={userRole}
+                isPrivacyMode={isPrivacyMode}
+                settings={portfolio.settings}
+                onUpdateAllocation={handleMartingaleUpdateAllocation}
+                onAddCategory={() => setIsAddCategoryModalOpen(true)}
+                operations={handleMartingaleOperations}
+                activeCategoryId={martingaleActiveId}
+                onSetActiveCategory={setMartingaleActiveId}
+                transactions={portfolio.transactions.filter(t => {
+                  const matchesMartingale = (portfolio.martingale || []).some((c: any) => c.name === t.categoryName);
+                  if (!matchesMartingale) return false;
+
+                  // 1. Explicit Flag Preference (STRICT)
+                  if (t.isMartingale === true) return true;
+                  if (t.isMartingale === false) return false;
+
+                  // 2. Legacy Fallback (Heuristic)
+                  // If it has a ratio, it's from a personal category position
+                  if (t.portfolioRatio && t.portfolioRatio > 0) return false;
+                  return true;
+                })}
+                industryData={(calculatedData as any).martingaleIndustryData}
+                onDeposit={() => setShowCapitalModal(true)}
+                onReset={handleResetMartingale}
+              />
             </div>
-
-            <MartingalePanel
-              categories={(calculatedData as any).martingale}
-              totalCapital={portfolio.totalCapital}
-              userRole={userRole}
-              isPrivacyMode={isPrivacyMode}
-              settings={portfolio.settings}
-              onUpdateAllocation={handleMartingaleUpdateAllocation}
-              onAddCategory={() => setIsAddCategoryModalOpen(true)}
-              operations={handleMartingaleOperations}
-              activeCategoryId={martingaleActiveId}
-              onSetActiveCategory={setMartingaleActiveId}
-              transactions={portfolio.transactions.filter(t => {
-                const matchesMartingale = (portfolio.martingale || []).some((c: any) => c.name === t.categoryName);
-                if (!matchesMartingale) return false;
-
-                // 1. Explicit Flag Preference (STRICT)
-                if (t.isMartingale === true) return true;
-                if (t.isMartingale === false) return false;
-
-                // 2. Legacy Fallback (Heuristic)
-                // If it has a ratio, it's from a personal category position
-                if (t.portfolioRatio && t.portfolioRatio > 0) return false;
-                return true;
-              })}
-              industryData={(calculatedData as any).martingaleIndustryData}
-              onDeposit={() => setShowCapitalModal(true)}
-              onReset={handleResetMartingale}
-            />
-          </div>
+          </RequireRole>
         )}
         {viewMode === 'ADMIN' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <AdminPanel currentUser={user} />
           </div>
         )}
-      </main >
+      </main>
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around p-3 z-40">
         <button id="nav-mobile-dashboard" onClick={() => { setViewMode('PORTFOLIO'); setActiveCategoryId(null); setShowAdminPanel(false); }} className={`flex flex-col items-center gap-1 ${viewMode === 'PORTFOLIO' ? 'text-blue-600' : 'text-gray-400'}`}><LayoutDashboard className="w-6 h-6" /><span className="text-[10px]">持倉</span></button>
