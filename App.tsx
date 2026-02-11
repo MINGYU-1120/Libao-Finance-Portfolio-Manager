@@ -598,6 +598,14 @@ const App: React.FC = () => {
       });
     });
 
+    const personalTotalCapital = portfolio.capitalLogs
+      .filter(l => l.isMartingale !== true)
+      .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
+
+    const martingaleTotalCapital = portfolio.capitalLogs
+      .filter(l => l.isMartingale === true)
+      .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
+
     const totalUnrealizedPnL = totalMarketValue - totalInvested;
 
     // --- Martingale Calculation (Array) ---
@@ -606,10 +614,7 @@ const App: React.FC = () => {
 
     const calcMartingaleCategories: CalculatedCategory[] = martingaleCats.map(cat => {
       const marketRate = cat.market === 'US' ? rateUS : 1;
-      const projected = portfolio.totalCapital > 0 ? Math.floor(portfolio.totalCapital * (cat.allocationPercent / 100)) : 0; // Or independent capital? User said separate. Let's assume % of total capital for now as per Overview. 
-      // Actually, if it's "Teacher's Portfolio", maybe it shouldn't use User's Capital?
-      // But for "Compare", applying Teacher's % to User's Capital makes sense. 
-
+      const projected = martingaleTotalCapital > 0 ? Math.floor(martingaleTotalCapital * (cat.allocationPercent / 100)) : 0;
       let catInvested = 0;
       const calcAssets: CalculatedAsset[] = cat.assets.map(asset => {
         const costBasis = asset.shares * asset.avgCost * marketRate;
@@ -691,15 +696,17 @@ const App: React.FC = () => {
       industryData,
       monthlyPnLData,
       martingale: calcMartingaleCategories,
-      martingaleIndustryData: calculateIndustryAnalysis(calcMartingaleCategories, rateUS)
+      martingaleIndustryData: calculateIndustryAnalysis(calcMartingaleCategories, rateUS),
+      personalTotalCapital,
+      martingaleTotalCapital
     };
 
   }, [portfolio, portfolio.settings.usExchangeRate]);
 
-  // Derived Totals
-  const totalNetWorth = portfolio.totalCapital + calculatedData.totalUnrealizedPnL + calculatedData.totalRealizedPnL;
-  const unrealizedRatio = portfolio.totalCapital > 0 ? (calculatedData.totalUnrealizedPnL / portfolio.totalCapital) * 100 : 0;
-  const investedRatio = portfolio.totalCapital > 0 ? (calculatedData.totalInvested / portfolio.totalCapital) * 100 : 0;
+  // Derived Totals (Personal)
+  const totalNetWorth = calculatedData.personalTotalCapital + calculatedData.totalUnrealizedPnL + calculatedData.totalRealizedPnL;
+  const unrealizedRatio = calculatedData.personalTotalCapital > 0 ? (calculatedData.totalUnrealizedPnL / calculatedData.personalTotalCapital) * 100 : 0;
+  const investedRatio = calculatedData.personalTotalCapital > 0 ? (calculatedData.totalInvested / calculatedData.personalTotalCapital) * 100 : 0;
 
   useEffect(() => {
     if (user && isDataLoaded) {
@@ -1839,7 +1846,14 @@ const App: React.FC = () => {
         isPrivacyMode={isPrivacyMode}
         userRole={userRole}
       />
-      <CapitalModal isOpen={showCapitalModal} onClose={() => setShowCapitalModal(false)} capitalLogs={portfolio.capitalLogs} onAddLog={(l) => { const newState = { ...portfolio, capitalLogs: [...portfolio.capitalLogs, { ...l, id: uuidv4(), isMartingale: capitalModalSource === 'martingale' }] }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }} onDeleteLog={(id) => { const newState = { ...portfolio, capitalLogs: portfolio.capitalLogs.filter(l => l.id !== id) }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }} isPrivacyMode={isPrivacyMode} />
+      <CapitalModal
+        isOpen={showCapitalModal}
+        onClose={() => setShowCapitalModal(false)}
+        capitalLogs={portfolio.capitalLogs.filter(l => capitalModalSource === 'martingale' ? l.isMartingale === true : l.isMartingale !== true)}
+        onAddLog={(l) => { const newState = { ...portfolio, capitalLogs: [...portfolio.capitalLogs, { ...l, id: uuidv4(), isMartingale: capitalModalSource === 'martingale' }] }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }}
+        onDeleteLog={(id) => { const newState = { ...portfolio, capitalLogs: portfolio.capitalLogs.filter(l => l.id !== id) }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }}
+        isPrivacyMode={isPrivacyMode}
+      />
 
 
       <nav className="bg-gray-900 text-white shadow-md sticky top-0 z-50">
@@ -2140,7 +2154,7 @@ const App: React.FC = () => {
               <>
                 <PersonalDashboard
                   categories={calculatedData.categories}
-                  totalCapital={portfolio.totalCapital}
+                  totalCapital={calculatedData.personalTotalCapital}
                   transactions={portfolio.transactions}
                   industryData={calculatedData.industryData}
                   onDeposit={() => { setCapitalModalSource('personal'); setShowCapitalModal(true); }}
@@ -2187,7 +2201,7 @@ const App: React.FC = () => {
                     >
                       <MartingalePanel
                         categories={scrubSensitiveData((calculatedData as any).martingale)}
-                        totalCapital={portfolio.totalCapital}
+                        totalCapital={calculatedData.martingaleTotalCapital}
                         userRole={userRole}
                         isPrivacyMode={isPrivacyMode}
                         settings={portfolio.settings}
@@ -2255,7 +2269,7 @@ const App: React.FC = () => {
 
               <MartingalePanel
                 categories={(calculatedData as any).martingale}
-                totalCapital={portfolio.totalCapital}
+                totalCapital={calculatedData.martingaleTotalCapital}
                 userRole={userRole}
                 isPrivacyMode={isPrivacyMode}
                 settings={portfolio.settings}
