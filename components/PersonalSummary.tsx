@@ -110,27 +110,54 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                                     </span>
                                     {!readOnly && onUpdateAllocation ? (
                                         editingMobileId === cat.id ? (
-                                            <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                                                <input
-                                                    autoFocus
-                                                    type="number"
-                                                    value={tempValue}
-                                                    onChange={e => setTempValue(e.target.value)}
-                                                    onBlur={() => {
-                                                        const val = Number(tempValue);
-                                                        if (!isNaN(val)) onUpdateAllocation(cat.id, val);
-                                                        setEditingMobileId(null);
-                                                    }}
-                                                    onKeyDown={e => {
-                                                        if (e.key === 'Enter') {
+                                            <div className="flex flex-col gap-2 w-full" onClick={e => e.stopPropagation()}>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] text-gray-400 w-16">配置比例:</span>
+                                                    <input
+                                                        autoFocus
+                                                        type="number"
+                                                        value={tempValue}
+                                                        onChange={e => setTempValue(e.target.value)}
+                                                        onBlur={() => {
                                                             const val = Number(tempValue);
                                                             if (!isNaN(val)) onUpdateAllocation(cat.id, val);
                                                             setEditingMobileId(null);
-                                                        }
-                                                    }}
-                                                    className="w-12 h-6 text-center bg-gray-800 border-b border-cyan-500 text-cyan-400 font-black p-0 text-sm focus:outline-none"
-                                                />
-                                                <span className="text-[10px] font-bold text-cyan-500">%</span>
+                                                        }}
+                                                        onKeyDown={e => {
+                                                            if (e.key === 'Enter') {
+                                                                const val = Number(tempValue);
+                                                                if (!isNaN(val)) onUpdateAllocation(cat.id, val);
+                                                                setEditingMobileId(null);
+                                                            }
+                                                        }}
+                                                        className="w-20 h-8 text-center bg-gray-800 border border-cyan-500/50 rounded text-cyan-400 font-black p-0 text-sm focus:outline-none focus:border-cyan-400"
+                                                    />
+                                                    <span className="text-xs font-bold text-cyan-500">%</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] text-gray-400 w-16">預計投入:</span>
+                                                    <input
+                                                        type="number"
+                                                        placeholder="輸入金額"
+                                                        onBlur={(e) => {
+                                                            const val = Number(e.target.value);
+                                                            if (!isNaN(val) && totalCapital > 0) {
+                                                                onUpdateAllocation(cat.id, (val / totalCapital) * 100);
+                                                            }
+                                                            setEditingMobileId(null);
+                                                        }}
+                                                        onKeyDown={e => {
+                                                            if (e.key === 'Enter') {
+                                                                const val = Number((e.target as HTMLInputElement).value);
+                                                                if (!isNaN(val) && totalCapital > 0) {
+                                                                    onUpdateAllocation(cat.id, (val / totalCapital) * 100);
+                                                                }
+                                                                setEditingMobileId(null);
+                                                            }
+                                                        }}
+                                                        className="w-24 h-8 text-center bg-gray-800 border border-cyan-500/30 rounded text-gray-200 font-bold p-0 text-sm focus:outline-none focus:border-cyan-400"
+                                                    />
+                                                </div>
                                             </div>
                                         ) : (
                                             <button
@@ -139,10 +166,15 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                                                     setEditingMobileId(cat.id);
                                                     setTempValue(cat.allocationPercent.toString());
                                                 }}
-                                                className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-cyan-400 transition-colors"
+                                                className="flex flex-col items-start gap-0.5 group/btn"
                                             >
-                                                <span className="uppercase tracking-wider border-b border-transparent hover:border-cyan-400/50">{cat.allocationPercent}% 配置</span>
-                                                <Edit3 className="w-3 h-3 opacity-40" />
+                                                <div className="flex items-center gap-1 text-xs font-bold text-gray-500 group-hover/btn:text-cyan-400 transition-colors">
+                                                    <span className="uppercase tracking-wider border-b border-transparent hover:border-cyan-400/50">{cat.allocationPercent}% 配置</span>
+                                                    <Edit3 className="w-3 h-3 opacity-40" />
+                                                </div>
+                                                <div className="text-[10px] text-gray-600 font-medium">
+                                                    約 {maskValue(formatTWD(cat.projectedInvestment, isPrivacyMode))}
+                                                </div>
                                             </button>
                                         )
                                     ) : (
@@ -262,8 +294,36 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                                         <span className="font-mono font-bold text-gray-400 text-lg">{cat.allocationPercent}%</span>
                                     )}
                                 </td>
-                                <td className="p-5 text-right">
-                                    <div className="font-mono text-gray-500 font-medium">{maskValue(formatTWD(cat.projectedInvestment, isPrivacyMode))}</div>
+                                <td className="p-5 text-right" onClick={(e) => e.stopPropagation()}>
+                                    {!readOnly && onUpdateAllocation ? (
+                                        <div className="flex flex-col items-end gap-1">
+                                            <input
+                                                type="number"
+                                                defaultValue={cat.projectedInvestment}
+                                                key={cat.id + '-' + cat.projectedInvestment}
+                                                onBlur={(e) => {
+                                                    const val = Number(e.target.value);
+                                                    if (!isNaN(val) && totalCapital > 0) {
+                                                        onUpdateAllocation(cat.id, (val / totalCapital) * 100);
+                                                    }
+                                                }}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter') {
+                                                        const val = Number((e.target as HTMLInputElement).value);
+                                                        if (!isNaN(val) && totalCapital > 0) {
+                                                            onUpdateAllocation(cat.id, (val / totalCapital) * 100);
+                                                        }
+                                                        (e.target as HTMLInputElement).blur();
+                                                    }
+                                                }}
+                                                disabled={isMasked}
+                                                className="w-32 text-right border-b border-gray-700 bg-transparent font-mono font-medium text-gray-400 focus:outline-none focus:border-cyan-500 transition-colors disabled:text-gray-500"
+                                            />
+                                            <div className="text-[10px] text-gray-600 font-bold uppercase tracking-tighter">金額 (Amount)</div>
+                                        </div>
+                                    ) : (
+                                        <div className="font-mono text-gray-500 font-medium">{maskValue(formatTWD(cat.projectedInvestment, isPrivacyMode))}</div>
+                                    )}
                                 </td>
                                 <td className="p-5 text-right">
                                     <div className="font-mono font-black text-gray-200 group-hover:text-white">{maskValue(formatTWD(cat.investedAmount, isPrivacyMode))}</div>

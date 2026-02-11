@@ -31,6 +31,8 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
     readOnly = true
 }) => {
     const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
+    const [editingMobileId, setEditingMobileId] = useState<string | null>(null);
+    const [tempValue, setTempValue] = useState('');
 
     const handleRefresh = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
@@ -92,7 +94,78 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                                     <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${cat.market === 'TW' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
                                         {cat.market}
                                     </span>
-                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{cat.allocationPercent}% 配置</span>
+                                    {!readOnly && onUpdateAllocation ? (
+                                        editingMobileId === cat.id ? (
+                                            <div className="flex flex-col gap-2 w-full" onClick={e => e.stopPropagation()}>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] text-slate-400 w-16">配置比例:</span>
+                                                    <input
+                                                        autoFocus
+                                                        type="number"
+                                                        value={tempValue}
+                                                        onChange={e => setTempValue(e.target.value)}
+                                                        onBlur={() => {
+                                                            const val = Number(tempValue);
+                                                            if (!isNaN(val)) onUpdateAllocation(cat.id, val);
+                                                            setEditingMobileId(null);
+                                                        }}
+                                                        onKeyDown={e => {
+                                                            if (e.key === 'Enter') {
+                                                                const val = Number(tempValue);
+                                                                if (!isNaN(val)) onUpdateAllocation(cat.id, val);
+                                                                setEditingMobileId(null);
+                                                            }
+                                                        }}
+                                                        className="w-20 h-8 text-center bg-slate-800 border border-libao-gold/50 rounded text-libao-gold font-black p-0 text-sm focus:outline-none focus:border-libao-gold"
+                                                    />
+                                                    <span className="text-xs font-bold text-libao-gold">%</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] text-slate-400 w-16">預計投入:</span>
+                                                    <input
+                                                        type="number"
+                                                        placeholder="輸入金額"
+                                                        onBlur={(e) => {
+                                                            const val = Number(e.target.value);
+                                                            if (!isNaN(val) && totalCapital > 0) {
+                                                                onUpdateAllocation(cat.id, (val / totalCapital) * 100);
+                                                            }
+                                                            setEditingMobileId(null);
+                                                        }}
+                                                        onKeyDown={e => {
+                                                            if (e.key === 'Enter') {
+                                                                const val = Number((e.target as HTMLInputElement).value);
+                                                                if (!isNaN(val) && totalCapital > 0) {
+                                                                    onUpdateAllocation(cat.id, (val / totalCapital) * 100);
+                                                                }
+                                                                setEditingMobileId(null);
+                                                            }
+                                                        }}
+                                                        className="w-24 h-8 text-center bg-slate-800 border border-libao-gold/30 rounded text-slate-200 font-bold p-0 text-sm focus:outline-none focus:border-libao-gold"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditingMobileId(cat.id);
+                                                    setTempValue(cat.allocationPercent.toString());
+                                                }}
+                                                className="flex flex-col items-start gap-0.5 group/btn"
+                                            >
+                                                <div className="flex items-center gap-1 text-xs font-bold text-slate-500 group-hover/btn:text-libao-gold transition-colors">
+                                                    <span className="uppercase tracking-wider border-b border-transparent hover:border-libao-gold/50">{cat.allocationPercent}% 配置</span>
+                                                    <ChevronRight className="w-3 h-3 opacity-40" />
+                                                </div>
+                                                <div className="text-[10px] text-slate-600 font-medium">
+                                                    約 {maskValue(formatTWD(cat.projectedInvestment, isPrivacyMode))}
+                                                </div>
+                                            </button>
+                                        )
+                                    ) : (
+                                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{cat.allocationPercent}% 配置</span>
+                                    )}
                                 </div>
                                 <h3 className="text-xl font-bold text-slate-100 tracking-tight">{cat.name}</h3>
                             </div>
@@ -207,8 +280,36 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                                         <span className="font-mono font-bold text-slate-400 text-lg">{cat.allocationPercent}%</span>
                                     )}
                                 </td>
-                                <td className="p-5 text-right">
-                                    <div className="font-mono text-slate-500 font-medium">{maskValue(formatTWD(cat.projectedInvestment, isPrivacyMode))}</div>
+                                <td className="p-5 text-right" onClick={(e) => e.stopPropagation()}>
+                                    {!readOnly && onUpdateAllocation ? (
+                                        <div className="flex flex-col items-end gap-1">
+                                            <input
+                                                type="number"
+                                                defaultValue={cat.projectedInvestment}
+                                                key={cat.id + '-' + cat.projectedInvestment}
+                                                onBlur={(e) => {
+                                                    const val = Number(e.target.value);
+                                                    if (!isNaN(val) && totalCapital > 0) {
+                                                        onUpdateAllocation(cat.id, (val / totalCapital) * 100);
+                                                    }
+                                                }}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter') {
+                                                        const val = Number((e.target as HTMLInputElement).value);
+                                                        if (!isNaN(val) && totalCapital > 0) {
+                                                            onUpdateAllocation(cat.id, (val / totalCapital) * 100);
+                                                        }
+                                                        (e.target as HTMLInputElement).blur();
+                                                    }
+                                                }}
+                                                disabled={isMasked}
+                                                className="w-32 text-right border-b border-white/10 bg-transparent font-mono font-medium text-slate-400 focus:outline-none focus:border-libao-gold transition-colors disabled:text-slate-500"
+                                            />
+                                            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">金額 (Amount)</div>
+                                        </div>
+                                    ) : (
+                                        <div className="font-mono text-slate-500 font-medium">{maskValue(formatTWD(cat.projectedInvestment, isPrivacyMode))}</div>
+                                    )}
                                 </td>
                                 <td className="p-5 text-right">
                                     <div className="font-mono font-black text-slate-200 group-hover:text-white">{maskValue(formatTWD(cat.investedAmount, isPrivacyMode))}</div>
