@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { X, ArrowRightLeft, AlertCircle, CheckCircle2, MinusCircle, Info, TrendingUp, TrendingDown, Target } from 'lucide-react';
-import { CalculatedCategory, CalculatedAsset, AppSettings } from '../types';
+import { CalculatedCategory, CalculatedAsset, AppSettings, UserRole, AccessTier, getTier } from '../types';
 import { formatCurrency, formatShares } from '../utils/formatting';
 import { RequireRole } from './auth/RequireRole';
 
@@ -13,6 +13,7 @@ interface PortfolioCompareModalProps {
     totalCapital: number;
     settings: AppSettings;
     isPrivacyMode: boolean;
+    userRole: UserRole;
 }
 
 const PortfolioCompareModal: React.FC<PortfolioCompareModalProps> = ({
@@ -22,10 +23,23 @@ const PortfolioCompareModal: React.FC<PortfolioCompareModalProps> = ({
     martinCategories,
     totalCapital,
     settings,
-    isPrivacyMode
+    isPrivacyMode,
+    userRole
 }) => {
     const [selectedUserCatId, setSelectedUserCatId] = useState<string>('all');
     const [selectedMartinCatId, setSelectedMartinCatId] = useState<string>('all');
+
+    // Optimized: Filter Martin Categories once
+    const visibleMartinCategories = useMemo(() => {
+        const userTier = getTier(userRole);
+        return martinCategories.filter(c => {
+            const isRedLabel = c.name === '紅標 (頭等艙)' || c.name.includes('紅標');
+            if (isRedLabel && userTier < AccessTier.FIRST_CLASS) {
+                return false;
+            }
+            return true;
+        });
+    }, [martinCategories, userRole]);
 
     // Comparison Logic
     const comparisonData = useMemo(() => {
@@ -58,7 +72,7 @@ const PortfolioCompareModal: React.FC<PortfolioCompareModalProps> = ({
         });
 
         // 2. Gather Martin Assets
-        const filteredMartinCats = selectedMartinCatId === 'all' ? martinCategories : martinCategories.filter(c => c.id === selectedMartinCatId);
+        const filteredMartinCats = selectedMartinCatId === 'all' ? visibleMartinCategories : visibleMartinCategories.filter(c => c.id === selectedMartinCatId);
         filteredMartinCats.forEach(cat => {
             cat.assets.forEach(asset => {
                 const key = `${asset.symbol}`;
@@ -106,7 +120,7 @@ const PortfolioCompareModal: React.FC<PortfolioCompareModalProps> = ({
                 martinCatNames: m?.catNames || []
             };
         }).sort((a, b) => b.martinRatio - a.martinRatio);
-    }, [isOpen, selectedUserCatId, selectedMartinCatId, userCategories, martinCategories, totalCapital, settings]);
+    }, [isOpen, selectedUserCatId, selectedMartinCatId, userCategories, visibleMartinCategories, totalCapital, settings]); // Removed martinCategories in favor of visibleMartinCategories
 
     const stats = useMemo(() => {
         return {
@@ -167,7 +181,7 @@ const PortfolioCompareModal: React.FC<PortfolioCompareModalProps> = ({
                                             className="w-full p-2.5 sm:p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold focus:ring-2 focus:ring-libao-gold outline-none text-sm"
                                         >
                                             <option value="all">馬丁所有持倉</option>
-                                            {martinCategories.map(c => (
+                                            {visibleMartinCategories.map(c => (
                                                 <option key={c.id} value={c.id}>{c.name} ({c.market})</option>
                                             ))}
                                         </select>

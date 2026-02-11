@@ -35,6 +35,13 @@ const DividendLedger: React.FC<DividendLedgerProps> = ({
   const dividends = transactions
     .filter(t => t.type === 'DIVIDEND')
     .filter(t => {
+      // 0. Global Restriction for "Red Label" (First Class)
+      const isRedLabel = t.categoryName === '紅標 (頭等艙)' || t.categoryName.includes('紅標');
+      const userTier = getTier(userRole);
+      if (isRedLabel && userTier < AccessTier.FIRST_CLASS) {
+        return false;
+      }
+
       // Determine if a transaction is "Martingale"
 
       // 1. If explicit tag exists (Future proof), use it.

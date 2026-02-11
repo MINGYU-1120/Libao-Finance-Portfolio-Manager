@@ -105,6 +105,7 @@ const MartingalePanel: React.FC<MartingalePanelProps> = ({
                         isPrivacyMode={isPrivacyMode}
                         readOnly={readOnly}
                         isMasked={isMasked}
+                        userRole={userRole}
                     />
                 </>
             )}

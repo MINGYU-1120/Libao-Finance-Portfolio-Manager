@@ -1831,6 +1831,7 @@ const App: React.FC = () => {
         totalCapital={portfolio.totalCapital}
         settings={portfolio.settings}
         isPrivacyMode={isPrivacyMode}
+        userRole={userRole}
       />
       <CapitalModal isOpen={showCapitalModal} onClose={() => setShowCapitalModal(false)} capitalLogs={portfolio.capitalLogs} onAddLog={(l) => { const newState = { ...portfolio, capitalLogs: [...portfolio.capitalLogs, { ...l, id: uuidv4() }] }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }} onDeleteLog={(id) => { const newState = { ...portfolio, capitalLogs: portfolio.capitalLogs.filter(l => l.id !== id) }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }} isPrivacyMode={isPrivacyMode} />
 

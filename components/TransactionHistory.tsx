@@ -128,6 +128,14 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
   // 1. First, filter by Tab
   // 1. First, filter by Tab
   const tabTransactions = transactions.filter(tx => {
+    // 0. Global Restriction for "Red Label" (First Class)
+    // If category is Red Label AND user is not First Class/Admin -> HIDE
+    const isRedLabel = tx.categoryName === '紅標 (頭等艙)' || tx.categoryName.includes('紅標');
+    const userTier = getTier(userRole);
+    if (isRedLabel && userTier < AccessTier.FIRST_CLASS) {
+      return false;
+    }
+
     // If flag is present, trust it.
     if (tx.isMartingale !== undefined) {
       return activeTab === 'my' ? !tx.isMartingale : tx.isMartingale;
