@@ -156,12 +156,12 @@ const App: React.FC = () => {
 
   useEffect(() => {
     // Check if user has seen the crypto announcement
-    const hasSeen = localStorage.getItem('libao_crypto_feature_seen');
+    const hasSeen = localStorage.getItem('libao_feature_seen_v5.7.0');
     if (!hasSeen) {
       // Wait a bit before showing to not conflict with other modals
       const timer = setTimeout(() => {
         // Double check in case they cleared it or it was set during timeout
-        if (!localStorage.getItem('libao_crypto_feature_seen')) {
+        if (!localStorage.getItem('libao_feature_seen_v5.7.0')) {
           setShowNewFeatureModal(true);
         }
       }, 2000);
@@ -174,7 +174,7 @@ const App: React.FC = () => {
   };
 
   const handleDismissNewFeatureModal = () => {
-    localStorage.setItem('libao_crypto_feature_seen', 'true');
+    localStorage.setItem('libao_feature_seen_v5.7.0', 'true');
     setShowNewFeatureModal(false);
   };
 

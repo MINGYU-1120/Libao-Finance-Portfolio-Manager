@@ -53,9 +53,9 @@ const NewFeatureModal: React.FC<NewFeatureModalProps> = ({ isOpen, onClose, onDi
                                     </div>
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-gray-800 text-sm">支援美股倉位 (D/E倉)</h4>
+                                    <h4 className="font-bold text-gray-800 text-sm">支援虛擬貨幣資產</h4>
                                     <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                                        現在您可以在 D倉 或 E倉 直接搜尋並加入 <span className="font-mono font-bold text-gray-700">BTC-USD</span>, <span className="font-mono font-bold text-gray-700">ETH-USD</span> 等加密貨幣資產。
+                                        支援搜尋 <span className="font-mono font-bold text-gray-700">BTC-USD</span>, <span className="font-mono font-bold text-gray-700">ETH-USD</span> 等資產，並提供高精度小數點計算。
                                     </p>
                                 </div>
                             </div>
@@ -67,9 +67,9 @@ const NewFeatureModal: React.FC<NewFeatureModalProps> = ({ isOpen, onClose, onDi
                                     </div>
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-gray-800 text-sm">高精度小數點計算</h4>
+                                    <h4 className="font-bold text-gray-800 text-sm">手機版輸入體驗優化</h4>
                                     <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                                        針對單價較低的幣種 (如 DOGE)，系統已支援至小數點後 <span className="font-bold text-gray-800">6 位數</span> 的精確顯示與計算。
+                                        手機版配置調整新增「比例/金額」分頁切換與確認按鈕，操作更直觀且不再誤觸關閉。
                                     </p>
                                 </div>
                             </div>
