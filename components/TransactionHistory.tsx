@@ -438,6 +438,14 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
                             return `${sign}${prefix} ${valStr}`;
                           })()}
                           {isDiv && <span className="text-[10px] text-gray-400 block">淨入帳</span>}
+                          {!isDiv && tx.type === 'SELL' && (tx.originalCostTWD || (tx.amount - (tx.realizedPnL || 0) - (tx.fee || 0) - (tx.tax || 0))) > 0 && (
+                            <span className="text-[11px] font-bold block opacity-80">
+                              {(() => {
+                                const cost = tx.originalCostTWD || (tx.amount - (tx.realizedPnL || 0) - (tx.fee || 0) - (tx.tax || 0));
+                                return `${tx.realizedPnL! > 0 ? '+' : ''}${((tx.realizedPnL! / cost) * 100).toFixed(2)}%`;
+                              })()}
+                            </span>
+                          )}
                         </span>
                       ) : (
                         <span className="text-gray-300">-</span>

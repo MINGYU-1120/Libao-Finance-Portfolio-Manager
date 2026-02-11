@@ -131,6 +131,7 @@ export interface PortfolioState {
   transactions: TransactionRecord[];
   capitalLogs: CapitalLogEntry[];
   martingale?: PositionCategory[];
+  syncedMartingaleCapital?: number;
   lastModified?: number;
 }
 

@@ -602,9 +602,13 @@ const App: React.FC = () => {
       .filter(l => l.isMartingale !== true)
       .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
 
-    const martingaleTotalCapital = portfolio.capitalLogs
+    const martingaleTotalCapitalFromLogs = portfolio.capitalLogs
       .filter(l => l.isMartingale === true)
       .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
+
+    const martingaleTotalCapital = (userRole !== 'admin' && portfolio.syncedMartingaleCapital)
+      ? portfolio.syncedMartingaleCapital
+      : martingaleTotalCapitalFromLogs;
 
     const totalUnrealizedPnL = totalMarketValue - totalInvested;
 
@@ -725,12 +729,12 @@ const App: React.FC = () => {
       console.log("[Sync] Admin detected, scheduling public update...");
       const timer = setTimeout(() => {
         console.log("[Sync] Executing updatePublicMartingale...");
-        // Pass categories, transactions, and totalCapital
-        updatePublicMartingale(portfolio.martingale as any, portfolio.transactions, portfolio.totalCapital);
+        // Pass categories, transactions, and specifically martingale portion of capital
+        updatePublicMartingale(portfolio.martingale as any, portfolio.transactions, calculatedData.martingaleTotalCapital);
       }, 3000); // 3s debounce
       return () => clearTimeout(timer);
     }
-  }, [portfolio.martingale, userRole, isDataLoaded]);
+  }, [portfolio.martingale, userRole, isDataLoaded, calculatedData.martingaleTotalCapital]);
 
   // 2. Member: Auto-subscribe to changes
   useEffect(() => {
@@ -757,7 +761,7 @@ const App: React.FC = () => {
 
               return {
                 ...prev,
-                totalCapital: publicData.totalCapital,
+                syncedMartingaleCapital: publicData.totalCapital,
                 martingale: publicData.categories,
                 transactions: [...personalTxs, ...newMartingaleTxs]
               };
