@@ -864,7 +864,10 @@ const App: React.FC = () => {
       }
 
       // 計算預算，用於計算交易比例
-      const projectedInvestment = Math.floor(portfolio.totalCapital * (currentCategory.allocationPercent / 100));
+      const personalTotalCapital = portfolio.capitalLogs
+        .filter(l => l.isMartingale !== true)
+        .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
+      const projectedInvestment = Math.floor(personalTotalCapital * (currentCategory.allocationPercent / 100));
 
       const dateToSave = order.transactionDate
         ? new Date(order.transactionDate).toISOString()
@@ -1455,8 +1458,11 @@ const App: React.FC = () => {
 
       // Calculate Portfolio Ratio (Add/Reduce %)
       // Formula: (Transaction Amount / Category Projected Investment) * 100
-      // Projected Investment = Admin Total Capital * (Category Allocation / 100)
-      const projectedInvestment = Math.floor(portfolio.totalCapital * (cat.allocationPercent / 100));
+      // Projected Investment = Martingale Total Capital * (Category Allocation / 100)
+      const martingaleTotalCapital = portfolio.capitalLogs
+        .filter(l => l.isMartingale === true)
+        .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
+      const projectedInvestment = Math.floor(martingaleTotalCapital * (cat.allocationPercent / 100));
       if (projectedInvestment > 0) {
         // Use order.totalAmount if available, otherwise calculate
         const amountTWD = order.totalAmount || (order.price * order.shares * order.exchangeRate); // Fallback if totalAmount missing
@@ -1538,7 +1544,10 @@ const App: React.FC = () => {
         // Optional: newTransaction.originalCostTWD = costBasisSold;
 
         // Recalculate Ratio for SELL based on COST BASIS (not proceeds), matching Personal logic
-        const projectedInvestment = Math.floor(portfolio.totalCapital * (cat.allocationPercent / 100));
+        const martingaleTotalCapital = portfolio.capitalLogs
+          .filter(l => l.isMartingale === true)
+          .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
+        const projectedInvestment = Math.floor(martingaleTotalCapital * (cat.allocationPercent / 100));
         if (projectedInvestment > 0) {
           newTransaction.portfolioRatio = (costBasisSold / projectedInvestment) * 100;
         }
