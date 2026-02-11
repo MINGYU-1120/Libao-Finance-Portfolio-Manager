@@ -212,6 +212,7 @@ const App: React.FC = () => {
   const [showFeeSettingsModal, setShowFeeSettingsModal] = useState(false);
   const [showDividendModal, setShowDividendModal] = useState(false);
   const [showCapitalModal, setShowCapitalModal] = useState(false);
+  const [capitalModalSource, setCapitalModalSource] = useState<'personal' | 'martingale'>('personal');
 
   const [isUpdatingPrices, setIsUpdatingPrices] = useState(false);
   const [isScanningDividends, setIsScanningDividends] = useState(false);
@@ -1647,10 +1648,15 @@ const App: React.FC = () => {
       }))
       : [];
 
+    const nextCapitalLogs = portfolio.capitalLogs.filter(l => l.isMartingale !== true);
+    const nextTotalCapital = nextCapitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
+
     saveAndSetPortfolio({
       ...portfolio,
+      totalCapital: nextTotalCapital,
       martingale: resetMartingaleCategories,
-      transactions: newTransactions
+      transactions: newTransactions,
+      capitalLogs: nextCapitalLogs
     });
 
     showToast("馬丁倉位已完整重置", "success");
@@ -1833,7 +1839,7 @@ const App: React.FC = () => {
         isPrivacyMode={isPrivacyMode}
         userRole={userRole}
       />
-      <CapitalModal isOpen={showCapitalModal} onClose={() => setShowCapitalModal(false)} capitalLogs={portfolio.capitalLogs} onAddLog={(l) => { const newState = { ...portfolio, capitalLogs: [...portfolio.capitalLogs, { ...l, id: uuidv4() }] }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }} onDeleteLog={(id) => { const newState = { ...portfolio, capitalLogs: portfolio.capitalLogs.filter(l => l.id !== id) }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }} isPrivacyMode={isPrivacyMode} />
+      <CapitalModal isOpen={showCapitalModal} onClose={() => setShowCapitalModal(false)} capitalLogs={portfolio.capitalLogs} onAddLog={(l) => { const newState = { ...portfolio, capitalLogs: [...portfolio.capitalLogs, { ...l, id: uuidv4(), isMartingale: capitalModalSource === 'martingale' }] }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }} onDeleteLog={(id) => { const newState = { ...portfolio, capitalLogs: portfolio.capitalLogs.filter(l => l.id !== id) }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }} isPrivacyMode={isPrivacyMode} />
 
 
       <nav className="bg-gray-900 text-white shadow-md sticky top-0 z-50">
@@ -2137,7 +2143,7 @@ const App: React.FC = () => {
                   totalCapital={portfolio.totalCapital}
                   transactions={portfolio.transactions}
                   industryData={calculatedData.industryData}
-                  onDeposit={() => setShowCapitalModal(true)}
+                  onDeposit={() => { setCapitalModalSource('personal'); setShowCapitalModal(true); }}
                   onReset={() => {
                     if (confirm('確定要重置所有倉位資料嗎？此操作無法復原。')) {
                       setPortfolio(initialPortfolioState);
@@ -2272,7 +2278,7 @@ const App: React.FC = () => {
                   return true;
                 })}
                 industryData={(calculatedData as any).martingaleIndustryData}
-                onDeposit={() => setShowCapitalModal(true)}
+                onDeposit={() => { setCapitalModalSource('martingale'); setShowCapitalModal(true); }}
                 onReset={handleResetMartingale}
               />
             </div>

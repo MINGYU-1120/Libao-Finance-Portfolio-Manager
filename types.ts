@@ -195,4 +195,5 @@ export interface CapitalLogEntry {
   type: CapitalType;
   amount: number;
   note?: string;
+  isMartingale?: boolean;
 }
