@@ -1669,6 +1669,35 @@ const App: React.FC = () => {
     showToast("馬丁倉位已完整重置", "success");
   };
 
+  const handleResetPersonal = () => {
+    const message = "⚠️ 警告：您確定要「重置」個人持倉紀錄嗎？\n\n" +
+      "此操作將會：\n" +
+      "1. 清空所有個人倉位內的「持股資產」\n" +
+      "2. 永久移除相關的歷史交易、股息與本金變動紀錄\n" +
+      "3. 保留「倉位分類」與「配置比例」設定\n\n" +
+      "此操作「不會」影響馬丁持倉數據。一旦執行即無法復原！";
+
+    if (!window.confirm(message)) return;
+
+    const nextTransactions = portfolio.transactions.filter(t => t.isMartingale === true);
+    const nextCategories = portfolio.categories.map(c => ({
+      ...c,
+      assets: []
+    }));
+    const nextCapitalLogs = portfolio.capitalLogs.filter(l => l.isMartingale === true);
+    const nextTotalCapital = nextCapitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
+
+    saveAndSetPortfolio({
+      ...portfolio,
+      totalCapital: nextTotalCapital,
+      categories: nextCategories,
+      transactions: nextTransactions,
+      capitalLogs: nextCapitalLogs
+    });
+
+    showToast("個人持倉已完整重置", "success");
+  };
+
   const handleDeleteCategory = (categoryId: string) => {
     if (!window.confirm("確定要刪除此分類嗎？包含的資產將會被移除。")) return;
     const newCats = portfolio.categories.filter(c => c.id !== categoryId);
@@ -2158,12 +2187,7 @@ const App: React.FC = () => {
                   transactions={portfolio.transactions}
                   industryData={calculatedData.industryData}
                   onDeposit={() => { setCapitalModalSource('personal'); setShowCapitalModal(true); }}
-                  onReset={() => {
-                    if (confirm('確定要重置所有倉位資料嗎？此操作無法復原。')) {
-                      setPortfolio(initialPortfolioState);
-                      savePortfolioToCloud(user!.uid, initialPortfolioState); // Force save
-                    }
-                  }}
+                  onReset={handleResetPersonal}
                   isPrivacyMode={isPrivacyMode}
                 />
                 <PersonalSummary
