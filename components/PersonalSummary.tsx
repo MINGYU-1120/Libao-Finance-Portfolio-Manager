@@ -38,6 +38,7 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
     const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
     const [editingMobileId, setEditingMobileId] = useState<string | null>(null);
     const [tempValue, setTempValue] = useState<string>('');
+    const [mobileEditMode, setMobileEditMode] = useState<'percent' | 'amount'>('percent');
 
     const handleRefresh = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
@@ -110,54 +111,88 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                                     </span>
                                     {!readOnly && onUpdateAllocation ? (
                                         editingMobileId === cat.id ? (
-                                            <div className="flex items-center gap-3 w-full" onClick={e => e.stopPropagation()}>
-                                                <div className="flex-1 flex flex-col gap-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[10px] text-gray-400 w-16">配置比例:</span>
-                                                        <input
-                                                            autoFocus
-                                                            type="number"
-                                                            value={tempValue}
-                                                            onChange={e => setTempValue(e.target.value)}
-                                                            onKeyDown={e => {
-                                                                if (e.key === 'Enter') {
-                                                                    const val = Number(tempValue);
-                                                                    if (!isNaN(val)) onUpdateAllocation(cat.id, val);
-                                                                    setEditingMobileId(null);
-                                                                }
-                                                            }}
-                                                            className="w-20 h-8 text-center bg-gray-800 border border-cyan-500/50 rounded text-cyan-400 font-black p-0 text-sm focus:outline-none focus:border-cyan-400"
-                                                        />
-                                                        <span className="text-xs font-bold text-cyan-500">%</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[10px] text-gray-400 w-16">預計投入:</span>
-                                                        <input
-                                                            type="number"
-                                                            placeholder="輸入金額"
-                                                            onKeyDown={e => {
-                                                                if (e.key === 'Enter') {
-                                                                    const val = Number((e.target as HTMLInputElement).value);
-                                                                    if (!isNaN(val) && totalCapital > 0) {
-                                                                        onUpdateAllocation(cat.id, (val / totalCapital) * 100);
-                                                                    }
-                                                                    setEditingMobileId(null);
-                                                                }
-                                                            }}
-                                                            className="w-24 h-8 text-center bg-gray-800 border border-cyan-500/30 rounded text-gray-200 font-bold p-0 text-sm focus:outline-none focus:border-cyan-400"
-                                                        />
-                                                    </div>
+                                            <div className="flex flex-col gap-3 w-full p-2 bg-gray-900/50 rounded-lg border border-cyan-500/20" onClick={e => e.stopPropagation()}>
+                                                {/* Mode Switcher */}
+                                                <div className="flex p-0.5 bg-gray-800 rounded-md self-start">
+                                                    <button
+                                                        onClick={() => {
+                                                            setMobileEditMode('percent');
+                                                            setTempValue(cat.allocationPercent.toString());
+                                                        }}
+                                                        className={`px-3 py-1 text-[10px] font-black rounded transition-all ${mobileEditMode === 'percent' ? 'bg-cyan-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+                                                    >
+                                                        比例 (%)
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setMobileEditMode('amount');
+                                                            setTempValue(cat.projectedInvestment.toString());
+                                                        }}
+                                                        className={`px-3 py-1 text-[10px] font-black rounded transition-all ${mobileEditMode === 'amount' ? 'bg-cyan-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+                                                    >
+                                                        金額 ($)
+                                                    </button>
                                                 </div>
-                                                <button
-                                                    onClick={() => {
-                                                        const val = Number(tempValue);
-                                                        if (!isNaN(val)) onUpdateAllocation(cat.id, val);
-                                                        setEditingMobileId(null);
-                                                    }}
-                                                    className="p-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-full shadow-lg shadow-cyan-900/20 active:scale-95 transition-all"
-                                                >
-                                                    <Check className="w-5 h-5" />
-                                                </button>
+
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex-1">
+                                                        {mobileEditMode === 'percent' ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <input
+                                                                    autoFocus
+                                                                    type="number"
+                                                                    value={tempValue}
+                                                                    onChange={e => setTempValue(e.target.value)}
+                                                                    onKeyDown={e => {
+                                                                        if (e.key === 'Enter') {
+                                                                            const val = Number(tempValue);
+                                                                            if (!isNaN(val)) onUpdateAllocation(cat.id, val);
+                                                                            setEditingMobileId(null);
+                                                                        }
+                                                                    }}
+                                                                    className="w-full h-10 text-center bg-gray-800 border border-cyan-500/50 rounded text-cyan-400 font-black text-lg focus:outline-none focus:border-cyan-400"
+                                                                />
+                                                                <span className="text-sm font-bold text-cyan-500">%</span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2">
+                                                                <input
+                                                                    autoFocus
+                                                                    type="number"
+                                                                    placeholder="輸入金額"
+                                                                    value={tempValue}
+                                                                    onChange={e => setTempValue(e.target.value)}
+                                                                    onKeyDown={e => {
+                                                                        if (e.key === 'Enter') {
+                                                                            const val = Number(tempValue);
+                                                                            if (!isNaN(val) && totalCapital > 0) {
+                                                                                onUpdateAllocation(cat.id, (val / totalCapital) * 100);
+                                                                            }
+                                                                            setEditingMobileId(null);
+                                                                        }
+                                                                    }}
+                                                                    className="w-full h-10 text-center bg-gray-800 border border-cyan-500/30 rounded text-gray-200 font-bold text-lg focus:outline-none focus:border-cyan-400"
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            const val = Number(tempValue);
+                                                            if (!isNaN(val)) {
+                                                                if (mobileEditMode === 'percent') {
+                                                                    onUpdateAllocation(cat.id, val);
+                                                                } else if (totalCapital > 0) {
+                                                                    onUpdateAllocation(cat.id, (val / totalCapital) * 100);
+                                                                }
+                                                            }
+                                                            setEditingMobileId(null);
+                                                        }}
+                                                        className="p-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg shadow-lg shadow-cyan-900/40 active:scale-95 transition-all"
+                                                    >
+                                                        <Check className="w-5 h-5" />
+                                                    </button>
+                                                </div>
                                             </div>
                                         ) : (
                                             <button

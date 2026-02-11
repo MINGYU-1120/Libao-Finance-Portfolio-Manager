@@ -33,6 +33,7 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
     const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
     const [editingMobileId, setEditingMobileId] = useState<string | null>(null);
     const [tempValue, setTempValue] = useState('');
+    const [mobileEditMode, setMobileEditMode] = useState<'percent' | 'amount'>('percent');
 
     const handleRefresh = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
@@ -96,54 +97,88 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                                     </span>
                                     {!readOnly && onUpdateAllocation ? (
                                         editingMobileId === cat.id ? (
-                                            <div className="flex items-center gap-3 w-full" onClick={e => e.stopPropagation()}>
-                                                <div className="flex-1 flex flex-col gap-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[10px] text-slate-400 w-16">配置比例:</span>
-                                                        <input
-                                                            autoFocus
-                                                            type="number"
-                                                            value={tempValue}
-                                                            onChange={e => setTempValue(e.target.value)}
-                                                            onKeyDown={e => {
-                                                                if (e.key === 'Enter') {
-                                                                    const val = Number(tempValue);
-                                                                    if (!isNaN(val)) onUpdateAllocation(cat.id, val);
-                                                                    setEditingMobileId(null);
-                                                                }
-                                                            }}
-                                                            className="w-20 h-8 text-center bg-slate-800 border border-libao-gold/50 rounded text-libao-gold font-black p-0 text-sm focus:outline-none focus:border-libao-gold"
-                                                        />
-                                                        <span className="text-xs font-bold text-libao-gold">%</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[10px] text-slate-400 w-16">預計投入:</span>
-                                                        <input
-                                                            type="number"
-                                                            placeholder="輸入金額"
-                                                            onKeyDown={e => {
-                                                                if (e.key === 'Enter') {
-                                                                    const val = Number((e.target as HTMLInputElement).value);
-                                                                    if (!isNaN(val) && totalCapital > 0) {
-                                                                        onUpdateAllocation(cat.id, (val / totalCapital) * 100);
-                                                                    }
-                                                                    setEditingMobileId(null);
-                                                                }
-                                                            }}
-                                                            className="w-24 h-8 text-center bg-slate-800 border border-libao-gold/30 rounded text-slate-200 font-bold p-0 text-sm focus:outline-none focus:border-libao-gold"
-                                                        />
-                                                    </div>
+                                            <div className="flex flex-col gap-3 w-full p-2 bg-slate-900/50 rounded-lg border border-libao-gold/20" onClick={e => e.stopPropagation()}>
+                                                {/* Mode Switcher */}
+                                                <div className="flex p-0.5 bg-slate-800 rounded-md self-start">
+                                                    <button
+                                                        onClick={() => {
+                                                            setMobileEditMode('percent');
+                                                            setTempValue(cat.allocationPercent.toString());
+                                                        }}
+                                                        className={`px-3 py-1 text-[10px] font-black rounded transition-all ${mobileEditMode === 'percent' ? 'bg-libao-gold text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                                                    >
+                                                        比例 (%)
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setMobileEditMode('amount');
+                                                            setTempValue(cat.projectedInvestment.toString());
+                                                        }}
+                                                        className={`px-3 py-1 text-[10px] font-black rounded transition-all ${mobileEditMode === 'amount' ? 'bg-libao-gold text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                                                    >
+                                                        金額 ($)
+                                                    </button>
                                                 </div>
-                                                <button
-                                                    onClick={() => {
-                                                        const val = Number(tempValue);
-                                                        if (!isNaN(val)) onUpdateAllocation(cat.id, val);
-                                                        setEditingMobileId(null);
-                                                    }}
-                                                    className="p-2 bg-libao-gold hover:bg-yellow-500 text-slate-900 rounded-full shadow-lg shadow-libao-gold/20 active:scale-95 transition-all"
-                                                >
-                                                    <Check className="w-5 h-5" />
-                                                </button>
+
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex-1">
+                                                        {mobileEditMode === 'percent' ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <input
+                                                                    autoFocus
+                                                                    type="number"
+                                                                    value={tempValue}
+                                                                    onChange={e => setTempValue(e.target.value)}
+                                                                    onKeyDown={e => {
+                                                                        if (e.key === 'Enter') {
+                                                                            const val = Number(tempValue);
+                                                                            if (!isNaN(val)) onUpdateAllocation(cat.id, val);
+                                                                            setEditingMobileId(null);
+                                                                        }
+                                                                    }}
+                                                                    className="w-full h-10 text-center bg-slate-800 border border-libao-gold/50 rounded text-libao-gold font-black text-lg focus:outline-none focus:border-libao-gold"
+                                                                />
+                                                                <span className="text-sm font-bold text-libao-gold">%</span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2">
+                                                                <input
+                                                                    autoFocus
+                                                                    type="number"
+                                                                    placeholder="輸入金額"
+                                                                    value={tempValue}
+                                                                    onChange={e => setTempValue(e.target.value)}
+                                                                    onKeyDown={e => {
+                                                                        if (e.key === 'Enter') {
+                                                                            const val = Number(tempValue);
+                                                                            if (!isNaN(val) && totalCapital > 0) {
+                                                                                onUpdateAllocation(cat.id, (val / totalCapital) * 100);
+                                                                            }
+                                                                            setEditingMobileId(null);
+                                                                        }
+                                                                    }}
+                                                                    className="w-full h-10 text-center bg-slate-800 border border-libao-gold/30 rounded text-slate-200 font-bold text-lg focus:outline-none focus:border-libao-gold"
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            const val = Number(tempValue);
+                                                            if (!isNaN(val)) {
+                                                                if (mobileEditMode === 'percent') {
+                                                                    onUpdateAllocation(cat.id, val);
+                                                                } else if (totalCapital > 0) {
+                                                                    onUpdateAllocation(cat.id, (val / totalCapital) * 100);
+                                                                }
+                                                            }
+                                                            setEditingMobileId(null);
+                                                        }}
+                                                        className="p-2.5 bg-libao-gold hover:bg-yellow-500 text-slate-900 rounded-lg shadow-lg shadow-libao-gold/40 active:scale-95 transition-all"
+                                                    >
+                                                        <Check className="w-5 h-5" />
+                                                    </button>
+                                                </div>
                                             </div>
                                         ) : (
                                             <button
