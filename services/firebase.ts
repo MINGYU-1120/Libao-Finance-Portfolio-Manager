@@ -22,7 +22,7 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail
 } from 'firebase/auth';
-// import { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider } from 'firebase/app-check'; // 完全移除 App Check import
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import {
   getFirestore,
   doc,
@@ -51,17 +51,17 @@ import {
 } from '../types';
 
 // ==========================================
-// Firebase Configuration
+// Firebase 設定 (使用環境變數以提高安全性)
 // ==========================================
 const firebaseConfig = {
-  apiKey: "AIzaSyD5A9UsWLO6vb5N0pcX5x8I4d9kzy5lvUU",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   // 使用 Vercel 網域作為 authDomain (配合 vercel.json 代理)
-  authDomain: "libao-finance-portfolio-manager.vercel.app",
-  projectId: "libao-finance-manager",
-  storageBucket: "libao-finance-manager.firebasestorage.app",
-  messagingSenderId: "379106694870",
-  appId: "1:379106694870:web:83e75404107d2af6fa5b77",
-  measurementId: "G-1659VMVZMN"
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 let app;
@@ -73,8 +73,24 @@ try {
   app = initializeApp(firebaseConfig);
 
   if (typeof window !== 'undefined') {
-    // App Check 已停用 (reCAPTCHA 導致 iOS PWA 等環境登入問題)
-    console.log("[AppCheck] App Check 初始化已停用。");
+    // App Check 初始化 (包含 iOS PWA 容錯)
+    try {
+      const isStandalone = (window.matchMedia('(display-mode: standalone)').matches) || (navigator as any).standalone === true;
+
+      // 開發環境可啟動 Debug Token
+      if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+        console.log("[AppCheck] Debug mode enabled for localhost.");
+      }
+
+      initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
+        isTokenAutoRefreshEnabled: true
+      });
+      console.log("[AppCheck] App Check 初始化成功。");
+    } catch (acError) {
+      console.error("[AppCheck] App Check 初始化失敗:", acError);
+    }
   }
 
   auth = getAuth(app);
