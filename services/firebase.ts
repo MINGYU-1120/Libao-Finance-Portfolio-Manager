@@ -492,12 +492,11 @@ export const subscribeToPublicMartingale = (callback: (data: { categories: Posit
 
 // --- User Directory & Roles ---
 
-// REPLACE WITH YOUR EMAIL TO BECOME ADMIN
-const SUPER_ADMIN_EMAILS = [
-  "1033023@ntsu.edu.tw",
-  "libao.finance@gmail.com"
-];
 
+/**
+ * 同步使用者資料並取得角色權限
+ * 從 Firestore 的 user_directory 集合中讀取使用者的 role 欄位
+ */
 export const syncUserProfile = async (user: User): Promise<UserRole> => {
   if (!isConfigured || !user) return 'viewer';
   const userDirRef = doc(db, 'user_directory', user.uid);
@@ -505,16 +504,13 @@ export const syncUserProfile = async (user: User): Promise<UserRole> => {
   try {
     const docSnap = await getDoc(userDirRef);
     let currentRole: UserRole = 'viewer';
-    const isSuperAdmin = user.email && SUPER_ADMIN_EMAILS.includes(user.email);
 
+    // 如果資料庫中已有該使用者文件，則讀取其角色，否則預設為 viewer
     if (docSnap.exists()) {
       const data = docSnap.data() as UserProfile;
-      currentRole = data.role;
-      if (isSuperAdmin && currentRole !== 'admin') {
-        currentRole = 'admin';
-      }
+      currentRole = data.role || 'viewer';
     } else {
-      currentRole = isSuperAdmin ? 'admin' : 'viewer';
+      currentRole = 'viewer';
     }
 
     const userData: UserProfile = {
@@ -527,6 +523,7 @@ export const syncUserProfile = async (user: User): Promise<UserRole> => {
       createdAt: docSnap.exists() ? (docSnap.data().createdAt || Date.now()) : Date.now()
     };
 
+    // 將最新的使用者資訊存回資料庫
     await setDoc(userDirRef, userData, { merge: true });
     return currentRole;
   } catch (e) {

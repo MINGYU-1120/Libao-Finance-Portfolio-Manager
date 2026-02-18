@@ -2,18 +2,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // --- Helper Functions ---
+    // --- 輔助函式 ---
     function isSignedIn() {
       return request.auth != null;
     }
 
+    // 取得使用者角色：從 user_directory 集合中讀取 role 欄位
     function getUserRole() {
        let path = /databases/$(database)/documents/user_directory/$(request.auth.uid);
        return isSignedIn() && exists(path) ? get(path).data.role : 'viewer';
     }
 
+    // 將角色轉換為權限等級 (Tier)
     function getTier(role) {
-      // Map roles to integer tiers
       return role == 'admin' ? 3 :
              role == 'vip' ? 2 :
              role == 'member' ? 1 : 0;
@@ -23,15 +24,10 @@ service cloud.firestore {
       return getUserRole() == role;
     }
 
+    // 檢查是否為管理員
     function isAdmin() {
-      // 1. Identity-based Super Admin (Priority: Bootstrap safely even if DB doc doesn't exist)
-      let isIdentityAdmin = isSignedIn() && (
-        request.auth.token.email == '1033023@ntsu.edu.tw' || 
-        request.auth.token.email == 'libao.finance@gmail.com'
-      );
-
-      // 2. Role-based Admin (Dynamic: Check DB role)
-      return isIdentityAdmin || (isSignedIn() && getUserRole() == 'admin');
+      // 動態檢查資料庫中的角色是否為 admin (不再使用硬編碼 Email)
+      return isSignedIn() && getUserRole() == 'admin';
     }
 
     // --- Tier Based Access Helper ---
