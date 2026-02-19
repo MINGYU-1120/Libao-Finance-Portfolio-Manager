@@ -21,7 +21,7 @@ interface MartingalePanelProps {
     userRole: UserRole;
     isPrivacyMode: boolean;
     settings: AppSettings;
-    onUpdateAllocation: (id: string, percent: number) => void;
+    onEditCategory: (id: string, name: string, allocation: number) => void;
     onAddCategory: () => void;
     operations: MartingaleOperations;
     activeCategoryId: string | null;
@@ -39,7 +39,7 @@ const MartingalePanel: React.FC<MartingalePanelProps> = ({
     userRole,
     isPrivacyMode,
     settings,
-    onUpdateAllocation,
+    onEditCategory = () => { },
     onAddCategory,
     operations,
     activeCategoryId,
@@ -98,7 +98,7 @@ const MartingalePanel: React.FC<MartingalePanelProps> = ({
                         totalCapital={totalCapital}
                         onSelectCategory={(id) => onSetActiveCategory(id)}
                         onRefreshCategory={operations.onUpdatePrice}
-                        onUpdateAllocation={onUpdateAllocation}
+                        onEditCategory={onEditCategory}
                         onDeleteCategory={operations.onDeleteCategory}
                         onMoveCategory={operations.onMoveCategory}
                         onAddCategory={onAddCategory} // Pass prop

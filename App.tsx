@@ -1126,7 +1126,99 @@ const App: React.FC = () => {
 
 
 
-  const handleUpdateAllocation = (id: string, percent: number) => { saveAndSetPortfolio({ ...portfolio, categories: portfolio.categories.map(c => c.id === id ? { ...c, allocationPercent: percent } : c) }); };
+  /* 
+   * Unified Edit Handler for Personal Portfolio
+   * Handles both Name Renaming (with Batch Transaction Update) and Allocation Change
+   */
+  const handleEditCategory = (id: string, newName: string, newAllocation: number) => {
+    const category = portfolio.categories.find(c => c.id === id);
+    if (!category) return;
+
+    const trimmedName = newName.trim();
+    if (!trimmedName) { showToast("名稱不能為空", "error"); return; }
+    if (newAllocation < 0) { showToast("配置比例不能為負", "error"); return; }
+
+    // DUPLICATE CHECK
+    const isDuplicate = portfolio.categories.some(c => c.id !== id && c.name === trimmedName);
+    if (isDuplicate) { showToast("該名稱已存在於個人持倉中", "error"); return; }
+
+    const oldName = category.name;
+    const isNameChanged = oldName !== trimmedName;
+
+    let newTransactions = [...portfolio.transactions];
+    if (isNameChanged) {
+      // Batch Update Transactions
+      let count = 0;
+      newTransactions = newTransactions.map(t => {
+        // Match Personal Transactions Only (undefined or false)
+        if (t.categoryName === oldName && (t.isMartingale === undefined || t.isMartingale === false)) {
+          count++;
+          return { ...t, categoryName: trimmedName };
+        }
+        return t;
+      });
+      console.log(`[Personal Rename] Updated ${count} transactions from ${oldName} to ${trimmedName}`);
+    }
+
+    const newCategories = portfolio.categories.map(c =>
+      c.id === id ? { ...c, name: trimmedName, allocationPercent: newAllocation } : c
+    );
+
+    saveAndSetPortfolio({
+      ...portfolio,
+      categories: newCategories,
+      transactions: newTransactions
+    });
+
+    showToast("倉位更新成功", "success");
+  };
+
+  /* 
+   * Unified Edit Handler for Martingale Portfolio
+   */
+  const handleEditMartingaleCategory = (id: string, newName: string, newAllocation: number) => {
+    const cats = Array.isArray(portfolio.martingale) ? [...portfolio.martingale] : [];
+    const category = cats.find(c => c.id === id);
+    if (!category) return;
+
+    const trimmedName = newName.trim();
+    if (!trimmedName) { showToast("名稱不能為空", "error"); return; }
+    if (newAllocation < 0) { showToast("配置比例不能為負", "error"); return; }
+
+    // DUPLICATE CHECK
+    const isDuplicate = cats.some(c => c.id !== id && c.name === trimmedName);
+    if (isDuplicate) { showToast("該名稱已存在於馬丁持倉中", "error"); return; }
+
+    const oldName = category.name;
+    const isNameChanged = oldName !== trimmedName;
+
+    let newTransactions = [...portfolio.transactions];
+    if (isNameChanged) {
+      // Batch Update Transactions
+      let count = 0;
+      newTransactions = newTransactions.map(t => {
+        // Match Martingale Transactions Only
+        if (t.categoryName === oldName && t.isMartingale === true) {
+          count++;
+          return { ...t, categoryName: trimmedName };
+        }
+        return t;
+      });
+      console.log(`[Martingale Rename] Updated ${count} transactions from ${oldName} to ${trimmedName}`);
+    }
+
+    const newCats = cats.map(c =>
+      c.id === id ? { ...c, name: trimmedName, allocationPercent: newAllocation } : c
+    );
+
+    saveAndSetPortfolio({
+      ...portfolio,
+      martingale: newCats,
+      transactions: newTransactions
+    });
+
+    showToast("馬丁倉位更新成功", "success");
+  };
   const handleUpdateSettings = (s: AppSettings) => { saveAndSetPortfolio({ ...portfolio, settings: s }); showToast("設定已儲存", 'success'); };
 
   const [dividendScanTarget, setDividendScanTarget] = useState<'my' | 'martingale'>('my');
@@ -2208,7 +2300,7 @@ const App: React.FC = () => {
                   totalCapital={portfolio.totalCapital}
                   userRole={userRole}
                   onCompare={() => setIsPortfolioCompareModalOpen(true)}
-                  onUpdateAllocation={handleUpdateAllocation}
+                  onEditCategory={handleEditCategory}
                   onSelectCategory={setActiveCategoryId}
                   onRefreshCategory={handleRefreshCategory}
                   onDeleteCategory={handleDeleteCategory}
@@ -2242,7 +2334,7 @@ const App: React.FC = () => {
                         userRole={userRole}
                         isPrivacyMode={isPrivacyMode}
                         settings={portfolio.settings}
-                        onUpdateAllocation={handleMartingaleUpdateAllocation}
+                        onEditCategory={handleEditMartingaleCategory}
                         onAddCategory={() => setIsAddCategoryModalOpen(true)}
                         operations={handleMartingaleOperations}
                         activeCategoryId={martingaleActiveId}
@@ -2310,7 +2402,7 @@ const App: React.FC = () => {
                 userRole={userRole}
                 isPrivacyMode={isPrivacyMode}
                 settings={portfolio.settings}
-                onUpdateAllocation={handleMartingaleUpdateAllocation}
+                onEditCategory={handleEditMartingaleCategory}
                 onAddCategory={() => setIsAddCategoryModalOpen(true)}
                 operations={handleMartingaleOperations}
                 activeCategoryId={martingaleActiveId}

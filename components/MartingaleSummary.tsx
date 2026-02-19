@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { CalculatedCategory, UserRole, AccessTier, getTier } from '../types';
-import { PieChart, RefreshCw, ChevronRight, GraduationCap, ArrowRight, Quote, ArrowUp, ArrowDown, Trash2, Check, Lock, Shield } from 'lucide-react';
+import { PieChart, RefreshCw, ChevronRight, GraduationCap, ArrowRight, Quote, ArrowUp, ArrowDown, Trash2, Check, Lock, Shield, Edit3 } from 'lucide-react';
 import { formatTWD } from '../utils/formatting';
+import EditCategoryModal from './EditCategoryModal';
 
 interface MartingaleSummaryProps {
     categories: CalculatedCategory[];
     totalCapital: number;
-    onUpdateAllocation?: (id: string, percent: number) => void;
+    onEditCategory?: (id: string, name: string, allocation: number) => void;
     onSelectCategory: (id: string) => void;
     onRefreshCategory?: (id: string) => Promise<void>;
     onDeleteCategory?: (id: string) => void;
@@ -21,7 +22,7 @@ interface MartingaleSummaryProps {
 const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
     categories,
     totalCapital,
-    onUpdateAllocation,
+    onEditCategory,
     onSelectCategory,
     onRefreshCategory,
     onDeleteCategory,
@@ -33,11 +34,19 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
     userRole = 'viewer'
 }) => {
     const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
-    const [editingMobileId, setEditingMobileId] = useState<string | null>(null);
-    const [tempValue, setTempValue] = useState('');
-    const [mobileEditMode, setMobileEditMode] = useState<'percent' | 'amount'>('percent');
+    // Modal State
+    const [editingCategory, setEditingCategory] = useState<CalculatedCategory | null>(null);
+    const [editMode, setEditMode] = useState<'name' | 'allocation'>('allocation');
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+    const handleEdit = (cat: CalculatedCategory, mode: 'name' | 'allocation') => {
+        setEditingCategory(cat);
+        setEditMode(mode);
+        setIsEditModalOpen(true);
+    };
 
     const handleRefresh = async (e: React.MouseEvent, id: string) => {
+        // ... existing handleRefresh ...
         e.stopPropagation();
         if (onRefreshCategory) {
             setRefreshingIds(prev => new Set(prev).add(id));
@@ -58,7 +67,7 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
 
     return (
         <div className="bg-slate-900 shadow-2xl rounded-2xl overflow-hidden border border-slate-700 ring-1 ring-white/10 animate-in fade-in zoom-in duration-300">
-            {/* Premium Header */}
+            {/* Premium Header - Unchanged */}
             <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-6 border-b border-libao-gold/20">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-libao-gold/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                 <div className="flex justify-between items-center relative z-10">
@@ -85,7 +94,7 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
             <div className="md:hidden p-4 space-y-4 bg-slate-900">
                 {categories.map((cat, idx) => {
                     const isRedLabel = cat.id === 'tw-red' || cat.name.includes('紅標');
-                    const userTier = getTier(userRole || 'viewer'); // Fallback if undefined
+                    const userTier = getTier(userRole || 'viewer');
                     const isLocked = isRedLabel && userTier < AccessTier.FIRST_CLASS;
 
                     return (
@@ -106,115 +115,35 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                                         <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${cat.market === 'TW' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
                                             {cat.market}
                                         </span>
-                                        {!readOnly && onUpdateAllocation && !isLocked ? (
-                                            editingMobileId === cat.id ? (
-                                                <div className="flex flex-col gap-3 w-full p-2 bg-slate-900/50 rounded-lg border border-libao-gold/20" onClick={e => e.stopPropagation()}>
-                                                    {/* Mode Switcher */}
-                                                    <div className="flex p-0.5 bg-slate-800 rounded-md self-start">
-                                                        <button
-                                                            onClick={() => {
-                                                                setMobileEditMode('percent');
-                                                                setTempValue(cat.allocationPercent.toString());
-                                                            }}
-                                                            className={`px-3 py-1 text-[10px] font-black rounded transition-all ${mobileEditMode === 'percent' ? 'bg-libao-gold text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                                                        >
-                                                            比例 (%)
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                setMobileEditMode('amount');
-                                                                setTempValue(cat.projectedInvestment.toString());
-                                                            }}
-                                                            className={`px-3 py-1 text-[10px] font-black rounded transition-all ${mobileEditMode === 'amount' ? 'bg-libao-gold text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                                                        >
-                                                            金額 ($)
-                                                        </button>
-                                                    </div>
-
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="flex-1">
-                                                            {mobileEditMode === 'percent' ? (
-                                                                <div className="flex items-center gap-2">
-                                                                    <input
-                                                                        autoFocus
-                                                                        type="number"
-                                                                        value={tempValue}
-                                                                        onChange={e => setTempValue(e.target.value)}
-                                                                        onKeyDown={e => {
-                                                                            if (e.key === 'Enter') {
-                                                                                const val = Number(tempValue);
-                                                                                if (!isNaN(val)) onUpdateAllocation(cat.id, val);
-                                                                                setEditingMobileId(null);
-                                                                            }
-                                                                        }}
-                                                                        className="w-full h-10 text-center bg-slate-800 border border-libao-gold/50 rounded text-libao-gold font-black text-lg focus:outline-none focus:border-libao-gold"
-                                                                    />
-                                                                    <span className="text-sm font-bold text-libao-gold">%</span>
-                                                                </div>
-                                                            ) : (
-                                                                <div className="flex items-center gap-2">
-                                                                    <input
-                                                                        autoFocus
-                                                                        type="number"
-                                                                        placeholder="輸入金額"
-                                                                        value={tempValue}
-                                                                        onChange={e => setTempValue(e.target.value)}
-                                                                        onKeyDown={e => {
-                                                                            if (e.key === 'Enter') {
-                                                                                const val = Number(tempValue);
-                                                                                if (!isNaN(val) && totalCapital > 0) {
-                                                                                    onUpdateAllocation(cat.id, (val / totalCapital) * 100);
-                                                                                }
-                                                                                setEditingMobileId(null);
-                                                                            }
-                                                                        }}
-                                                                        className="w-full h-10 text-center bg-slate-800 border border-libao-gold/30 rounded text-slate-200 font-bold text-lg focus:outline-none focus:border-libao-gold"
-                                                                    />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <button
-                                                            onClick={() => {
-                                                                const val = Number(tempValue);
-                                                                if (!isNaN(val)) {
-                                                                    if (mobileEditMode === 'percent') {
-                                                                        onUpdateAllocation(cat.id, val);
-                                                                    } else if (totalCapital > 0) {
-                                                                        onUpdateAllocation(cat.id, (val / totalCapital) * 100);
-                                                                    }
-                                                                }
-                                                                setEditingMobileId(null);
-                                                            }}
-                                                            className="p-2.5 bg-libao-gold hover:bg-yellow-500 text-slate-900 rounded-lg shadow-lg shadow-libao-gold/40 active:scale-95 transition-all"
-                                                        >
-                                                            <Check className="w-5 h-5" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setEditingMobileId(cat.id);
-                                                        setTempValue(cat.allocationPercent.toString());
-                                                    }}
-                                                    className="flex flex-col items-start gap-0.5 group/btn"
-                                                >
-                                                    <div className="flex items-center gap-1 text-xs font-bold text-slate-500 group-hover/btn:text-libao-gold transition-colors">
-                                                        <span className="uppercase tracking-wider border-b border-transparent hover:border-libao-gold/50">{cat.allocationPercent}% 配置</span>
-                                                        <ChevronRight className="w-3 h-3 opacity-40" />
-                                                    </div>
-                                                    <div className="text-[10px] text-slate-600 font-medium">
-                                                        約 {maskValue(formatTWD(cat.projectedInvestment, isPrivacyMode))}
-                                                    </div>
-                                                </button>
-                                            )
+                                        {!readOnly && onEditCategory && !isLocked ? (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleEdit(cat, 'allocation');
+                                                }}
+                                                className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-libao-gold/50 transition-all group/btn"
+                                            >
+                                                <span className="text-xs font-bold text-libao-gold group-hover/btn:text-yellow-300">{cat.allocationPercent}% 配置</span>
+                                                <Edit3 className="w-3 h-3 text-slate-500 group-hover/btn:text-libao-gold" />
+                                            </button>
                                         ) : (
                                             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{cat.allocationPercent}% 配置</span>
                                         )}
                                     </div>
                                     <h3 className={`text-xl font-bold tracking-tight flex items-center gap-2 ${isLocked ? 'text-slate-500' : 'text-slate-100'}`}>
                                         {cat.name}
+                                        {/* Name Edit Button for Mobile */}
+                                        {!readOnly && onEditCategory && !isLocked && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleEdit(cat, 'name');
+                                                }}
+                                                className="p-1 rounded hover:bg-slate-700 text-slate-500 hover:text-libao-gold transition-colors"
+                                            >
+                                                <Edit3 className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
                                         {isLocked && <Shield className="w-4 h-4 text-slate-600" />}
                                     </h3>
                                 </div>
@@ -227,7 +156,7 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                                 </div>
                             </div>
 
-                            {/* Progress Bar Visual */}
+                            {/* ... Progress Bar ... */}
                             <div className="mb-4">
                                 <div className="flex justify-between text-xs font-medium text-slate-400 mb-1.5">
                                     <span>資金使用率</span>
@@ -267,6 +196,17 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                         </div>
                     );
                 })}
+                {!readOnly && onAddCategory && (
+                    <button
+                        onClick={onAddCategory}
+                        className="w-full p-5 rounded-xl border border-dashed border-slate-700 hover:border-libao-gold/50 hover:bg-slate-800 transition-all flex items-center justify-center gap-3 text-slate-500 hover:text-libao-gold group"
+                    >
+                        <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center group-hover:border-libao-gold transition-colors">
+                            <span className="text-xl leading-none mb-0.5">+</span>
+                        </div>
+                        <span className="font-bold text-sm tracking-widest uppercase">新增策略 (Add Strategy)</span>
+                    </button>
+                )}
             </div>
 
             {/* Desktop Table View */}
@@ -276,15 +216,14 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                         <tr className="border-b border-slate-700 bg-slate-800/50 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">
                             <th className="p-5 w-8 text-center">#</th>
                             <th className="p-5 w-8 text-center">市場</th>
-                            <th className="p-5 min-w-[180px]">倉位名稱</th>
+                            <th className="p-5 min-w-[180px] text-center">倉位名稱</th>
                             <th className="p-5 text-center min-w-[40px]">資金配置 (%)</th>
                             <th className="p-5 text-right w-32">預計總投入</th>
                             <th className="p-5 text-right min-w-[120px]">已投入金額</th>
                             <th className="p-5 text-right w-32">剩餘現金</th>
                             <th className="p-5 text-right min-w-[120px]">已實現損益</th>
                             <th className="p-5 text-center w-32">資金使用率</th>
-                            {!readOnly && <th className="p-5 text-center w-16">操作</th>}
-                            <th className="p-5 text-center w-20"></th>
+                            <th className="p-5 text-center w-16">操作</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800 text-lg">
@@ -303,82 +242,71 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                                             : 'hover:bg-slate-800/80 cursor-pointer group hover:shadow-[0_0_15px_rgba(234,179,8,0.1)] border-transparent hover:border-libao-gold'
                                         }`}
                                 >
-                                    <td className="p-5 text-center font-mono text-slate-600 text-sm group-hover:text-libao-gold/50">{idx + 1}</td>
+                                    {/* Index Column */}
+                                    <td className="p-5 text-center font-mono text-slate-600 text-sm group-hover:text-libao-gold/50">
+                                        {idx + 1}
+                                    </td>
                                     <td className="p-5 text-center">
                                         <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${cat.market === 'TW' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
                                             {cat.market}
                                         </span>
                                     </td>
-                                    <td className="p-5">
-                                        <div className={`font-bold transition-colors text-base flex items-center gap-2 ${isLocked ? 'text-slate-500' : 'text-slate-200 group-hover:text-libao-gold'}`}>
-                                            {cat.name}
-                                            {isLocked && <Shield className="w-4 h-4 text-slate-600" />}
+                                    <td className="p-5 text-center">
+                                        <div className={`font-bold transition-colors text-base flex items-center justify-center gap-2 ${isLocked ? 'text-slate-500' : 'text-slate-200 group-hover:text-libao-gold'}`}>
+                                            {/* Sort Controls - Vertical Handle Style */}
                                             {!readOnly && onMoveCategory && !isLocked && (
-                                                <div className="flex flex-col ml-1 opacity-20 group-hover:opacity-100 transition-opacity">
+                                                <div className="flex flex-col bg-slate-800/50 rounded-md p-0.5 border border-slate-700 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); onMoveCategory(cat.id, 'up'); }}
-                                                        className="text-slate-400 hover:text-libao-gold active:scale-95"
+                                                        className="p-0.5 hover:bg-slate-700 rounded text-slate-500 hover:text-libao-gold transition-all active:scale-90"
                                                         title="上移"
                                                     >
-                                                        <ArrowUp className="w-3 h-3" />
+                                                        <ArrowUp className="w-2.5 h-2.5" />
                                                     </button>
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); onMoveCategory(cat.id, 'down'); }}
-                                                        className="text-slate-400 hover:text-libao-gold active:scale-95"
+                                                        className="p-0.5 hover:bg-slate-700 rounded text-slate-500 hover:text-libao-gold transition-all active:scale-90"
                                                         title="下移"
                                                     >
-                                                        <ArrowDown className="w-3 h-3" />
+                                                        <ArrowDown className="w-2.5 h-2.5" />
                                                     </button>
                                                 </div>
+                                            )}
+                                            {cat.name}
+                                            {isLocked && <Shield className="w-4 h-4 text-slate-600" />}
+                                            {/* Name Edit Button */}
+                                            {!readOnly && onEditCategory && !isLocked && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleEdit(cat, 'name');
+                                                    }}
+                                                    className="p-1 rounded hover:bg-slate-700 text-slate-500 hover:text-libao-gold transition-colors opacity-0 group-hover:opacity-100"
+                                                    title="編輯名稱"
+                                                >
+                                                    <Edit3 className="w-3.5 h-3.5" />
+                                                </button>
                                             )}
                                         </div>
                                     </td>
                                     <td className="p-5 text-center" onClick={(e) => e.stopPropagation()}>
-                                        {!readOnly && onUpdateAllocation && !isLocked ? (
-                                            <div className="flex items-center justify-center gap-0.5">
-                                                <input
-                                                    type="text"
-                                                    value={isMasked ? '****' : cat.allocationPercent}
-                                                    onChange={(e) => onUpdateAllocation(cat.id, Number(e.target.value))}
-                                                    disabled={isMasked}
-                                                    className="w-12 text-center border-b border-libao-gold bg-transparent font-mono font-black text-libao-gold focus:outline-none focus:border-yellow-300 disabled:text-slate-500 text-lg"
-                                                />
-                                                <span className="text-slate-500 text-xs font-bold">%</span>
-                                            </div>
+                                        {!readOnly && onEditCategory && !isLocked ? (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleEdit(cat, 'allocation');
+                                                }}
+                                                className="flex items-center justify-center gap-1.5 group/btn hover:bg-slate-800 px-2 py-1 rounded transition-colors"
+                                            >
+                                                <span className="font-mono font-bold text-libao-gold text-lg group-hover/btn:text-yellow-300">{cat.allocationPercent}%</span>
+                                                <Edit3 className="w-3 h-3 text-slate-600 group-hover/btn:text-libao-gold opacity-0 group-hover/btn:opacity-100 transition-all" />
+                                            </button>
                                         ) : (
                                             <span className="font-mono font-bold text-slate-400 text-lg">{cat.allocationPercent}%</span>
                                         )}
                                     </td>
                                     <td className="p-5 text-right" onClick={(e) => e.stopPropagation()}>
-                                        {!readOnly && onUpdateAllocation && !isLocked ? (
-                                            <div className="flex flex-col items-end gap-1">
-                                                <input
-                                                    type="number"
-                                                    defaultValue={cat.projectedInvestment}
-                                                    key={cat.id + '-' + cat.projectedInvestment}
-                                                    onBlur={(e) => {
-                                                        const val = Number(e.target.value);
-                                                        if (!isNaN(val) && totalCapital > 0) {
-                                                            onUpdateAllocation(cat.id, (val / totalCapital) * 100);
-                                                        }
-                                                    }}
-                                                    onKeyDown={e => {
-                                                        if (e.key === 'Enter') {
-                                                            const val = Number((e.target as HTMLInputElement).value);
-                                                            if (!isNaN(val) && totalCapital > 0) {
-                                                                onUpdateAllocation(cat.id, (val / totalCapital) * 100);
-                                                            }
-                                                            (e.target as HTMLInputElement).blur();
-                                                        }
-                                                    }}
-                                                    disabled={isMasked}
-                                                    className="w-32 text-right border-b border-white/10 bg-transparent font-mono font-medium text-slate-400 focus:outline-none focus:border-libao-gold transition-colors disabled:text-slate-500"
-                                                />
-                                                <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">金額 (Amount)</div>
-                                            </div>
-                                        ) : (
-                                            <div className="font-mono text-slate-500 font-medium">{maskValue(formatTWD(cat.projectedInvestment, isPrivacyMode))}</div>
-                                        )}
+                                        <div className="font-mono text-slate-500 font-medium">{maskValue(formatTWD(cat.projectedInvestment, isPrivacyMode))}</div>
                                     </td>
                                     <td className="p-5 text-right">
                                         <div className={`font-mono font-black ${isLocked ? 'text-slate-600' : 'text-slate-200 group-hover:text-white'}`}>{maskValue(formatTWD(cat.investedAmount, isPrivacyMode))}</div>
@@ -404,39 +332,32 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                                             <span className="text-xs font-black min-w-[35px] text-right text-slate-400 font-mono">{strictMask(cat.investmentRatio.toFixed(0))}%</span>
                                         </div>
                                     </td>
-                                    {!readOnly && (
-                                        <td className="p-5 text-center">
-                                            <div className="flex items-center justify-center gap-1.5">
-                                                <button
-                                                    onClick={(e) => handleRefresh(e, cat.id)}
-                                                    disabled={refreshingIds.has(cat.id) || isLocked}
-                                                    className={`p-1.5 rounded-lg border border-slate-700 hover:bg-slate-800 transition-all active:scale-95 ${refreshingIds.has(cat.id) ? 'text-blue-400' : 'text-slate-400'}`}
-                                                    title="更新價格"
-                                                >
-                                                    <RefreshCw className={`w-3.5 h-3.5 ${refreshingIds.has(cat.id) ? 'animate-spin' : ''}`} />
-                                                </button>
-                                                {onDeleteCategory && (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); onDeleteCategory(cat.id); }}
-                                                        disabled={isLocked}
-                                                        className={`p-1.5 rounded-lg border border-red-900/30 hover:bg-red-900/20 text-red-400 hover:text-red-300 transition-all active:scale-95 ${isLocked ? 'opacity-30 cursor-not-allowed' : ''}`}
-                                                        title="刪除"
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    )}
                                     <td className="p-5 text-center">
-                                        <div className={`transition-opacity transform translate-x-[-10px] duration-300 ${isLocked ? 'opacity-20' : 'opacity-0 group-hover:opacity-100 group-hover:translate-x-0'}`}>
-                                            {isLocked ? <Lock className="w-5 h-5 text-slate-500" /> : <ChevronRight className="w-6 h-6 text-libao-gold" />}
+                                        <div className="flex items-center justify-center gap-1.5">
+                                            <button
+                                                onClick={(e) => handleRefresh(e, cat.id)}
+                                                disabled={refreshingIds.has(cat.id) || isLocked}
+                                                className={`p-1.5 rounded-lg border border-slate-700 hover:bg-slate-800 transition-all active:scale-95 ${refreshingIds.has(cat.id) ? 'text-blue-400' : 'text-slate-400'}`}
+                                                title="更新價格"
+                                            >
+                                                <RefreshCw className={`w-3.5 h-3.5 ${refreshingIds.has(cat.id) ? 'animate-spin' : ''}`} />
+                                            </button>
+                                            {!readOnly && onDeleteCategory && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); onDeleteCategory(cat.id); }}
+                                                    disabled={isLocked}
+                                                    className={`p-1.5 rounded-lg border border-red-900/30 hover:bg-red-900/20 text-red-400 hover:text-red-300 transition-all active:scale-95 ${isLocked ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                                    title="刪除"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
                             );
                         })}
-                        {/* New Add Strategy Row - Mobile & Desktop compatible logic inside table? Desktop Table only here. */}
+                        {/* Add Strategy Row */}
                         {!readOnly && onAddCategory && (
                             <tr
                                 onClick={onAddCategory}
@@ -457,6 +378,22 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                     </tbody>
                 </table>
             </div>
+
+            {/* Edit Modal */}
+            {editingCategory && (
+                <EditCategoryModal
+                    isOpen={isEditModalOpen}
+                    onClose={() => { setIsEditModalOpen(false); setEditingCategory(null); }}
+                    category={editingCategory}
+                    totalCapital={totalCapital}
+                    onSave={(id, name, alloc) => {
+                        if (onEditCategory) onEditCategory(id, name, alloc);
+                    }}
+                    isPrivacyMode={isPrivacyMode}
+                    isMartingale={true}
+                    initialMode={editMode}
+                />
+            )}
         </div>
     );
 };

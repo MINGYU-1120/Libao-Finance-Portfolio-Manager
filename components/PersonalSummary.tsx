@@ -3,11 +3,12 @@ import { CalculatedCategory } from '../types';
 import { PieChart, RefreshCw, ChevronRight, ArrowRight, Quote, ArrowUp, ArrowDown, Trash2, Edit3, ArrowRightLeft, Shield, Check } from 'lucide-react';
 import { formatTWD } from '../utils/formatting';
 import { UserRole, AccessTier, getTier } from '../types';
+import EditCategoryModal from './EditCategoryModal';
 
 interface PersonalSummaryProps {
     categories: CalculatedCategory[];
     totalCapital: number;
-    onUpdateAllocation?: (id: string, percent: number) => void;
+    onEditCategory?: (id: string, name: string, allocation: number) => void;
     onSelectCategory: (id: string) => void;
     onRefreshCategory?: (id: string) => Promise<void>;
     onDeleteCategory?: (id: string) => void;
@@ -23,7 +24,7 @@ interface PersonalSummaryProps {
 const PersonalSummary: React.FC<PersonalSummaryProps> = ({
     categories,
     totalCapital,
-    onUpdateAllocation,
+    onEditCategory,
     onSelectCategory,
     onRefreshCategory,
     onDeleteCategory,
@@ -36,9 +37,16 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
     readOnly = false
 }) => {
     const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
-    const [editingMobileId, setEditingMobileId] = useState<string | null>(null);
-    const [tempValue, setTempValue] = useState<string>('');
-    const [mobileEditMode, setMobileEditMode] = useState<'percent' | 'amount'>('percent');
+    // Modal State
+    const [editingCategory, setEditingCategory] = useState<CalculatedCategory | null>(null);
+    const [editMode, setEditMode] = useState<'name' | 'allocation'>('allocation');
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+    const handleEdit = (cat: CalculatedCategory, mode: 'name' | 'allocation') => {
+        setEditingCategory(cat);
+        setEditMode(mode);
+        setIsEditModalOpen(true);
+    };
 
     const handleRefresh = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
@@ -109,114 +117,36 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                                     <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${cat.market === 'TW' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
                                         {cat.market === 'TW' ? '台股' : '美股'}
                                     </span>
-                                    {!readOnly && onUpdateAllocation ? (
-                                        editingMobileId === cat.id ? (
-                                            <div className="flex flex-col gap-3 w-full p-2 bg-gray-900/50 rounded-lg border border-cyan-500/20" onClick={e => e.stopPropagation()}>
-                                                {/* Mode Switcher */}
-                                                <div className="flex p-0.5 bg-gray-800 rounded-md self-start">
-                                                    <button
-                                                        onClick={() => {
-                                                            setMobileEditMode('percent');
-                                                            setTempValue(cat.allocationPercent.toString());
-                                                        }}
-                                                        className={`px-3 py-1 text-[10px] font-black rounded transition-all ${mobileEditMode === 'percent' ? 'bg-cyan-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
-                                                    >
-                                                        比例 (%)
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setMobileEditMode('amount');
-                                                            setTempValue(cat.projectedInvestment.toString());
-                                                        }}
-                                                        className={`px-3 py-1 text-[10px] font-black rounded transition-all ${mobileEditMode === 'amount' ? 'bg-cyan-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
-                                                    >
-                                                        金額 ($)
-                                                    </button>
-                                                </div>
-
-                                                <div className="flex items-center gap-3">
-                                                    <div className="flex-1">
-                                                        {mobileEditMode === 'percent' ? (
-                                                            <div className="flex items-center gap-2">
-                                                                <input
-                                                                    autoFocus
-                                                                    type="number"
-                                                                    value={tempValue}
-                                                                    onChange={e => setTempValue(e.target.value)}
-                                                                    onKeyDown={e => {
-                                                                        if (e.key === 'Enter') {
-                                                                            const val = Number(tempValue);
-                                                                            if (!isNaN(val)) onUpdateAllocation(cat.id, val);
-                                                                            setEditingMobileId(null);
-                                                                        }
-                                                                    }}
-                                                                    className="w-full h-10 text-center bg-gray-800 border border-cyan-500/50 rounded text-cyan-400 font-black text-lg focus:outline-none focus:border-cyan-400"
-                                                                />
-                                                                <span className="text-sm font-bold text-cyan-500">%</span>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-center gap-2">
-                                                                <input
-                                                                    autoFocus
-                                                                    type="number"
-                                                                    placeholder="輸入金額"
-                                                                    value={tempValue}
-                                                                    onChange={e => setTempValue(e.target.value)}
-                                                                    onKeyDown={e => {
-                                                                        if (e.key === 'Enter') {
-                                                                            const val = Number(tempValue);
-                                                                            if (!isNaN(val) && totalCapital > 0) {
-                                                                                onUpdateAllocation(cat.id, (val / totalCapital) * 100);
-                                                                            }
-                                                                            setEditingMobileId(null);
-                                                                        }
-                                                                    }}
-                                                                    className="w-full h-10 text-center bg-gray-800 border border-cyan-500/30 rounded text-gray-200 font-bold text-lg focus:outline-none focus:border-cyan-400"
-                                                                />
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <button
-                                                        onClick={() => {
-                                                            const val = Number(tempValue);
-                                                            if (!isNaN(val)) {
-                                                                if (mobileEditMode === 'percent') {
-                                                                    onUpdateAllocation(cat.id, val);
-                                                                } else if (totalCapital > 0) {
-                                                                    onUpdateAllocation(cat.id, (val / totalCapital) * 100);
-                                                                }
-                                                            }
-                                                            setEditingMobileId(null);
-                                                        }}
-                                                        className="p-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg shadow-lg shadow-cyan-900/40 active:scale-95 transition-all"
-                                                    >
-                                                        <Check className="w-5 h-5" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setEditingMobileId(cat.id);
-                                                    setTempValue(cat.allocationPercent.toString());
-                                                }}
-                                                className="flex flex-col items-start gap-0.5 group/btn"
-                                            >
-                                                <div className="flex items-center gap-1 text-xs font-bold text-gray-500 group-hover/btn:text-cyan-400 transition-colors">
-                                                    <span className="uppercase tracking-wider border-b border-transparent hover:border-cyan-400/50">{cat.allocationPercent}% 配置</span>
-                                                    <Edit3 className="w-3 h-3 opacity-40" />
-                                                </div>
-                                                <div className="text-[10px] text-gray-600 font-medium">
-                                                    約 {maskValue(formatTWD(cat.projectedInvestment, isPrivacyMode))}
-                                                </div>
-                                            </button>
-                                        )
+                                    {!readOnly && onEditCategory ? (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEdit(cat, 'allocation');
+                                            }}
+                                            className="flex items-center gap-1.5 px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-cyan-500/50 transition-all group/btn"
+                                        >
+                                            <span className="text-xs font-bold text-cyan-400 group-hover/btn:text-cyan-300">{cat.allocationPercent}% 配置</span>
+                                            <Edit3 className="w-3 h-3 text-gray-500 group-hover/btn:text-cyan-400" />
+                                        </button>
                                     ) : (
                                         <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{cat.allocationPercent}% 配置</span>
                                     )}
                                 </div>
-                                <h3 className="text-xl font-bold text-white tracking-tight">{cat.name}</h3>
+                                <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                                    {cat.name}
+                                    {!readOnly && onEditCategory && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEdit(cat, 'name');
+                                            }}
+                                            className="p-1 rounded hover:bg-gray-800 text-gray-500 hover:text-cyan-400 transition-colors"
+                                            title="編輯名稱"
+                                        >
+                                            <Edit3 className="w-3.5 h-3.5" />
+                                        </button>
+                                    )}
+                                </h3>
                             </div>
                             <div className="text-right">
                                 <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">已實現</div>
@@ -257,6 +187,17 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                         </div>
                     </div>
                 ))}
+                {!readOnly && onAddCategory && (
+                    <button
+                        onClick={onAddCategory}
+                        className="w-full p-5 rounded-xl border border-dashed border-gray-700 hover:border-cyan-500/50 hover:bg-gray-900 transition-all flex items-center justify-center gap-3 text-gray-500 hover:text-cyan-400 group"
+                    >
+                        <div className="w-8 h-8 rounded-full bg-gray-900 border border-gray-700 flex items-center justify-center group-hover:border-cyan-500 transition-colors">
+                            <span className="text-xl leading-none mb-0.5">+</span>
+                        </div>
+                        <span className="font-bold text-sm tracking-widest uppercase">新增策略 (Add Strategy)</span>
+                    </button>
+                )}
             </div>
 
             {/* Desktop Table View */}
@@ -266,7 +207,7 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                         <tr className="border-b border-gray-800 bg-gray-900/50 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">
                             <th className="p-5 w-8 text-center">#</th>
                             <th className="p-5 w-8 text-center">市場</th>
-                            <th className="p-5 min-w-[180px]">倉位名稱</th>
+                            <th className="p-5 min-w-[180px] text-center">倉位名稱</th>
                             <th className="p-5 text-center min-w-[40px]">資金配置 (%)</th>
                             <th className="p-5 text-right w-32">預計總投入</th>
                             <th className="p-5 text-right min-w-[120px]">已投入金額</th>
@@ -283,82 +224,69 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                                 onClick={() => onSelectCategory(cat.id)}
                                 className="hover:bg-gray-900 transition-all cursor-pointer group border-l-4 border-transparent hover:border-cyan-500"
                             >
-                                <td className="p-5 text-center font-mono text-gray-600 text-sm group-hover:text-cyan-500/50">{idx + 1}</td>
+                                {/* Index Column */}
+                                <td className="p-5 text-center font-mono text-gray-600 text-sm group-hover:text-cyan-500/50">
+                                    {idx + 1}
+                                </td>
                                 <td className="p-5 text-center">
                                     <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${cat.market === 'TW' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
                                         {cat.market}
                                     </span>
                                 </td>
-                                <td className="p-5">
-                                    <div className="font-bold text-gray-200 group-hover:text-cyan-400 transition-colors text-base flex items-center gap-2">
-                                        {cat.name}
+                                <td className="p-5 text-center">
+                                    <div className="font-bold text-gray-200 group-hover:text-cyan-400 transition-colors text-base flex items-center justify-center gap-2">
+                                        {/* Sort Controls - Vertical Handle Style */}
                                         {!readOnly && onMoveCategory && (
-                                            <div className="flex flex-col ml-1 opacity-20 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex flex-col bg-gray-800/50 rounded-md p-0.5 border border-gray-800 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); onMoveCategory(cat.id, 'up'); }}
-                                                    className="text-gray-400 hover:text-cyan-400 active:scale-95"
+                                                    className="p-0.5 hover:bg-gray-700 rounded text-gray-500 hover:text-cyan-400 transition-all active:scale-90"
                                                     title="上移"
                                                 >
-                                                    <ArrowUp className="w-3 h-3" />
+                                                    <ArrowUp className="w-2.5 h-2.5" />
                                                 </button>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); onMoveCategory(cat.id, 'down'); }}
-                                                    className="text-gray-400 hover:text-cyan-400 active:scale-95"
+                                                    className="p-0.5 hover:bg-gray-700 rounded text-gray-500 hover:text-cyan-400 transition-all active:scale-90"
                                                     title="下移"
                                                 >
-                                                    <ArrowDown className="w-3 h-3" />
+                                                    <ArrowDown className="w-2.5 h-2.5" />
                                                 </button>
                                             </div>
+                                        )}
+                                        {cat.name}
+                                        {!readOnly && onEditCategory && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleEdit(cat, 'name');
+                                                }}
+                                                className="p-1 rounded hover:bg-gray-800 text-gray-600 hover:text-cyan-400 transition-colors opacity-0 group-hover:opacity-100"
+                                                title="編輯名稱"
+                                            >
+                                                <Edit3 className="w-3.5 h-3.5" />
+                                            </button>
                                         )}
                                     </div>
                                 </td>
                                 <td className="p-5 text-center" onClick={(e) => e.stopPropagation()}>
-                                    {!readOnly && onUpdateAllocation ? (
-                                        <div className="flex items-center justify-center gap-0.5">
-                                            <input
-                                                type="number"
-                                                value={isMasked ? '****' : cat.allocationPercent}
-                                                onChange={(e) => onUpdateAllocation(cat.id, Number(e.target.value))}
-                                                max="100"
-                                                disabled={isMasked}
-                                                className="w-12 text-center border-b border-cyan-500 bg-transparent font-mono font-black text-cyan-400 focus:outline-none focus:border-white disabled:text-gray-500 text-lg"
-                                            />
-                                            <span className="text-gray-500 text-xs font-bold">%</span>
-                                        </div>
+                                    {!readOnly && onEditCategory ? (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEdit(cat, 'allocation');
+                                            }}
+                                            className="flex items-center justify-center gap-1.5 group/btn hover:bg-gray-800 px-2 py-1 rounded transition-colors"
+                                        >
+                                            <span className="font-mono font-bold text-cyan-400 text-lg group-hover/btn:text-cyan-300">{cat.allocationPercent}%</span>
+                                            <Edit3 className="w-3 h-3 text-gray-600 group-hover/btn:text-cyan-400 opacity-0 group-hover/btn:opacity-100 transition-all" />
+                                        </button>
                                     ) : (
                                         <span className="font-mono font-bold text-gray-400 text-lg">{cat.allocationPercent}%</span>
                                     )}
                                 </td>
                                 <td className="p-5 text-right" onClick={(e) => e.stopPropagation()}>
-                                    {!readOnly && onUpdateAllocation ? (
-                                        <div className="flex flex-col items-end gap-1">
-                                            <input
-                                                type="number"
-                                                defaultValue={cat.projectedInvestment}
-                                                key={cat.id + '-' + cat.projectedInvestment}
-                                                onBlur={(e) => {
-                                                    const val = Number(e.target.value);
-                                                    if (!isNaN(val) && totalCapital > 0) {
-                                                        onUpdateAllocation(cat.id, (val / totalCapital) * 100);
-                                                    }
-                                                }}
-                                                onKeyDown={e => {
-                                                    if (e.key === 'Enter') {
-                                                        const val = Number((e.target as HTMLInputElement).value);
-                                                        if (!isNaN(val) && totalCapital > 0) {
-                                                            onUpdateAllocation(cat.id, (val / totalCapital) * 100);
-                                                        }
-                                                        (e.target as HTMLInputElement).blur();
-                                                    }
-                                                }}
-                                                disabled={isMasked}
-                                                className="w-32 text-right border-b border-gray-700 bg-transparent font-mono font-medium text-gray-400 focus:outline-none focus:border-cyan-500 transition-colors disabled:text-gray-500"
-                                            />
-                                            <div className="text-[10px] text-gray-600 font-bold uppercase tracking-tighter">金額 (Amount)</div>
-                                        </div>
-                                    ) : (
-                                        <div className="font-mono text-gray-500 font-medium">{maskValue(formatTWD(cat.projectedInvestment, isPrivacyMode))}</div>
-                                    )}
+                                    <div className="font-mono text-gray-500 font-medium">{maskValue(formatTWD(cat.projectedInvestment, isPrivacyMode))}</div>
                                 </td>
                                 <td className="p-5 text-right">
                                     <div className="font-mono font-black text-gray-200 group-hover:text-white">{maskValue(formatTWD(cat.investedAmount, isPrivacyMode))}</div>
@@ -389,10 +317,10 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                                         <button
                                             onClick={(e) => handleRefresh(e, cat.id)}
                                             disabled={refreshingIds.has(cat.id)}
-                                            className={`p-1.5 rounded-lg border border-gray-700 hover:bg-gray-800 transition-all active:scale-95 ${refreshingIds.has(cat.id) ? 'text-cyan-400 animate-spin' : 'text-gray-400'}`}
+                                            className={`p-1.5 rounded-lg border border-gray-700 hover:bg-gray-800 transition-all active:scale-95 ${refreshingIds.has(cat.id) ? 'text-cyan-400' : 'text-gray-400'}`}
                                             title="更新價格"
                                         >
-                                            <RefreshCw className="w-3.5 h-3.5" />
+                                            <RefreshCw className={`w-3.5 h-3.5 ${refreshingIds.has(cat.id) ? 'animate-spin' : ''}`} />
                                         </button>
                                         {!readOnly && onDeleteCategory && (
                                             <button
@@ -403,7 +331,7 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                                                 <Trash2 className="w-3.5 h-3.5" />
                                             </button>
                                         )}
-                                        <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-cyan-500" />
+                                        <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-cyan-500 ml-1 transition-colors" />
                                     </div>
                                 </td>
                             </tr>
@@ -429,6 +357,20 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                     </tbody>
                 </table>
             </div>
+            {/* Edit Modal */}
+            {editingCategory && (
+                <EditCategoryModal
+                    isOpen={isEditModalOpen}
+                    onClose={() => { setIsEditModalOpen(false); setEditingCategory(null); }}
+                    category={editingCategory}
+                    totalCapital={totalCapital}
+                    onSave={(id, name, alloc) => {
+                        if (onEditCategory) onEditCategory(id, name, alloc);
+                    }}
+                    isPrivacyMode={isPrivacyMode}
+                    initialMode={editMode}
+                />
+            )}
         </div>
     );
 };
