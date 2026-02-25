@@ -67,6 +67,7 @@ import NewFeatureModal from './components/NewFeatureModal';
 import AIPicks from './components/AIPicks';
 import PortfolioCompareModal from './components/PortfolioCompareModal';
 import LoginModal from './components/LoginModal';
+import PushPromptModal from './components/PushPromptModal';
 
 import AddCategoryModal from './components/AddCategoryModal';
 import { stockService } from './services/StockService';
@@ -153,6 +154,17 @@ const App: React.FC = () => {
   const [isPortfolioCompareModalOpen, setIsPortfolioCompareModalOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginModalMode, setLoginModalMode] = useState<'default' | 'confirm-email'>('default');
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
+
+  useEffect(() => {
+    if (user && isDataLoaded) {
+      const dismissed = localStorage.getItem('libao_push_prompt_dismissed');
+      if (!dismissed) {
+        const timer = setTimeout(() => setShowPushPrompt(true), 3000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [user, isDataLoaded]);
 
   useEffect(() => {
     // Check if user has seen the crypto announcement
@@ -2446,6 +2458,10 @@ const App: React.FC = () => {
         onClose={() => { setShowLoginModal(false); setLoginModalMode('default'); }}
         initialMode={loginModalMode}
       />
+
+      {showPushPrompt && (
+        <PushPromptModal onClose={() => setShowPushPrompt(false)} />
+      )}
     </div >
   );
 };

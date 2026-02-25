@@ -76,9 +76,17 @@ service cloud.firestore {
       ));
     }
 
-    // 3. User Profiles: Owner can read/write their own
-    match /users/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    // 3. User Data: Support both UID-based and Email-based (Webhook) entries
+    match /users/{identifier} {
+      allow read, write: if isSignedIn() && (
+        request.auth.uid == identifier || 
+        (request.auth.token.email != null && request.auth.token.email.lower() == identifier.lower())
+      );
+    }
+
+    // 11. Push Notification Tokens: Allow signed-in users to manage their tokens
+    match /fcm_tokens/{token} {
+      allow read, write: if isSignedIn();
     }
 
     // 4. AI Picks: Tier Restricted

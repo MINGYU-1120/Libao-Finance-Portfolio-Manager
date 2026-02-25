@@ -38,6 +38,7 @@ import {
   collection,
   getDocs
 } from 'firebase/firestore';
+import { getMessaging, getToken, isSupported } from 'firebase/messaging';
 import {
   PortfolioState, PositionCategory, AppSettings,
   NewsItem,
@@ -102,6 +103,14 @@ try {
 
   db = getFirestore(app);
   console.log("Firebase initialized successfully.");
+
+  // 初始化 Messaging
+  isSupported().then(supported => {
+    if (supported) {
+      console.log("Firebase Messaging Support Check Passed");
+    }
+  });
+
 } catch (e) {
   console.error("Firebase initialization error:", e);
   isConfigured = false;
@@ -704,5 +713,71 @@ export const updateAIPick = async (pick: AIPick) => {
     await setDoc(docRef, pick, { merge: true });
   } catch (e) {
     throw e;
+  }
+};
+
+// --- Push Notification Functions ---
+export const subscribeToPushNotifications = async (uid: string | null): Promise<boolean> => {
+  if (!isConfigured) return false;
+
+  try {
+    const supported = await isSupported();
+    if (!supported) {
+      console.warn("This browser does not support Firebase Cloud Messaging.");
+      return false;
+    }
+
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      console.warn("Notification permission was not granted.");
+      return false;
+    }
+
+    const messaging = getMessaging(app);
+    const token = await getToken(messaging, {
+      // VAPID KEY 從 .env 取得，如果沒有則需在後台人工設定
+      vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
+    });
+
+    if (token) {
+      console.log('Got FCM device token');
+
+      // 判斷裝置與 OS 資訊
+      const userAgent = navigator.userAgent;
+      const deviceOs = /android/i.test(userAgent) ? 'Android' : /iPad|iPhone|iPod/.test(userAgent) ? 'iOS' : 'Desktop';
+      const topics = uid ? ["all", `user_${uid}`] : ["all"];
+
+      // 將 token 存入獨立 collection
+      const tokenRef = doc(db, 'fcm_tokens', token);
+      await setDoc(tokenRef, {
+        token,
+        uid: uid || null,
+        deviceOs,
+        topics,
+        lastActive: Date.now(),
+        status: 'active'
+      }, { merge: true });
+
+      console.log('FCM Token successfully saved to Firestore');
+
+      // 將設定注入到 Service Worker 讓他能直接呼叫 firebase API
+      if ('serviceWorker' in navigator) {
+        const swUrl = `/firebase-messaging-sw.js?apiKey=${firebaseConfig.apiKey}&projectId=${firebaseConfig.projectId}&messagingSenderId=${firebaseConfig.messagingSenderId}&appId=${firebaseConfig.appId}&storageBucket=${firebaseConfig.storageBucket}&authDomain=${firebaseConfig.authDomain}`;
+        navigator.serviceWorker.register(swUrl)
+          .then((registration) => {
+            console.log('Firebase Messaging SW registered with dynamic config', registration.scope);
+          }).catch(err => {
+            console.error('Service Worker registration failed:', err);
+          });
+      }
+
+      return true;
+    } else {
+      console.warn("Failed to get FCM token.");
+      return false;
+    }
+  } catch (err) {
+    console.error("An error occurred while retrieving token. ", err);
+    return false;
   }
 };

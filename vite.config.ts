@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       host: '0.0.0.0',
       // 僅在本地開發模式啟用 HTTPS
+      // 僅在本地開發模式啟用 HTTPS
       https: isDev ? true : undefined,
     },
     plugins: [

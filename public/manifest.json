@@ -7,12 +7,12 @@
     "theme_color": "#0f172a",
     "icons": [
         {
-            "src": "https://raw.githubusercontent.com/lucide-react/lucide/main/icons/briefcase.svg",
+            "src": "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg",
             "sizes": "192x192",
             "type": "image/svg+xml"
         },
         {
-            "src": "https://raw.githubusercontent.com/lucide-react/lucide/main/icons/briefcase.svg",
+            "src": "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg",
             "sizes": "512x512",
             "type": "image/svg+xml"
         }
