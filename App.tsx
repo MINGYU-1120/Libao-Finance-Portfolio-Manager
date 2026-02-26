@@ -162,6 +162,7 @@ const App: React.FC = () => {
   const [loginModalMode, setLoginModalMode] = useState<'default' | 'confirm-email'>('default');
   const [showPushPrompt, setShowPushPrompt] = useState(false);
 
+  /* 
   useEffect(() => {
     if (user && isDataLoaded) {
       const dismissed = localStorage.getItem('libao_push_prompt_dismissed');
@@ -171,6 +172,7 @@ const App: React.FC = () => {
       }
     }
   }, [user, isDataLoaded]);
+  */
 
   useEffect(() => {
     // Check if user has seen the crypto announcement
@@ -2527,9 +2529,10 @@ const App: React.FC = () => {
         initialMode={loginModalMode}
       />
 
-      {showPushPrompt && (
+      {/* 暫時隱藏推播提醒 */}
+      {/* showPushPrompt && (
         <PushPromptModal onClose={() => setShowPushPrompt(false)} />
-      )}
+      ) */}
     </div >
   );
 };
