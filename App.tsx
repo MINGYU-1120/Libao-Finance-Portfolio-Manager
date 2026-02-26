@@ -91,7 +91,8 @@ import {
   subscribeToUserRole,
   handleRedirectResult,
   checkAndFinishEmailLogin,
-  getNotifications
+  getNotifications,
+  subscribeToNotifications
 } from './services/firebase';
 import { useToast } from './contexts/ToastContext';
 import { OrderData } from './components/OrderModal';
@@ -287,11 +288,10 @@ const App: React.FC = () => {
 
       if (notifs.length > 0) {
         const lastRead = localStorage.getItem('libao-push-last-read');
-        // Compare timestamps
         const firstNotif = notifs[0] as any;
         const latestNotifTime = firstNotif.createdAt?.toDate ? firstNotif.createdAt.toDate().getTime() : Date.now();
         if (!lastRead || latestNotifTime > parseInt(lastRead)) {
-          setHasNewNews(true); // Share the red dot with news
+          setHasNewNews(true);
         }
       }
     } catch (e) {
@@ -300,6 +300,25 @@ const App: React.FC = () => {
       setIsFetchingHistory(false);
     }
   }, [user, userRole]);
+
+  // 即時監聽通知
+  useEffect(() => {
+    if (user && isDataLoaded) {
+      const unsubscribe = subscribeToNotifications(userRole, user.uid, (notifs) => {
+        setPushHistory(notifs as PushNotification[]);
+
+        if (notifs.length > 0) {
+          const lastRead = localStorage.getItem('libao-push-last-read');
+          const firstNotif = notifs[0] as any;
+          const latestNotifTime = firstNotif.createdAt?.toDate ? firstNotif.createdAt.toDate().getTime() : Date.now();
+          if (!lastRead || latestNotifTime > parseInt(lastRead)) {
+            setHasNewNews(true);
+          }
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [user, userRole, isDataLoaded]);
 
   // --- Consolidated Auth & Redirect Logic ---
   useEffect(() => {
@@ -422,15 +441,11 @@ const App: React.FC = () => {
     if (isDataLoaded) {
       const interval = setInterval(() => {
         fetchStockNews();
-        fetchPushHistory();
       }, 30 * 60 * 1000);
-
-      // Initial fetch of push history
-      fetchPushHistory();
 
       return () => clearInterval(interval);
     }
-  }, [isDataLoaded, fetchStockNews, fetchPushHistory]);
+  }, [isDataLoaded, fetchStockNews]);
 
   const handleStartFresh = () => {
     setIsStartingFresh(true);

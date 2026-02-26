@@ -821,3 +821,42 @@ export const getNotifications = async (userRole: string, limitCount = 50) => {
     return [];
   }
 };
+
+/**
+ * 即時監聽通知
+ */
+export const subscribeToNotifications = (
+  userRole: string,
+  uid: string | null,
+  onUpdate: (notifs: any[]) => void
+) => {
+  if (!db) return () => { };
+
+  const notificationsRef = collection(db, 'notifications');
+  const q = query(
+    notificationsRef,
+    orderBy('createdAt', 'desc'),
+    limit(50)
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const allNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // 過濾邏輯：
+    // 1. topic = all
+    // 2. topic = tier_{role}
+    // 3. targetUid = {uid} (個人通知)
+    const validTopics = ['all', `tier_${userRole}`];
+
+    const filtered = allNotifs.filter((n: any) => {
+      if (n.targetUid && uid && n.targetUid === uid) return true;
+      if (n.topic && validTopics.includes(n.topic)) return true;
+      return false;
+    });
+
+    onUpdate(filtered);
+  }, (error) => {
+    console.error("Notifications listener failed:", error);
+  });
+};
+

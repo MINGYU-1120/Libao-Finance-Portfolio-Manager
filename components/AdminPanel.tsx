@@ -45,6 +45,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
     const [pushTopic, setPushTopic] = useState('all');
     const [pushUrl, setPushUrl] = useState('/');
     const [isPushing, setIsPushing] = useState(false);
+    const [pushMode, setPushMode] = useState<'broadcast' | 'direct'>('broadcast');
+    const [directTargetUid, setDirectTargetUid] = useState('');
 
     useEffect(() => {
         // Load on mount since it is now a page
@@ -243,24 +245,41 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
             return;
         }
 
-        if (!window.confirm(`確定要對主題 [${pushTopic}] 發送推播嗎？\n這將會傳送給所有符合條件的設備。`)) {
+        if (pushMode === 'broadcast' && !window.confirm(`確定要對主題 [${pushTopic}] 發送廣播推播嗎？`)) {
             return;
         }
 
         setIsPushing(true);
         try {
-            const sendBroadcastFn = httpsCallable(functions, 'sendBroadcast');
-            await sendBroadcastFn({
-                title: pushTitle,
-                body: pushBody,
-                topic: pushTopic,
-                url: pushUrl
-            });
+            if (pushMode === 'broadcast') {
+                const sendBroadcastFn = httpsCallable(functions, 'sendBroadcast');
+                await sendBroadcastFn({
+                    title: pushTitle,
+                    body: pushBody,
+                    topic: pushTopic,
+                    url: pushUrl
+                });
+            } else {
+                if (!directTargetUid) throw new Error("缺少目標用戶 UID");
+                const sendDirectFn = httpsCallable(functions, 'sendDirectMessage');
+                const result: any = await sendDirectFn({
+                    targetUid: directTargetUid,
+                    title: pushTitle,
+                    body: pushBody,
+                    url: pushUrl
+                });
+
+                if (result.data && !result.data.success) {
+                    showToast(`發送失敗: ${result.data.reason}`, "error");
+                    setIsPushing(false);
+                    return;
+                }
+            }
 
             await logAdminAction(
-                "SEND_PUSH_BROADCAST",
-                pushTopic,
-                `Sent push: ${pushTitle}`,
+                pushMode === 'broadcast' ? "SEND_PUSH_BROADCAST" : "SEND_PUSH_DIRECT",
+                pushMode === 'broadcast' ? pushTopic : directTargetUid,
+                `Sent ${pushMode}: ${pushTitle}`,
                 currentUser.email
             );
 
@@ -514,7 +533,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                                             </div>
                                                         </td>
                                                         <td className="py-4 px-6 text-right">
-                                                            <div className="flex justify-end">
+                                                            <div className="flex justify-end gap-2 text-right">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setActiveTab('push');
+                                                                        setPushMode('direct');
+                                                                        setDirectTargetUid(user.uid);
+                                                                    }}
+                                                                    className="p-2 hover:bg-indigo-500/20 rounded-lg text-indigo-400 transition-colors"
+                                                                    title="對該用戶發送私訊"
+                                                                >
+                                                                    <Send className="w-4 h-4" />
+                                                                </button>
                                                                 <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold font-mono border ${(Date.now() - user.lastActive) < 1000 * 60 * 5
                                                                     ? 'bg-green-500/10 text-green-400 border-green-500/20 shadow-[0_0_10px_rgba(34,197,94,0.2)]'
                                                                     : 'bg-gray-800 text-gray-500 border-gray-700'
@@ -730,20 +760,56 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                                 {/* Form */}
                                 <div className="space-y-5">
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest font-mono">傳送目標 (Target Topic)</label>
-                                        <select
-                                            value={pushTopic}
-                                            onChange={(e) => setPushTopic(e.target.value)}
-                                            className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-sans"
+                                    <div className="flex bg-gray-900/50 p-1 rounded-xl border border-gray-700 mb-2">
+                                        <button
+                                            onClick={() => setPushMode('broadcast')}
+                                            className={`flex-1 py-2 px-4 rounded-lg text-sm font-bold transition-all ${pushMode === 'broadcast' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
                                         >
-                                            <option value="all">📢 全體用戶 (All Users)</option>
-                                            <option value="tier_admin">🛡️ 管理員 (Admins Only)</option>
-                                            <option value="tier_vip">👑 VIP頭等艙 (VIPs Only)</option>
-                                            <option value="tier_member">💠 成員 (Members Only)</option>
-                                            <option value="tier_viewer">👀 訪客 (Viewers Only)</option>
-                                        </select>
+                                            全體廣播
+                                        </button>
+                                        <button
+                                            onClick={() => setPushMode('direct')}
+                                            className={`flex-1 py-2 px-4 rounded-lg text-sm font-bold transition-all ${pushMode === 'direct' ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                                        >
+                                            個人私訊推播
+                                        </button>
                                     </div>
+
+                                    {pushMode === 'broadcast' ? (
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest font-mono">傳送目標 (Target Topic)</label>
+                                            <select
+                                                value={pushTopic}
+                                                onChange={(e) => setPushTopic(e.target.value)}
+                                                className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-sans"
+                                            >
+                                                <option value="all">📢 全體用戶 (All Users)</option>
+                                                <option value="tier_admin">🛡️ 管理員 (Admins Only)</option>
+                                                <option value="tier_vip">👑 VIP頭等艙 (VIPs Only)</option>
+                                                <option value="tier_member">💠 成員 (Members Only)</option>
+                                                <option value="tier_viewer">👀 訪客 (Viewers Only)</option>
+                                            </select>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest font-mono">目標用戶 UID (Target User UID)</label>
+                                            <div className="relative group">
+                                                <input
+                                                    type="text"
+                                                    value={directTargetUid}
+                                                    onChange={(e) => setDirectTargetUid(e.target.value)}
+                                                    placeholder="請輸入目標用戶的 UID..."
+                                                    className="w-full bg-gray-950 border border-pink-900/50 rounded-xl px-4 py-3 text-pink-100 focus:outline-none focus:ring-2 focus:ring-pink-500/50 transition-all font-mono text-sm placeholder:text-gray-800"
+                                                />
+                                                {directTargetUid && (
+                                                    <div className="absolute right-3 top-3 text-[10px] text-pink-500/50 font-mono">
+                                                        {users.find(u => u.uid === directTargetUid)?.email || 'User found'}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <p className="text-[10px] text-gray-500">提示：您可以從「使用者管理」分頁點擊 <Send className="w-3 h-3 inline" /> 圖示來自動填入 UID。</p>
+                                        </div>
+                                    )}
 
                                     <div className="space-y-2">
                                         <label className="text-xs font-bold text-gray-500 uppercase tracking-widest font-mono">通知標題 (Notification Title)</label>

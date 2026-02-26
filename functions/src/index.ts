@@ -100,3 +100,84 @@ export const sendBroadcast = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError("internal", "發送推播失敗");
     }
 });
+
+/**
+ * [Callable] 發送個人推播 (Direct Message)
+ * 針對特定 UID 進行精準通知，並清理失效 Token
+ */
+export const sendDirectMessage = functions.https.onCall(async (data, context) => {
+    // 1. 安全與權限檢查
+    if (!context.app) throw new functions.https.HttpsError("failed-precondition", "App Check 失敗");
+    if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "未登入");
+
+    const isAdmin = await checkIsAdmin(context.auth.uid);
+    if (!isAdmin) throw new functions.https.HttpsError("permission-denied", "權限不足");
+
+    const { targetUid, title, body, url = "/" } = data;
+    if (!targetUid || !title || !body) throw new functions.https.HttpsError("invalid-argument", "參數缺失");
+
+    // 2. 找出目標用戶的所有有效 Tokens
+    const tokensSnapshot = await admin.firestore()
+        .collection('fcm_tokens')
+        .where('uid', '==', targetUid)
+        .where('status', '==', 'active')
+        .get();
+
+    if (tokensSnapshot.empty) {
+        return { success: false, reason: "該用戶沒有已登記的有效 Token" };
+    }
+
+    const tokens = tokensSnapshot.docs.map(doc => doc.id);
+
+    // 3. 逐一發送 (或是 Multicast)
+    // 使用 sendEachForMulticast 可以一次發給多個 Token
+    const message = {
+        notification: { title, body },
+        data: { url },
+        tokens: tokens,
+    };
+
+    try {
+        const response = await admin.messaging().sendEachForMulticast(message);
+
+        // 4. 清理無效 Token (Maintenance)
+        if (response.failureCount > 0) {
+            const cleanupPromises: Promise<any>[] = [];
+            response.responses.forEach((resp, idx) => {
+                if (!resp.success) {
+                    const error = resp.error as any;
+                    // 如果錯誤原因是 Token 已失效或未註冊
+                    if (error?.code === 'messaging/registration-token-not-registered' ||
+                        error?.code === 'messaging/invalid-registration-token') {
+                        const invalidToken = tokens[idx];
+                        console.log(`[Push] Cleaning up invalid token: ${invalidToken}`);
+                        cleanupPromises.push(admin.firestore().collection('fcm_tokens').doc(invalidToken).delete());
+                    }
+                }
+            });
+            await Promise.all(cleanupPromises);
+        }
+
+        // 5. 紀錄到通知歷程 (標註為個人通知)
+        await admin.firestore().collection('notifications').add({
+            title,
+            body,
+            url,
+            targetUid,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            senderUid: context.auth.uid,
+            type: 'direct_message'
+        });
+
+        console.log(`[Push] Direct message sent to ${targetUid}, successes: ${response.successCount}, failures: ${response.failureCount}`);
+        return {
+            success: true,
+            successCount: response.successCount,
+            failureCount: response.failureCount
+        };
+    } catch (error) {
+        console.error("[Push] Direct Send error:", error);
+        throw new functions.https.HttpsError("internal", "發送個人推播時發生錯誤");
+    }
+});
+
