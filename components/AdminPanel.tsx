@@ -315,7 +315,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
             switch (r) {
                 case 'admin': return '管理員 (Admin)';
                 case 'vip': return 'VIP頭等艙 (VIP)';
-                case 'member': return '會員 (Member)';
+                case 'member': return 'Pro會員 (Pro)';
                 case 'viewer': return '訪客 (Viewer)';
                 default: return r;
             }
@@ -440,7 +440,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                         <option value="user">👤 User</option>
                                         <option value="admin">🛡️ Admin</option>
                                         <option value="vip">👑 VIP頭等艙</option>
-                                        <option value="member">💠 Member</option>
+                                        <option value="member">💠 Pro會員 (Pro)</option>
                                         <option value="viewer">👀 Viewer</option>
                                     </select>
                                     <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none">
@@ -521,7 +521,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                                                     }`}
                                                             >
                                                                 <option value="viewer">Viewer</option>
-                                                                <option value="member">Member</option>
+                                                                <option value="member">Pro會員</option>
                                                                 <option value="vip">VIP</option>
                                                                 <option value="admin">Admin</option>
                                                             </select>
@@ -783,7 +783,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                                     { id: 'all', label: '📢 全體用戶', color: 'indigo' },
                                                     { id: 'tier_admin', label: '🛡️ 管理員', color: 'red' },
                                                     { id: 'tier_vip', label: '👑 VIP頭等艙', color: 'yellow' },
-                                                    { id: 'tier_member', label: '💠 成員', color: 'blue' },
+                                                    { id: 'tier_member', label: '💠 Pro會員', color: 'blue' },
                                                     { id: 'tier_viewer', label: '👀 訪客', color: 'gray' },
                                                 ].map(topic => (
                                                     <button

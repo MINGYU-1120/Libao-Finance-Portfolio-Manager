@@ -552,7 +552,7 @@ const AIPicks: React.FC<AIPicksProps> = ({ userRole }) => {
                             <span className="text-sm text-gray-500">包含進場點位、出場邏輯與即時庫存動態</span>
                         </p>
                         <button className="px-8 py-3 bg-white text-gray-900 font-bold rounded-lg hover:bg-gray-100 transition shadow-lg transform active:scale-95">
-                            立即升級會員
+                            立即升級 Pro會員
                         </button>
                     </div>
                 </div>

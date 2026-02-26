@@ -2126,7 +2126,7 @@ const App: React.FC = () => {
                   rel="noopener noreferrer"
                   className="hidden xl:flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-full text-sm font-bold shadow-lg hover:shadow-orange-500/30 transition-all active:scale-95"
                 >
-                  <Rocket className="w-4 h-4" /> 升級專業版
+                  <Rocket className="w-4 h-4" /> 升級 Pro會員
                 </a>
               )}
             </div>
@@ -2201,7 +2201,7 @@ const App: React.FC = () => {
                           </span>
                         ) : isMemberRole ? (
                           <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-bold">
-                            <UserCheck className="w-3 h-3" /> 成員
+                            <UserCheck className="w-3 h-3" /> Pro會員
                           </span>
                         ) : (
                           <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-gray-500/20 text-gray-400 border border-gray-700/30 text-[10px] font-bold">

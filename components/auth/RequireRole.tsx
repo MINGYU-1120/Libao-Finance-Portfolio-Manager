@@ -38,7 +38,7 @@ export const RequireRole: React.FC<RequireRoleProps> = ({ role, children, fallba
                     <p className="text-gray-600">
                         {user
                             ? "抱歉，您的帳號尚未開通此區域的存取權限。如果您剛完成購買，請稍候片刻或重新整理。"
-                            : "此為會員專屬內容，請先登入以繼續訪問。"}
+                            : "此為 Pro會員專屬內容，請先登入以繼續訪問。"}
                     </p>
                 </div>
 

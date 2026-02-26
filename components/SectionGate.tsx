@@ -68,7 +68,7 @@ const SectionGate: React.FC<SectionGateProps> = ({ sectionKey, title, userRole, 
                             此區域需要 <span className="text-indigo-600 font-black">
                                 {minTier === AccessTier.ADMIN ? '管理員' :
                                     minTier === AccessTier.FIRST_CLASS ? 'VIP頭等艙' :
-                                        minTier === AccessTier.STANDARD ? '會員' : '訪客'}
+                                        minTier === AccessTier.STANDARD ? 'Pro會員' : '訪客'}
                             </span> 等級權限以查看完整策略佈局與即時數據
                         </p>
                         <button
