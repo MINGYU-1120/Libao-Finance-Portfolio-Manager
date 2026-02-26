@@ -810,12 +810,15 @@ export const getNotifications = async (userRole: string, limitCount = 50) => {
     const snapshot = await getDocs(q);
     const allNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    // 單純在前端做 Topic 過濾 (all + user's tier)
-    const validTopics = ['all', `tier_${userRole}`];
-    // 未來也可以加上 user_$uid 做個人訊息過濾
-
     // @ts-ignore
-    return allNotifs.filter(n => validTopics.includes(n.topic));
+    return allNotifs.filter(n => {
+      const validTopics = ['all', `tier_${userRole}`];
+      const notif = n as any;
+      if (notif.topics && Array.isArray(notif.topics)) {
+        return notif.topics.some((t: string) => validTopics.includes(t));
+      }
+      return validTopics.includes(notif.topic);
+    });
   } catch (error) {
     console.error("Error fetching notifications:", error);
     return [];
@@ -850,7 +853,12 @@ export const subscribeToNotifications = (
 
     const filtered = allNotifs.filter((n: any) => {
       if (n.targetUid && uid && n.targetUid === uid) return true;
-      if (n.topic && validTopics.includes(n.topic)) return true;
+
+      const userTopics = ['all', `tier_${userRole}`];
+      if (n.topics && Array.isArray(n.topics)) {
+        return n.topics.some((t: string) => userTopics.includes(t));
+      }
+      if (n.topic && userTopics.includes(n.topic)) return true;
       return false;
     });
 

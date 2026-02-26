@@ -42,7 +42,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
     // Push Notification State
     const [pushTitle, setPushTitle] = useState('');
     const [pushBody, setPushBody] = useState('');
-    const [pushTopic, setPushTopic] = useState('all');
+    const [pushTopics, setPushTopics] = useState<string[]>(['all']);
     const [pushUrl, setPushUrl] = useState('/');
     const [isPushing, setIsPushing] = useState(false);
     const [pushMode, setPushMode] = useState<'broadcast' | 'direct'>('broadcast');
@@ -245,7 +245,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
             return;
         }
 
-        if (pushMode === 'broadcast' && !window.confirm(`確定要對主題 [${pushTopic}] 發送廣播推播嗎？`)) {
+        if (pushMode === 'broadcast' && !window.confirm(`確定要對主題 [${pushTopics.join(',')}] 發送廣播推播嗎？`)) {
             return;
         }
 
@@ -256,7 +256,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                 await sendBroadcastFn({
                     title: pushTitle,
                     body: pushBody,
-                    topic: pushTopic,
+                    topics: pushTopics,
                     url: pushUrl
                 });
             } else {
@@ -278,7 +278,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
 
             await logAdminAction(
                 pushMode === 'broadcast' ? "SEND_PUSH_BROADCAST" : "SEND_PUSH_DIRECT",
-                pushMode === 'broadcast' ? pushTopic : directTargetUid,
+                pushMode === 'broadcast' ? pushTopics.join(',') : directTargetUid,
                 `Sent ${pushMode}: ${pushTitle}`,
                 currentUser.email
             );
@@ -776,19 +776,47 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                                     </div>
 
                                     {pushMode === 'broadcast' ? (
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest font-mono">傳送目標 (Target Topic)</label>
-                                            <select
-                                                value={pushTopic}
-                                                onChange={(e) => setPushTopic(e.target.value)}
-                                                className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-sans"
-                                            >
-                                                <option value="all">📢 全體用戶 (All Users)</option>
-                                                <option value="tier_admin">🛡️ 管理員 (Admins Only)</option>
-                                                <option value="tier_vip">👑 VIP頭等艙 (VIPs Only)</option>
-                                                <option value="tier_member">💠 成員 (Members Only)</option>
-                                                <option value="tier_viewer">👀 訪客 (Viewers Only)</option>
-                                            </select>
+                                        <div className="space-y-3">
+                                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest font-mono">傳送目標多選 (Target Topics)</label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {[
+                                                    { id: 'all', label: '📢 全體用戶', color: 'indigo' },
+                                                    { id: 'tier_admin', label: '🛡️ 管理員', color: 'red' },
+                                                    { id: 'tier_vip', label: '👑 VIP頭等艙', color: 'yellow' },
+                                                    { id: 'tier_member', label: '💠 成員', color: 'blue' },
+                                                    { id: 'tier_viewer', label: '👀 訪客', color: 'gray' },
+                                                ].map(topic => (
+                                                    <button
+                                                        key={topic.id}
+                                                        onClick={() => {
+                                                            if (topic.id === 'all') {
+                                                                setPushTopics(['all']);
+                                                            } else {
+                                                                setPushTopics(prev => {
+                                                                    const filtered = prev.filter(t => t !== 'all');
+                                                                    if (filtered.includes(topic.id)) {
+                                                                        const next = filtered.filter(t => t !== topic.id);
+                                                                        return next.length === 0 ? ['all'] : next;
+                                                                    } else {
+                                                                        return [...filtered, topic.id];
+                                                                    }
+                                                                });
+                                                            }
+                                                        }}
+                                                        className={`
+                                                            px-3 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-2
+                                                            ${pushTopics.includes(topic.id)
+                                                                ? `bg-${topic.color}-600/20 border-${topic.color}-500 text-${topic.color}-400 shadow-[0_0_10px_rgba(var(--${topic.color}-rgb),0.2)]`
+                                                                : 'bg-gray-900/50 border-gray-700 text-gray-500 hover:border-gray-500'
+                                                            }
+                                                        `}
+                                                    >
+                                                        <div className={`w-2 h-2 rounded-full ${pushTopics.includes(topic.id) ? `bg-${topic.color}-400 animate-pulse` : 'bg-gray-700'}`} />
+                                                        {topic.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <p className="text-[10px] text-gray-500 italic">* 若勾選全體，則會覆蓋其他選項。支援多選後將使用 FCM 條件邏輯發送。</p>
                                         </div>
                                     ) : (
                                         <div className="space-y-2">

@@ -70,24 +70,38 @@ export const sendBroadcast = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError("permission-denied", "您沒有發送廣播推播的權限。");
     }
 
-    const { title, body, topic = "all", url = "/" } = data;
+    const { title, body, topics = ["all"], url = "/" } = data;
     if (!title || !body) throw new functions.https.HttpsError("invalid-argument", "標題與內容為必填。");
 
-    const message = {
-        notification: { title, body },
-        data: { url },
-        topic: topic,
-    };
-
     try {
-        const response = await admin.messaging().send(message);
-        console.log(`[Push] Broadcast sent by ${context.auth.uid}, messageId: ${response}`);
+        let response;
+        if (topics.length === 1) {
+            // 單一主題發送
+            const message = {
+                notification: { title, body },
+                data: { url },
+                topic: topics[0],
+            };
+            response = await admin.messaging().send(message);
+        } else {
+            // 多主題發送 (使用 Condition 邏輯)
+            // 格式: "'topic1' in topics || 'topic2' in topics"
+            const condition = topics.map((t: string) => `'${t}' in topics`).join(' || ');
+            const message = {
+                notification: { title, body },
+                data: { url },
+                condition: condition,
+            };
+            response = await admin.messaging().send(message);
+        }
 
-        // 寫入廣播歷程到資料庫
+        console.log(`[Push] Multicast/Broadcast sent by ${context.auth.uid}, messageId: ${response}`);
+
+        // 寫入廣播歷程到資料庫 (存入 topics 陣列方便前端過濾)
         await admin.firestore().collection('notifications').add({
             title,
             body,
-            topic,
+            topics: topics, // 存入陣列
             url,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             senderUid: context.auth.uid,
