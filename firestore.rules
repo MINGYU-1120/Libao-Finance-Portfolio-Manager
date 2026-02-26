@@ -89,6 +89,12 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
+    // 12. Notification History: Allow signed-in users to read broadcast history
+    match /notifications/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin(); // Only Admin (via functions typically) can write
+    }
+
     // 4. AI Picks: Tier Restricted
     match /ai_picks/{pickId} {
       // Read: Based on Tier for 'ai_picks' section

@@ -55,11 +55,11 @@ import SettingsModal from './components/SettingsModal';
 import FeeSettingsModal from './components/FeeSettingsModal';
 
 import DividendModal, { ScannedDividend } from './components/DividendModal';
-import CapitalModal from './components/CapitalModal';
 import MonthlyPnLChart from './components/MonthlyPnLChart';
+import CapitalModal from './components/CapitalModal';
 import TutorialModal from './components/TutorialModal';
 import OnboardingModal from './components/OnboardingModal';
-import NewsModal from './components/NewsModal';
+import NewsModal, { PushNotification } from './components/NewsModal';
 import GuidedTour, { TourStep } from './components/GuidedTour';
 import SectionGate from './components/SectionGate';
 import NewFeatureModal from './components/NewFeatureModal';
@@ -90,7 +90,8 @@ import {
   subscribeToPublicMartingale,
   subscribeToUserRole,
   handleRedirectResult,
-  checkAndFinishEmailLogin
+  checkAndFinishEmailLogin,
+  getNotifications
 } from './services/firebase';
 import { useToast } from './contexts/ToastContext';
 import { OrderData } from './components/OrderModal';
@@ -142,11 +143,15 @@ const App: React.FC = () => {
   const [isTourForceOrderOpen, setIsTourForceOrderOpen] = useState(false);
   const [showNewsModal, setShowNewsModal] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false); // NEW: Admin Panel State
-  const [isStatsEditModalOpen, setIsStatsEditModalOpen] = useState(false); // To pass down if needed
   const [martingaleActiveId, setMartingaleActiveId] = useState<string | null>(null);
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [isFetchingNews, setIsFetchingNews] = useState(false);
+
+  // Push History State
+  const [pushHistory, setPushHistory] = useState<PushNotification[]>([]);
+  const [isFetchingHistory, setIsFetchingHistory] = useState(false);
+
   const [hasNewNews, setHasNewNews] = useState(false);
   const [pwaTab, setPwaTab] = useState<'iOS' | 'Android'>('iOS');
   const [showInstallGuide, setShowInstallGuide] = useState(false);
@@ -273,6 +278,29 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const fetchPushHistory = useCallback(async () => {
+    if (!user) return;
+    setIsFetchingHistory(true);
+    try {
+      const notifs = await getNotifications(userRole);
+      setPushHistory(notifs as PushNotification[]);
+
+      if (notifs.length > 0) {
+        const lastRead = localStorage.getItem('libao-push-last-read');
+        // Compare timestamps
+        const firstNotif = notifs[0] as any;
+        const latestNotifTime = firstNotif.createdAt?.toDate ? firstNotif.createdAt.toDate().getTime() : Date.now();
+        if (!lastRead || latestNotifTime > parseInt(lastRead)) {
+          setHasNewNews(true); // Share the red dot with news
+        }
+      }
+    } catch (e) {
+      console.error("Error fetching push history", e);
+    } finally {
+      setIsFetchingHistory(false);
+    }
+  }, [user, userRole]);
+
   // --- Consolidated Auth & Redirect Logic ---
   useEffect(() => {
     const initAuth = async () => {
@@ -392,10 +420,17 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (isDataLoaded) {
-      const interval = setInterval(fetchStockNews, 30 * 60 * 1000);
+      const interval = setInterval(() => {
+        fetchStockNews();
+        fetchPushHistory();
+      }, 30 * 60 * 1000);
+
+      // Initial fetch of push history
+      fetchPushHistory();
+
       return () => clearInterval(interval);
     }
-  }, [isDataLoaded, fetchStockNews]);
+  }, [isDataLoaded, fetchStockNews, fetchPushHistory]);
 
   const handleStartFresh = () => {
     setIsStartingFresh(true);
@@ -1921,7 +1956,25 @@ const App: React.FC = () => {
           isOpen={showTutorial} onClose={handleTutorialClose} onLoginRequest={handleLoginAction} isLoggedIn={!!user} />
       )}
 
-      <NewsModal isOpen={showNewsModal} onClose={() => { setShowNewsModal(false); setHasNewNews(false); localStorage.setItem('libao-news-last-read', Date.now().toString()); }} newsItems={newsItems} isLoading={isFetchingNews} />
+      <NewsModal
+        isOpen={showNewsModal}
+        onClose={() => {
+          setShowNewsModal(false);
+          setHasNewNews(false);
+          localStorage.setItem('libao-news-last-read', Date.now().toString());
+          localStorage.setItem('libao-push-last-read', Date.now().toString());
+        }}
+        newsItems={newsItems}
+        isLoading={isFetchingNews}
+        pushHistory={pushHistory}
+        isLoadingHistory={isFetchingHistory}
+        onNavigate={(url) => {
+          // Simple string matching based router
+          if (url.includes('ai_picks')) setViewMode('AI_PICKS');
+          else if (url.includes('martingale')) setViewMode('VIP_PORTFOLIO');
+          else setViewMode('PORTFOLIO');
+        }}
+      />
       <SettingsModal
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}

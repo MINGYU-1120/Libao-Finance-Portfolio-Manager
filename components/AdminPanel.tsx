@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { db, updateUserRole, getAllUsers, getAllSectionMinTiers, updateSectionMinTier, logAdminAction, getAuditLogs } from '../services/firebase';
+import { db, functions, updateUserRole, getAllUsers, getAllSectionMinTiers, updateSectionMinTier, logAdminAction, getAuditLogs } from '../services/firebase';
+import { httpsCallable } from 'firebase/functions';
 import { UserProfile, UserRole, AccessTier, AuditLog } from '../types';
-import { Shield, User, Clock, Search, Filter, AlertTriangle, CheckCircle, X, FileText, Activity, Download } from 'lucide-react';
+import { Shield, User, Clock, Search, Filter, AlertTriangle, CheckCircle, X, FileText, Activity, Download, Bell, Send } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 
 interface AdminPanelProps {
@@ -20,7 +21,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
     const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
     // Permission State
-    const [activeTab, setActiveTab] = useState<'users' | 'permissions' | 'batch' | 'logs'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'permissions' | 'batch' | 'push' | 'logs'>('users');
     const [permissionMatrix, setPermissionMatrix] = useState<Record<string, AccessTier>>({
         'market_insider': AccessTier.ADMIN,
         'ai_picks': AccessTier.STANDARD,
@@ -37,6 +38,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
         failed: number;
         logs: Array<{ email: string; status: 'success' | 'error'; message: string }>;
     } | null>(null);
+
+    // Push Notification State
+    const [pushTitle, setPushTitle] = useState('');
+    const [pushBody, setPushBody] = useState('');
+    const [pushTopic, setPushTopic] = useState('all');
+    const [pushUrl, setPushUrl] = useState('/');
+    const [isPushing, setIsPushing] = useState(false);
 
     useEffect(() => {
         // Load on mount since it is now a page
@@ -229,6 +237,47 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
         }
     };
 
+    const handleSendPush = async () => {
+        if (!pushTitle || !pushBody) {
+            showToast("請填寫標題與內容", "error");
+            return;
+        }
+
+        if (!window.confirm(`確定要對主題 [${pushTopic}] 發送推播嗎？\n這將會傳送給所有符合條件的設備。`)) {
+            return;
+        }
+
+        setIsPushing(true);
+        try {
+            const sendBroadcastFn = httpsCallable(functions, 'sendBroadcast');
+            await sendBroadcastFn({
+                title: pushTitle,
+                body: pushBody,
+                topic: pushTopic,
+                url: pushUrl
+            });
+
+            await logAdminAction(
+                "SEND_PUSH_BROADCAST",
+                pushTopic,
+                `Sent push: ${pushTitle}`,
+                currentUser.email
+            );
+
+            showToast("推播已成功發送！", "success");
+            setPushTitle('');
+            setPushBody('');
+
+            // Refresh logs
+            getAuditLogs().then(setAuditLogs);
+        } catch (error: any) {
+            console.error(error);
+            showToast(`發送失敗: ${error.message}`, "error");
+        } finally {
+            setIsPushing(false);
+        }
+    };
+
     const filteredUsers = users.filter(user => {
         const matchesSearch =
             (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -318,6 +367,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                         { id: 'users', label: '使用者管理', icon: User },
                         { id: 'permissions', label: '板塊權限', icon: Shield },
                         { id: 'batch', label: '批次權限', icon: Activity },
+                        { id: 'push', label: '推播廣播', icon: Bell },
                         { id: 'logs', label: '操作日誌', icon: FileText }
                     ].map(tab => (
                         <button
@@ -669,6 +719,134 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                     )
                 }
 
+                {
+                    activeTab === 'push' && (
+                        <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 animate-in slide-in-from-bottom-4 duration-300">
+                            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                                <Bell className="w-5 h-5 text-indigo-400" /> 推播廣播系統 (Global Push Notification)
+                            </h3>
+                            <p className="text-gray-400 text-sm mb-8">透過此功能，您可以對全體或特定權限等級的用戶發送即時推播通知。系統將透過 Google 雲端訊息 (FCM) 傳送至已授權的 PWA 設備。</p>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                                {/* Form */}
+                                <div className="space-y-5">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest font-mono">傳送目標 (Target Topic)</label>
+                                        <select
+                                            value={pushTopic}
+                                            onChange={(e) => setPushTopic(e.target.value)}
+                                            className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-sans"
+                                        >
+                                            <option value="all">📢 全體用戶 (All Users)</option>
+                                            <option value="tier_admin">🛡️ 管理員 (Admins Only)</option>
+                                            <option value="tier_vip">👑 VIP頭等艙 (VIPs Only)</option>
+                                            <option value="tier_member">💠 成員 (Members Only)</option>
+                                            <option value="tier_viewer">👀 訪客 (Viewers Only)</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest font-mono">通知標題 (Notification Title)</label>
+                                        <input
+                                            type="text"
+                                            value={pushTitle}
+                                            onChange={(e) => setPushTitle(e.target.value)}
+                                            placeholder="例如：大盤關鍵變動警告！"
+                                            className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold placeholder:text-gray-700"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest font-mono">通知內容 (Notification Body)</label>
+                                        <textarea
+                                            value={pushBody}
+                                            onChange={(e) => setPushBody(e.target.value)}
+                                            placeholder="請輸入推播的詳細內容..."
+                                            className="w-full h-32 bg-gray-950 border border-gray-700 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-gray-700 resize-none"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest font-mono">導航連結 (Target URL / Deep Link)</label>
+                                        <div className="flex bg-gray-950 border border-gray-700 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500 transition-all">
+                                            <span className="px-4 py-3 bg-gray-900 text-gray-500 font-mono text-sm border-r border-gray-800 flex items-center">/</span>
+                                            <input
+                                                type="text"
+                                                value={pushUrl}
+                                                onChange={(e) => setPushUrl(e.target.value)}
+                                                className="w-full bg-transparent px-3 py-3 text-gray-300 focus:outline-none font-mono text-sm"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={handleSendPush}
+                                        disabled={isPushing || !pushTitle || !pushBody}
+                                        className={`
+                                            w-full py-4 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all mt-4
+                                            ${isPushing || !pushTitle || !pushBody
+                                                ? 'bg-gray-700 cursor-not-allowed text-gray-500 opacity-50'
+                                                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] active:scale-[0.98]'
+                                            }
+                                        `}
+                                    >
+                                        {isPushing ? (
+                                            <>
+                                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                發送中 (Pushing)...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Send className="w-5 h-5" />
+                                                立即發送推播通知
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+
+                                {/* Preview */}
+                                <div className="space-y-5">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest font-mono">手機鎖定畫面預覽 (Mock Preview)</label>
+                                    <div className="relative w-full aspect-[9/16] max-w-[280px] mx-auto bg-black rounded-[3rem] border-[8px] border-gray-800 shadow-2xl p-4 pt-12 overflow-hidden">
+                                        {/* Notch */}
+                                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-7 bg-gray-800 rounded-b-2xl"></div>
+
+                                        {/* Wallpaper Like Grad */}
+                                        <div className="absolute inset-0 bg-gradient-to-b from-indigo-950 via-gray-900 to-black z-0"></div>
+
+                                        <div className="relative z-10">
+                                            {/* Clock */}
+                                            <div className="text-center mt-4">
+                                                <div className="text-4xl font-light text-white/90 font-mono">22:50</div>
+                                                <div className="text-xs text-white/60 font-medium">Thursday, Feb 26</div>
+                                            </div>
+
+                                            {/* Push Banner */}
+                                            {(pushTitle || pushBody) && (
+                                                <div className="mt-8 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 shadow-lg animate-in fade-in slide-in-from-top-4 duration-500">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-5 h-5 bg-blue-500 rounded flex items-center justify-center">
+                                                                <Bell className="w-3 h-3 text-white" />
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-white/80 uppercase">Libao Finance</span>
+                                                        </div>
+                                                        <span className="text-[10px] text-white/50">現在</span>
+                                                    </div>
+                                                    <div className="text-xs font-bold text-white mb-0.5 truncate">{pushTitle || '通知標題'}</div>
+                                                    <div className="text-[11px] text-white/70 line-clamp-2 leading-relaxed">{pushBody || '這是一則推播通知的內容預覽。您可以自定義發送的主題與導航位置。'}</div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Swipe Bar */}
+                                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-20 h-1 bg-white/20 rounded-full z-10"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                }
                 {
                     activeTab === 'logs' && (
                         <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">

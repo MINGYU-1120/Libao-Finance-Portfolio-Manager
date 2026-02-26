@@ -39,6 +39,7 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { getMessaging, getToken, isSupported } from 'firebase/messaging';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
   PortfolioState, PositionCategory, AppSettings,
   NewsItem,
@@ -68,6 +69,7 @@ const firebaseConfig = {
 let app;
 export let auth: any;
 export let db: any;
+export let functions: any;
 let isConfigured = true;
 
 try {
@@ -102,6 +104,7 @@ try {
     .catch((error) => console.error("[Auth] Failed to set persistence:", error));
 
   db = getFirestore(app);
+  functions = getFunctions(app);
   console.log("Firebase initialized successfully.");
 
   // 初始化 Messaging
@@ -771,6 +774,16 @@ export const subscribeToPushNotifications = async (uid: string | null): Promise<
           });
       }
 
+      // --- 階段二：呼叫後端訂閱 Topics ---
+      try {
+        const subscribeFn = httpsCallable(functions, 'subscribeToTopic');
+        const subscribeResult = await subscribeFn({ token });
+        console.log('[Push] Backend subscription result:', subscribeResult.data);
+      } catch (subError) {
+        console.error('[Push] Backend subscription failed:', subError);
+        // 注意：即便訂閱 Topic 失敗，Token 已存入 Firestore，單點推播仍有效
+      }
+
       return true;
     } else {
       console.warn("Failed to get FCM token.");
@@ -779,5 +792,32 @@ export const subscribeToPushNotifications = async (uid: string | null): Promise<
   } catch (err) {
     console.error("An error occurred while retrieving token. ", err);
     return false;
+  }
+};
+
+// ==========================================
+// 推播歷程 API
+// ==========================================
+export const getNotifications = async (userRole: string, limitCount = 50) => {
+  if (!db) throw new Error("Firebase DB not initialized.");
+  try {
+    const notificationsRef = collection(db, 'notifications');
+    const q = query(
+      notificationsRef,
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+    const snapshot = await getDocs(q);
+    const allNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // 單純在前端做 Topic 過濾 (all + user's tier)
+    const validTopics = ['all', `tier_${userRole}`];
+    // 未來也可以加上 user_$uid 做個人訊息過濾
+
+    // @ts-ignore
+    return allNotifs.filter(n => validTopics.includes(n.topic));
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    return [];
   }
 };
