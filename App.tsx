@@ -165,6 +165,29 @@ const App: React.FC = () => {
   const [showPushPrompt, setShowPushPrompt] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
 
+  // 處理推播權限彈窗邏輯
+  useEffect(() => {
+    const checkPushSubscription = async () => {
+      // 僅針對管理員進行偵錯階段的自動同步
+      if (userRole !== 'admin') return;
+
+      const dismissed = localStorage.getItem('libao_push_prompt_dismissed');
+
+      if (Notification.permission === 'granted') {
+        // 如果已經有權限，直接在背景執行一次訂閱與 Token 同步，確保 SW 連結正確
+        console.log("[Push] Permission already granted, syncing token...");
+        await subscribeToPushNotifications(user.uid);
+      } else if (!dismissed) {
+        // 如果還沒決定且沒被關閉過，才顯示彈窗
+        setShowPushPrompt(true);
+      }
+    };
+
+    if (user) {
+      checkPushSubscription();
+    }
+  }, [user, userRole]);
+
   const handleImportTrades = (newPortfolio: PortfolioState) => {
     saveAndSetPortfolio(newPortfolio);
     showToast('歷史交易匯入完成，資料已儲存', 'success');
