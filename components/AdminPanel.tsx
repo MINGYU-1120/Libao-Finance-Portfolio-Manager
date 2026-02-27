@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db, functions, updateUserRole, getAllUsers, getAllSectionMinTiers, updateSectionMinTier, logAdminAction, getAuditLogs, getPushDiagnostic, forceResetPushSettings, getTokenCount, deleteAllUserTokens } from '../services/firebase';
+import { db, functions, updateUserRole, getAllUsers, getAllSectionMinTiers, updateSectionMinTier, logAdminAction, getAuditLogs, getPushDiagnostic, forceResetPushSettings, getTokenCount, deleteAllUserTokens, checkTokenExists, subscribeToPushNotifications } from '../services/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { UserProfile, UserRole, AccessTier, AuditLog } from '../types';
 import { Shield, User, Clock, Search, Filter, AlertTriangle, CheckCircle, X, FileText, Activity, Download, Bell, Send, Upload, Zap, RefreshCw } from 'lucide-react';
@@ -1081,6 +1081,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, onImportTrades }) 
 const DiagnosticList: React.FC<{ currentUser: any }> = ({ currentUser }) => {
     const [info, setInfo] = useState<any>(null);
     const [dbCount, setDbCount] = useState<number | null>(null);
+    const [isSynced, setIsSynced] = useState<boolean | null>(null);
     const [loading, setLoading] = useState(true);
     const { showToast } = useToast();
 
@@ -1091,8 +1092,20 @@ const DiagnosticList: React.FC<{ currentUser: any }> = ({ currentUser }) => {
         if (currentUser?.uid) {
             const count = await getTokenCount(currentUser.uid);
             setDbCount(count);
+            if (data.token) {
+                const synced = await checkTokenExists(data.token);
+                setIsSynced(synced);
+            }
         }
         setLoading(false);
+    };
+
+    const handleManualSync = async () => {
+        if (!currentUser?.uid) return;
+        setLoading(true);
+        await subscribeToPushNotifications(currentUser.uid);
+        await refresh();
+        showToast("同步完成", "success");
     };
 
     const handleClearTokens = async () => {
@@ -1159,6 +1172,17 @@ const DiagnosticList: React.FC<{ currentUser: any }> = ({ currentUser }) => {
                         {dbCount ?? '...'} {dbCount && dbCount > 1 ? '(建議清理)' : ''}
                     </span>
                 </div>
+                <div className="flex justify-between p-2 bg-gray-950 rounded">
+                    <span className="text-gray-500">Local Token Synced:</span>
+                    <span className={isSynced ? 'text-green-400' : 'text-red-400'}>
+                        {isSynced === null ? 'Checking...' : (isSynced ? 'YES' : 'NO')}
+                    </span>
+                </div>
+                {!isSynced && isSynced !== null && (
+                    <button onClick={handleManualSync} className="w-full py-1 bg-indigo-900/40 text-indigo-300 border border-indigo-500/30 rounded">
+                        立即單獨同步此裝置
+                    </button>
+                )}
                 <div className="flex flex-col gap-1 p-2 bg-gray-950 rounded">
                     <span className="text-gray-500">FCM Token:</span>
                     <div className={`break-all text-[10px] ${tokenChanged ? 'text-yellow-400 animate-pulse' : 'text-indigo-300'}`}>

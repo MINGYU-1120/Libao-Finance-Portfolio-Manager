@@ -868,6 +868,20 @@ export const getTokenCount = async (uid: string) => {
 };
 
 /**
+ * 檢查特定 Token 是否存在於資料庫
+ */
+export const checkTokenExists = async (token: string) => {
+  if (!db) return false;
+  try {
+    const docRef = doc(db, 'fcm_tokens', token);
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists() && docSnap.data()?.status === 'active';
+  } catch (e) {
+    return false;
+  }
+};
+
+/**
  * 刪除特定 UID 的所有 Token (清理環境用)
  */
 export const deleteAllUserTokens = async (uid: string) => {
