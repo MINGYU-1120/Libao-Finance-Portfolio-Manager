@@ -868,6 +868,22 @@ export const getTokenCount = async (uid: string) => {
 };
 
 /**
+ * 刪除特定 UID 的所有 Token (清理環境用)
+ */
+export const deleteAllUserTokens = async (uid: string) => {
+  if (!db) return;
+  try {
+    const q = query(collection(db, 'fcm_tokens'), where('uid', '==', uid));
+    const snapshot = await getDocs(q);
+    const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+    console.log(`[Push] Deleted ${snapshot.size} tokens for user ${uid}`);
+  } catch (e) {
+    console.error("Error deleting tokens:", e);
+  }
+};
+
+/**
  * 強制重置 Service Worker 與推播註冊
  */
 export const forceResetPushSettings = async () => {

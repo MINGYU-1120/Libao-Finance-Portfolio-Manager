@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { db, functions, updateUserRole, getAllUsers, getAllSectionMinTiers, updateSectionMinTier, logAdminAction, getAuditLogs, getPushDiagnostic, forceResetPushSettings, getTokenCount } from '../services/firebase';
+import { db, functions, updateUserRole, getAllUsers, getAllSectionMinTiers, updateSectionMinTier, logAdminAction, getAuditLogs, getPushDiagnostic, forceResetPushSettings, getTokenCount, deleteAllUserTokens } from '../services/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { UserProfile, UserRole, AccessTier, AuditLog } from '../types';
-import { Shield, User, Clock, Search, Filter, AlertTriangle, CheckCircle, X, FileText, Activity, Download, Bell, Send, Upload, Zap } from 'lucide-react';
+import { Shield, User, Clock, Search, Filter, AlertTriangle, CheckCircle, X, FileText, Activity, Download, Bell, Send, Upload, Zap, RefreshCw } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 
 interface AdminPanelProps {
@@ -1095,6 +1095,15 @@ const DiagnosticList: React.FC<{ currentUser: any }> = ({ currentUser }) => {
         setLoading(false);
     };
 
+    const handleClearTokens = async () => {
+        if (window.confirm("這將移除資料庫中所有屬於您的通行證。確定嗎？")) {
+            setLoading(true);
+            await deleteAllUserTokens(currentUser.uid);
+            await refresh();
+            showToast("通行證已清理，請重新整理網頁重新綁定唯一 Token", "info");
+        }
+    };
+
     const testNativeNotify = () => {
         if (!("Notification" in window)) {
             alert("此瀏覽器不支持桌面通知");
@@ -1118,54 +1127,62 @@ const DiagnosticList: React.FC<{ currentUser: any }> = ({ currentUser }) => {
     if (info.token) localStorage.setItem('last_debug_token', info.token);
 
     return (
-        <div className="space-y-2 font-mono text-xs">
-            <div className="flex justify-between p-2 bg-gray-950 rounded">
-                <span className="text-gray-500">Permission:</span>
-                <span className={info.permission === 'granted' ? 'text-green-400' : 'text-red-400'}>{info.permission}</span>
-            </div>
-            <div className="flex justify-between p-2 bg-gray-950 rounded">
-                <span className="text-gray-500">Supported:</span>
-                <span className={info.supported ? 'text-green-400' : 'text-red-400'}>{info.supported ? 'YES' : 'NO'}</span>
-            </div>
-            <div className="flex justify-between p-2 bg-gray-950 rounded">
-                <span className="text-gray-500">DB Tokens (Active):</span>
-                <span className={dbCount && dbCount > 0 ? 'text-green-400' : 'text-yellow-400'}>{dbCount ?? 'Loading...'}</span>
-            </div>
-            <div className="flex flex-col gap-1 p-2 bg-gray-950 rounded">
-                <span className="text-gray-500">FCM Token:</span>
-                <div className={`break-all text-[10px] ${tokenChanged ? 'text-yellow-400 animate-pulse' : 'text-indigo-300'}`}>
-                    {info.token ? `${info.token.slice(0, 30)}...` : info.tokenError || 'None'}
-                </div>
-                {tokenChanged && <div className="text-[9px] text-yellow-500 font-bold">⚠️ Token 已更新！請嘗試發送推播。</div>}
-                {info.token && (
-                    <button
-                        onClick={() => {
-                            navigator.clipboard.writeText(info.token);
-                            showToast("Token 已複製到剪貼簿", "success");
-                        }}
-                        className="text-[10px] text-indigo-400 underline text-left mt-1"
-                    >
-                        複製完整 Token
-                    </button>
-                )}
-            </div>
-            <div className="flex flex-col gap-1 p-2 bg-gray-950 rounded">
-                <span className="text-gray-500">SW Registrations ({info.swCount}):</span>
-                {info.swList?.map((s: string, i: number) => (
-                    <div key={i} className="text-[10px] text-gray-400 truncate">{s}</div>
-                ))}
-            </div>
-
-            <div className="pt-2 flex flex-wrap gap-2">
-                <button onClick={refresh} className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-[10px] text-white">
-                    重新整理
+        <div className="space-y-4 font-mono text-xs">
+            {/* 頂部快速測試按鈕 */}
+            <div className="flex flex-wrap gap-2 pb-2 border-b border-gray-800">
+                <button onClick={refresh} className="flex items-center gap-1 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-white">
+                    <RefreshCw className="w-3 h-3" /> 重新整理
                 </button>
-                <button onClick={() => showToast("這是本地 Toast 測試！", "success")} className="px-2 py-1 bg-indigo-900/40 border border-indigo-500/30 hover:bg-indigo-900/60 rounded text-[10px] text-indigo-300">
-                    測試 UI Toast
-                </button>
-                <button onClick={testNativeNotify} className="px-2 py-1 bg-green-900/40 border border-green-500/30 hover:bg-green-900/60 rounded text-[10px] text-green-300">
+                <button onClick={testNativeNotify} className="px-2 py-1 bg-green-900/40 border border-green-500/30 hover:bg-green-900/60 rounded text-green-300">
                     測試系統橫幅
                 </button>
+                <button onClick={() => showToast("這是本地 Toast 測試！", "success")} className="px-2 py-1 bg-indigo-900/40 border border-indigo-500/30 hover:bg-indigo-900/60 rounded text-indigo-300">
+                    測試 UI Toast
+                </button>
+                <button onClick={handleClearTokens} className="px-2 py-1 bg-yellow-900/40 border border-yellow-500/30 hover:bg-yellow-900/60 rounded text-yellow-300">
+                    清理資料庫 Token
+                </button>
+            </div>
+
+            <div className="space-y-2">
+                <div className="flex justify-between p-2 bg-gray-950 rounded">
+                    <span className="text-gray-500">Permission:</span>
+                    <span className={info.permission === 'granted' ? 'text-green-400' : 'text-red-400'}>{info.permission}</span>
+                </div>
+                <div className="flex justify-between p-2 bg-gray-950 rounded">
+                    <span className="text-gray-500">Supported:</span>
+                    <span className={info.supported ? 'text-green-400' : 'text-red-400'}>{info.supported ? 'YES' : 'NO'}</span>
+                </div>
+                <div className="flex justify-between p-2 bg-gray-950 rounded">
+                    <span className="text-gray-500">DB Tokens (Active):</span>
+                    <span className={dbCount && dbCount > 0 ? (dbCount > 1 ? 'text-yellow-400' : 'text-green-400') : 'text-red-400'}>
+                        {dbCount ?? '...'} {dbCount && dbCount > 1 ? '(建議清理)' : ''}
+                    </span>
+                </div>
+                <div className="flex flex-col gap-1 p-2 bg-gray-950 rounded">
+                    <span className="text-gray-500">FCM Token:</span>
+                    <div className={`break-all text-[10px] ${tokenChanged ? 'text-yellow-400 animate-pulse' : 'text-indigo-300'}`}>
+                        {info.token ? `${info.token.slice(0, 30)}...` : info.tokenError || 'None'}
+                    </div>
+                    {tokenChanged && <div className="text-[9px] text-yellow-500 font-bold">⚠️ Token 已更新！請嘗試發送推播。</div>}
+                    {info.token && (
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText(info.token);
+                                showToast("Token 已複製到剪貼簿", "success");
+                            }}
+                            className="text-[10px] text-indigo-400 underline text-left mt-1"
+                        >
+                            複製完整 Token
+                        </button>
+                    )}
+                </div>
+                <div className="flex flex-col gap-1 p-2 bg-gray-950 rounded">
+                    <span className="text-gray-500">SW Registrations ({info.swCount}):</span>
+                    {info.swList?.map((s: string, i: number) => (
+                        <div key={i} className="text-[10px] text-gray-400 truncate">{s}</div>
+                    ))}
+                </div>
             </div>
         </div>
     );
