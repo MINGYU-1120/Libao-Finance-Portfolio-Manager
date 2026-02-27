@@ -38,7 +38,7 @@ import {
   collection,
   getDocs
 } from 'firebase/firestore';
-import { getMessaging, getToken, isSupported, onMessage } from 'firebase/messaging';
+import { getMessaging, getToken, isSupported, onMessage, deleteToken } from 'firebase/messaging';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
   PortfolioState, PositionCategory, AppSettings,
@@ -855,13 +855,28 @@ export const getPushDiagnostic = async () => {
  * 強制重置 Service Worker 與推播註冊
  */
 export const forceResetPushSettings = async () => {
+  try {
+    // 1. 嘗試刪除 Token
+    const messaging = getMessaging(app);
+    await deleteToken(messaging);
+    console.log("[Push] Token deleted.");
+  } catch (e) {
+    console.warn("[Push] Failed to delete token during reset", e);
+  }
+
+  // 2. 註銷所有 Service Workers
   if ('serviceWorker' in navigator) {
     const registrations = await navigator.serviceWorker.getRegistrations();
     for (const registration of registrations) {
       await registration.unregister();
+      console.log("[Push] Unregistered SW:", registration.scope);
     }
   }
+
+  // 3. 清除快取標記
   localStorage.removeItem('libao_push_prompt_dismissed');
+
+  // 4. 強制重新載入
   window.location.reload();
 };
 
