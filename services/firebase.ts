@@ -38,7 +38,7 @@ import {
   collection,
   getDocs
 } from 'firebase/firestore';
-import { getMessaging, getToken, isSupported } from 'firebase/messaging';
+import { getMessaging, getToken, isSupported, onMessage } from 'firebase/messaging';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
   PortfolioState, PositionCategory, AppSettings,
@@ -792,6 +792,24 @@ export const subscribeToPushNotifications = async (uid: string | null): Promise<
   } catch (err) {
     console.error("An error occurred while retrieving token. ", err);
     return false;
+  }
+};
+
+/**
+ * 監聽前台推播訊息 (Foreground Messaging)
+ * 當 App 正在開啟狀態時，接收到推播會觸發此回調
+ */
+export const setupForegroundMessaging = (onMessageReceived: (payload: any) => void) => {
+  if (!app) return () => { };
+  try {
+    const messaging = getMessaging(app);
+    return onMessage(messaging, (payload) => {
+      console.log('[Push] Foreground message received:', payload);
+      onMessageReceived(payload);
+    });
+  } catch (e) {
+    console.error("[Push] Failed to setup foreground listener", e);
+    return () => { };
   }
 };
 

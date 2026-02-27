@@ -168,7 +168,10 @@ const MartingalePerformanceChart: React.FC<MartingalePerformanceChartProps> = ({
         return 'NT$';
     };
 
-    if (displayData.length < 2) {
+    const hasBaseData = transactions && transactions.length > 0;
+    const hasFilteredData = displayData.length >= 2;
+
+    if (!hasBaseData) {
         return (
             <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-2xl shadow-lg border border-gray-700 h-[350px] flex flex-col items-center justify-center text-gray-500 gap-4">
                 <LineChart className="w-16 h-16 opacity-20" />
@@ -177,8 +180,8 @@ const MartingalePerformanceChart: React.FC<MartingalePerformanceChartProps> = ({
         );
     }
 
-    const minValue = Math.min(...displayData.map(d => d.displayValue));
-    const maxValue = Math.max(...displayData.map(d => d.displayValue));
+    const minValue = hasFilteredData ? Math.min(...displayData.map(d => d.displayValue)) : 0;
+    const maxValue = hasFilteredData ? Math.max(...displayData.map(d => d.displayValue)) : 0;
     let yTicks = calculateNiceTicks(minValue === maxValue ? minValue - 100 : minValue, maxValue === minValue ? maxValue + 100 : maxValue, 4);
 
     if (yTicks.length < 2) {
@@ -188,16 +191,19 @@ const MartingalePerformanceChart: React.FC<MartingalePerformanceChartProps> = ({
     const minY = yTicks[0] - (yTicks[1] - yTicks[0]) * 0.2;
     const maxY = yTicks[yTicks.length - 1] + (yTicks[1] - yTicks[0]) * 0.2;
 
-    const getX = (index: number) => padding.left + (index / (displayData.length - 1)) * (width - padding.left - padding.right);
+    const getX = (index: number) => {
+        if (!hasFilteredData || displayData.length < 2) return 0;
+        return padding.left + (index / (displayData.length - 1)) * (width - padding.left - padding.right);
+    };
     const getY = (value: number) => {
         if (maxY === minY) return height / 2;
         return height - padding.bottom - ((value - minY) / (maxY - minY)) * (height - padding.top - padding.bottom);
     };
 
-    const points = displayData.map((d, i) => `${getX(i)},${getY(d.displayValue)}`).join(' ');
-    const areaPoints = `${getX(0)},${height} ${points} ${getX(displayData.length - 1)},${height}`;
+    const points = hasFilteredData ? displayData.map((d, i) => `${getX(i)},${getY(d.displayValue)}`).join(' ') : '';
+    const areaPoints = hasFilteredData ? `${getX(0)},${height} ${points} ${getX(displayData.length - 1)},${height}` : '';
 
-    const latestPoint = displayData[displayData.length - 1];
+    const latestPoint = hasFilteredData ? displayData[displayData.length - 1] : { displayValue: 0 };
     const currentValue = latestPoint.displayValue;
     const isPositive = currentValue >= 0;
 
@@ -266,65 +272,90 @@ const MartingalePerformanceChart: React.FC<MartingalePerformanceChartProps> = ({
                     </div>
                 </div>
             </div>
+
+            {/* Timeframe Tabs */}
+            <div className="flex gap-1 mb-6 overflow-x-auto pb-2 no-scrollbar">
+                {(['1W', '1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as const).map(tf => (
+                    <button
+                        key={tf}
+                        onClick={() => setTimeframe(tf)}
+                        className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all whitespace-nowrap ${timeframe === tf
+                            ? 'bg-libao-gold text-gray-900 shadow-lg'
+                            : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+                            }`}
+                    >
+                        {tf === '1W' ? '1周' : tf === '1M' ? '1個月' : tf === '3M' ? '3個月' : tf === '6M' ? '6個月' : tf === 'YTD' ? '本年迄今' : tf === '1Y' ? '1年' : '全部'}
+                    </button>
+                ))}
+            </div>
             {/* ... rest of header (Value Display) needs update ... */}
 
             {/* Chart Area */}
             <div className="relative w-full aspect-[2/1] sm:aspect-[3/1] max-h-[300px]" onMouseLeave={() => setHoveredPoint(null)}>
-                <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
-                    <defs>
-                        <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
-                            <stop offset="0%" stopColor={mainColor} stopOpacity="0.2" />
-                            <stop offset="100%" stopColor={mainColor} stopOpacity="0" />
-                        </linearGradient>
-                    </defs>
+                {!hasFilteredData ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 bg-gray-800/50 rounded-xl border border-dashed border-gray-700">
+                        <LineChart className="w-8 h-8 mb-2 opacity-20" />
+                        <span className="text-xs">此區間無足夠數據</span>
+                    </div>
+                ) : (
+                    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
+                        <defs>
+                            <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
+                                <stop offset="0%" stopColor={mainColor} stopOpacity="0.2" />
+                                <stop offset="100%" stopColor={mainColor} stopOpacity="0" />
+                            </linearGradient>
+                        </defs>
 
-                    {/* Grid Lines */}
-                    {yTicks.map((tickVal) => {
-                        const y = getY(tickVal);
-                        return (
-                            <g key={tickVal}>
-                                <line x1="0" y1={y} x2={width - padding.right} y2={y} stroke="#374151" strokeWidth="1" strokeOpacity="0.5" />
-                                <text x={width} y={y} textAnchor="end" fill="#6b7280" fontSize="10" fontFamily="monospace" dy="4">{formatAxisValue(tickVal)}</text>
-                            </g>
-                        );
-                    })}
+                        {/* Grid Lines */}
+                        {yTicks.map((tickVal) => {
+                            const y = getY(tickVal);
+                            return (
+                                <g key={tickVal}>
+                                    <line x1="0" y1={y} x2={width - padding.right} y2={y} stroke="#374151" strokeWidth="1" strokeOpacity="0.5" />
+                                    <text x={width} y={y} textAnchor="end" fill="#6b7280" fontSize="10" fontFamily="monospace" dy="4">{formatAxisValue(tickVal)}</text>
+                                </g>
+                            );
+                        })}
 
-                    {/* Zero Line */}
-                    {minY < 0 && maxY > 0 && !yTicks.includes(0) && (
-                        <line x1="0" y1={getY(0)} x2={width - padding.right} y2={getY(0)} stroke="#9ca3af" strokeWidth="1" strokeDasharray="3 3" opacity="0.3" />
-                    )}
+                        {/* Zero Line */}
+                        {minY < 0 && maxY > 0 && !yTicks.includes(0) && (
+                            <line x1="0" y1={getY(0)} x2={width - padding.right} y2={getY(0)} stroke="#9ca3af" strokeWidth="1" strokeDasharray="3 3" opacity="0.3" />
+                        )}
 
-                    {/* Paths */}
-                    <path d={areaPoints} fill={`url(#${gradientId})`} stroke="none" />
-                    <path d={`M ${points}`} fill="none" stroke={mainColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                        {/* Paths */}
+                        <path d={areaPoints} fill={`url(#${gradientId})`} stroke="none" />
+                        <path d={`M ${points}`} fill="none" stroke={mainColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
 
-                    {/* Interactive Overlay */}
-                    {displayData.map((d, i) => (
-                        <rect
-                            key={i}
-                            x={getX(i) - (width / displayData.length / 2)}
-                            y={0}
-                            width={width / displayData.length}
-                            height={height}
-                            fill="transparent"
-                            onMouseEnter={() => setHoveredPoint({ date: d.date.toLocaleDateString(), value: d.displayValue, x: getX(i), y: getY(d.displayValue) })}
-                        />
-                    ))}
+                        {/* Interactive Overlay */}
+                        {displayData.map((d, i) => (
+                            <rect
+                                key={i}
+                                x={getX(i) - (width / displayData.length / 2)}
+                                y={0}
+                                width={width / displayData.length}
+                                height={height}
+                                fill="transparent"
+                                onMouseEnter={() => setHoveredPoint({ date: d.date.toLocaleDateString(), value: d.displayValue, x: getX(i), y: getY(d.displayValue) })}
+                            />
+                        ))}
 
-                    {/* Hover Indicator */}
-                    {hoveredPoint && (
-                        <>
-                            <line x1={hoveredPoint.x} y1={padding.top} x2={hoveredPoint.x} y2={height - padding.bottom} stroke="#4b5563" strokeWidth="1" strokeDasharray="4 4" />
-                            <circle cx={hoveredPoint.x} cy={hoveredPoint.y} r="5" fill="#1f2937" stroke={mainColor} strokeWidth="3" />
-                        </>
-                    )}
-                </svg>
+                        {/* Hover Indicator */}
+                        {hoveredPoint && (
+                            <>
+                                <line x1={hoveredPoint.x} y1={padding.top} x2={hoveredPoint.x} y2={height - padding.bottom} stroke="#4b5563" strokeWidth="1" strokeDasharray="4 4" />
+                                <circle cx={hoveredPoint.x} cy={hoveredPoint.y} r="5" fill="#1f2937" stroke={mainColor} strokeWidth="3" />
+                            </>
+                        )}
+                    </svg>
+                )}
             </div>
-            <div className="flex justify-between text-xs text-gray-500 mt-2 px-1 font-mono pr-[60px]">
-                <span>{displayData[0].date.toLocaleDateString()}</span>
-                <span>{displayData[Math.floor(displayData.length / 2)].date.toLocaleDateString()}</span>
-                <span>{displayData[displayData.length - 1].date.toLocaleDateString()}</span>
-            </div>
+            {hasFilteredData && (
+                <div className="flex justify-between text-xs text-gray-500 mt-2 px-1 font-mono pr-[60px]">
+                    <span>{displayData[0].date.toLocaleDateString()}</span>
+                    <span>{displayData[Math.floor(displayData.length / 2)].date.toLocaleDateString()}</span>
+                    <span>{displayData[displayData.length - 1].date.toLocaleDateString()}</span>
+                </div>
+            )}
         </div>
     );
 };

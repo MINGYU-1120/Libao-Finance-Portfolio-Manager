@@ -2,16 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { db, functions, updateUserRole, getAllUsers, getAllSectionMinTiers, updateSectionMinTier, logAdminAction, getAuditLogs } from '../services/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { UserProfile, UserRole, AccessTier, AuditLog } from '../types';
-import { Shield, User, Clock, Search, Filter, AlertTriangle, CheckCircle, X, FileText, Activity, Download, Bell, Send } from 'lucide-react';
+import { Shield, User, Clock, Search, Filter, AlertTriangle, CheckCircle, X, FileText, Activity, Download, Bell, Send, Upload } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 
 interface AdminPanelProps {
-    // isOpen removed
     currentUser: UserProfile | any;
-    // onClose removed
+    onImportTrades?: () => void;
 }
 
-const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
+const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, onImportTrades }) => {
     // ... (state vars same)
     const { showToast } = useToast();
     const [users, setUsers] = useState<UserProfile[]>([]);
@@ -378,6 +377,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser }) => {
                         </h1>
                         <p className="text-indigo-300/80 mt-2 font-mono text-sm tracking-wider pl-1">SYSTEM_ADMIN_DASHBOARD // V5.0</p>
                     </div>
+                    {onImportTrades && (
+                        <button
+                            id="btn-import-trades"
+                            onClick={onImportTrades}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl shadow-lg transition-all active:scale-95"
+                        >
+                            <Upload className="w-4 h-4" />
+                            匯入歷史交易
+                        </button>
+                    )}
                 </div>
 
                 {/* Tabs */}

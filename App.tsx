@@ -76,6 +76,7 @@ import { formatCurrency, formatTWD } from './utils/formatting';
 import { scrubSensitiveData } from './utils/privacy';
 import AdminPanel from './components/AdminPanel';
 import MartingalePanel from './components/MartingalePanel';
+import ImportTradesModal from './components/ImportTradesModal';
 import PersonalDashboard from './components/PersonalDashboard';
 import PersonalSummary from './components/PersonalSummary';
 import {
@@ -92,7 +93,8 @@ import {
   handleRedirectResult,
   checkAndFinishEmailLogin,
   getNotifications,
-  subscribeToNotifications
+  subscribeToNotifications,
+  setupForegroundMessaging
 } from './services/firebase';
 import { useToast } from './contexts/ToastContext';
 import { OrderData } from './components/OrderModal';
@@ -161,18 +163,33 @@ const App: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginModalMode, setLoginModalMode] = useState<'default' | 'confirm-email'>('default');
   const [showPushPrompt, setShowPushPrompt] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
-  /* 
+  const handleImportTrades = (newPortfolio: PortfolioState) => {
+    saveAndSetPortfolio(newPortfolio);
+    showToast('歷史交易匯入完成，資料已儲存', 'success');
+  };
+
+  // --- Foreground Notification Listener ---
   useEffect(() => {
-    if (user && isDataLoaded) {
+    const unsubscribe = setupForegroundMessaging((payload) => {
+      const title = payload?.notification?.title || '新的系統通知';
+      const body = payload?.notification?.body || '';
+      showToast(`${title}: ${body}`, 'info');
+    });
+    return () => unsubscribe();
+  }, [showToast]);
+
+  // 推播索取視窗 - 偵錯期間僅對 Admin 顯示
+  useEffect(() => {
+    if (user && isDataLoaded && userRole === 'admin') {
       const dismissed = localStorage.getItem('libao_push_prompt_dismissed');
       if (!dismissed) {
         const timer = setTimeout(() => setShowPushPrompt(true), 3000);
         return () => clearTimeout(timer);
       }
     }
-  }, [user, isDataLoaded]);
-  */
+  }, [user, isDataLoaded, userRole]);
 
   useEffect(() => {
     // Check if user has seen the crypto announcement
@@ -2511,7 +2528,7 @@ const App: React.FC = () => {
         )}
         {viewMode === 'ADMIN' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <AdminPanel currentUser={user} />
+            <AdminPanel currentUser={user} onImportTrades={() => setShowImportModal(true)} />
           </div>
         )}
       </main>
@@ -2529,10 +2546,19 @@ const App: React.FC = () => {
         initialMode={loginModalMode}
       />
 
-      {/* 暫時隱藏推播提醒 */}
-      {/* showPushPrompt && (
+      {showImportModal && userRole === 'admin' && (
+        <ImportTradesModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          portfolio={portfolio}
+          onImportComplete={handleImportTrades}
+        />
+      )}
+
+      {/* 僅 Admin 在偵錯期間可見 */}
+      {showPushPrompt && userRole === 'admin' && (
         <PushPromptModal onClose={() => setShowPushPrompt(false)} />
-      ) */}
+      )}
     </div >
   );
 };
