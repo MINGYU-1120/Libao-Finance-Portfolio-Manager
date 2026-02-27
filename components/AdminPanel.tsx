@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db, functions, updateUserRole, getAllUsers, getAllSectionMinTiers, updateSectionMinTier, logAdminAction, getAuditLogs } from '../services/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { UserProfile, UserRole, AccessTier, AuditLog } from '../types';
-import { Shield, User, Clock, Search, Filter, AlertTriangle, CheckCircle, X, FileText, Activity, Download, Bell, Send, Upload } from 'lucide-react';
+import { Shield, User, Clock, Search, Filter, AlertTriangle, CheckCircle, X, FileText, Activity, Download, Bell, Send, Upload, Zap } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 
 interface AdminPanelProps {
@@ -769,7 +769,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, onImportTrades }) 
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                                 {/* Form */}
                                 <div className="space-y-5">
-                                    <div className="flex bg-gray-900/50 p-1 rounded-xl border border-gray-700 mb-2">
+                                    <div className="flex bg-gray-900/50 p-1 rounded-xl border border-gray-700 mb-2 items-center">
                                         <button
                                             onClick={() => setPushMode('broadcast')}
                                             className={`flex-1 py-2 px-4 rounded-lg text-sm font-bold transition-all ${pushMode === 'broadcast' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
@@ -781,6 +781,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, onImportTrades }) 
                                             className={`flex-1 py-2 px-4 rounded-lg text-sm font-bold transition-all ${pushMode === 'direct' ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
                                         >
                                             個人私訊推播
+                                        </button>
+                                        {/* 測試按鈕 - 僅偵錯用 */}
+                                        <button
+                                            onClick={() => {
+                                                setPushMode('direct');
+                                                setDirectTargetUid(currentUser.uid);
+                                                setPushTitle('🔔 這是測試推播');
+                                                setPushBody('如果您看到這則訊息，代表您的 Token 與推播權限已正確設定！');
+                                                showToast("已自動填入您的測試資訊，請點擊下方「發送推播」", 'info');
+                                            }}
+                                            className="ml-2 p-2 bg-yellow-600/20 text-yellow-400 border border-yellow-600/50 rounded-lg hover:bg-yellow-600/40 transition-all shadow-lg"
+                                            title="自動填入我的 UID 進行測試"
+                                        >
+                                            <Zap className="w-4 h-4" />
                                         </button>
                                     </div>
 

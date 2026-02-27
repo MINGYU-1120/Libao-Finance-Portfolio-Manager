@@ -173,9 +173,10 @@ const App: React.FC = () => {
   // --- Foreground Notification Listener ---
   useEffect(() => {
     const unsubscribe = setupForegroundMessaging((payload) => {
+      console.log("[Push] Foreground message payload:", payload);
       const title = payload?.notification?.title || '新的系統通知';
       const body = payload?.notification?.body || '';
-      showToast(`${title}: ${body}`, 'info');
+      showToast(`【即時通知】${title}: ${body}`, 'success');
     });
     return () => unsubscribe();
   }, [showToast]);
