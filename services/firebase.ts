@@ -900,8 +900,21 @@ export const forceResetPushSettings = async () => {
   if ('serviceWorker' in navigator) {
     const registrations = await navigator.serviceWorker.getRegistrations();
     for (const registration of registrations) {
+      // 檢查是否為該死的殭屍 sub-scope
+      const isZombie = registration.scope.includes('firebase-cloud-messaging-push-scope');
       await registration.unregister();
-      console.log("[Push] Unregistered SW:", registration.scope);
+      console.log(`[Push] Unregistered ${isZombie ? 'ZOMBIE ' : ''}SW:`, registration.scope);
+    }
+  }
+
+  // 3. 額外清除可能存在的過期快取
+  if ('caches' in window) {
+    const cacheNames = await caches.keys();
+    for (const name of cacheNames) {
+      if (name.includes('firebase-messaging')) {
+        await caches.delete(name);
+        console.log("[Push] Deleted cache:", name);
+      }
     }
   }
 
