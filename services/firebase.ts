@@ -736,10 +736,22 @@ export const subscribeToPushNotifications = async (uid: string | null): Promise<
       return false;
     }
 
+    // 將設定注入到 Service Worker 讓他能直接呼叫 firebase API
+    let registration: ServiceWorkerRegistration | undefined;
+    if ('serviceWorker' in navigator) {
+      const swUrl = `/firebase-messaging-sw.js?apiKey=${firebaseConfig.apiKey}&projectId=${firebaseConfig.projectId}&messagingSenderId=${firebaseConfig.messagingSenderId}&appId=${firebaseConfig.appId}&storageBucket=${firebaseConfig.storageBucket}&authDomain=${firebaseConfig.authDomain}`;
+      try {
+        registration = await navigator.serviceWorker.register(swUrl);
+        console.log('Firebase Messaging SW registered with dynamic config', registration.scope);
+      } catch (err) {
+        console.error('Service Worker registration failed:', err);
+      }
+    }
+
     const messaging = getMessaging(app);
     const token = await getToken(messaging, {
-      // VAPID KEY 從 .env 取得，如果沒有則需在後台人工設定
-      vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
+      vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+      serviceWorkerRegistration: registration // 這行是解決「只有紅點、沒有推播」的關鍵
     });
 
     if (token) {
@@ -762,17 +774,6 @@ export const subscribeToPushNotifications = async (uid: string | null): Promise<
       }, { merge: true });
 
       console.log('FCM Token successfully saved to Firestore');
-
-      // 將設定注入到 Service Worker 讓他能直接呼叫 firebase API
-      if ('serviceWorker' in navigator) {
-        const swUrl = `/firebase-messaging-sw.js?apiKey=${firebaseConfig.apiKey}&projectId=${firebaseConfig.projectId}&messagingSenderId=${firebaseConfig.messagingSenderId}&appId=${firebaseConfig.appId}&storageBucket=${firebaseConfig.storageBucket}&authDomain=${firebaseConfig.authDomain}`;
-        navigator.serviceWorker.register(swUrl)
-          .then((registration) => {
-            console.log('Firebase Messaging SW registered with dynamic config', registration.scope);
-          }).catch(err => {
-            console.error('Service Worker registration failed:', err);
-          });
-      }
 
       // --- 階段二：呼叫後端訂閱 Topics ---
       try {
