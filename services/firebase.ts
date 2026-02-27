@@ -814,6 +814,56 @@ export const setupForegroundMessaging = (onMessageReceived: (payload: any) => vo
   }
 };
 
+/**
+ * 取得推播診斷資訊
+ */
+export const getPushDiagnostic = async () => {
+  const info: any = {
+    permission: 'unknown',
+    supported: false,
+    token: null,
+    swState: 'none',
+    vapidKeySet: !!import.meta.env.VITE_FIREBASE_VAPID_KEY
+  };
+
+  try {
+    info.supported = await isSupported();
+    info.permission = (window as any).Notification?.permission || 'unsupported';
+
+    if (info.supported) {
+      const messaging = getMessaging(app);
+      try {
+        info.token = await getToken(messaging, { vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY });
+      } catch (e) {
+        info.tokenError = (e as Error).message;
+      }
+    }
+
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      info.swCount = registrations.length;
+      info.swList = registrations.map(r => r.scope);
+    }
+  } catch (e) {
+    info.error = (e as Error).message;
+  }
+  return info;
+};
+
+/**
+ * 強制重置 Service Worker 與推播註冊
+ */
+export const forceResetPushSettings = async () => {
+  if ('serviceWorker' in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    for (const registration of registrations) {
+      await registration.unregister();
+    }
+  }
+  localStorage.removeItem('libao_push_prompt_dismissed');
+  window.location.reload();
+};
+
 // ==========================================
 // 推播歷程 API
 // ==========================================

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db, functions, updateUserRole, getAllUsers, getAllSectionMinTiers, updateSectionMinTier, logAdminAction, getAuditLogs } from '../services/firebase';
+import { db, functions, updateUserRole, getAllUsers, getAllSectionMinTiers, updateSectionMinTier, logAdminAction, getAuditLogs, getPushDiagnostic, forceResetPushSettings } from '../services/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { UserProfile, UserRole, AccessTier, AuditLog } from '../types';
 import { Shield, User, Clock, Search, Filter, AlertTriangle, CheckCircle, X, FileText, Activity, Download, Bell, Send, Upload, Zap } from 'lucide-react';
@@ -20,7 +20,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, onImportTrades }) 
     const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
     // Permission State
-    const [activeTab, setActiveTab] = useState<'users' | 'permissions' | 'batch' | 'push' | 'logs'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'permissions' | 'batch' | 'push' | 'logs' | 'debug'>('users');
     const [permissionMatrix, setPermissionMatrix] = useState<Record<string, AccessTier>>({
         'market_insider': AccessTier.ADMIN,
         'ai_picks': AccessTier.STANDARD,
@@ -400,7 +400,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, onImportTrades }) 
                         { id: 'permissions', label: '板塊權限', icon: Shield },
                         { id: 'batch', label: '批次權限', icon: Activity },
                         { id: 'push', label: '推播廣播', icon: Bell },
-                        { id: 'logs', label: '操作日誌', icon: FileText }
+                        { id: 'logs', label: '操作日誌', icon: FileText },
+                        { id: 'debug', label: '診斷工具', icon: Activity }
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -1040,8 +1041,96 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, onImportTrades }) 
                         </div>
                     )
                 }
+                {
+                    activeTab === 'debug' && (
+                        <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 animate-in slide-in-from-bottom-4 duration-300">
+                            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                                <Activity className="w-5 h-5 text-yellow-400" /> 手動診斷與維護 (Manual Diagnostics)
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest">推播狀態 (Push Status)</h4>
+                                    <DiagnosticList />
+                                </div>
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest">緊急修復 (Emergency Fixes)</h4>
+                                    <div className="p-4 bg-red-900/10 border border-red-900/30 rounded-xl space-y-4">
+                                        <p className="text-xs text-red-300 italic">如果您發現手機完全收不到推播（或重複看到提醒），這可以清除所有快取並重新嘗試註冊。</p>
+                                        <button
+                                            onClick={() => {
+                                                if (window.confirm("這將移除所有 Service Worker 快取並登出/重新整理。確定嗎？")) {
+                                                    forceResetPushSettings();
+                                                }
+                                            }}
+                                            className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-lg font-bold text-sm transition-all"
+                                        >
+                                            強制重置推播環境
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                }
 
             </div>
+        </div>
+    );
+};
+
+const DiagnosticList: React.FC = () => {
+    const [info, setInfo] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    const refresh = async () => {
+        setLoading(true);
+        const data = await getPushDiagnostic();
+        setInfo(data);
+        setLoading(false);
+    };
+
+    useEffect(() => { refresh(); }, []);
+
+    if (loading) return <div className="text-gray-500 font-mono text-xs animate-pulse">Running diagnostics...</div>;
+
+    return (
+        <div className="space-y-2 font-mono text-xs">
+            <div className="flex justify-between p-2 bg-gray-950 rounded">
+                <span className="text-gray-500">Permission:</span>
+                <span className={info.permission === 'granted' ? 'text-green-400' : 'text-red-400'}>{info.permission}</span>
+            </div>
+            <div className="flex justify-between p-2 bg-gray-950 rounded">
+                <span className="text-gray-500">Supported:</span>
+                <span className={info.supported ? 'text-green-400' : 'text-red-400'}>{info.supported ? 'YES' : 'NO'}</span>
+            </div>
+            <div className="flex justify-between p-2 bg-gray-950 rounded">
+                <span className="text-gray-500">VAPID Key Set:</span>
+                <span className={info.vapidKeySet ? 'text-green-400' : 'text-red-400'}>{info.vapidKeySet ? 'YES' : 'NO'}</span>
+            </div>
+            <div className="flex flex-col gap-1 p-2 bg-gray-950 rounded">
+                <span className="text-gray-500">FCM Token:</span>
+                <div className="break-all text-[10px] text-indigo-300">
+                    {info.token ? `${info.token.slice(0, 30)}...` : info.tokenError || 'None'}
+                </div>
+                {info.token && (
+                    <button
+                        onClick={() => {
+                            navigator.clipboard.writeText(info.token);
+                            alert("Token 已複製到剪貼簿");
+                        }}
+                        className="text-[10px] text-indigo-400 underline text-left mt-1"
+                    >
+                        複製完整 Token
+                    </button>
+                )}
+            </div>
+            <div className="flex flex-col gap-1 p-2 bg-gray-950 rounded">
+                <span className="text-gray-500">SW Registrations ({info.swCount}):</span>
+                {info.swList?.map((s: string, i: number) => (
+                    <div key={i} className="text-[10px] text-gray-400 truncate">{s}</div>
+                ))}
+            </div>
+            <button onClick={refresh} className="text-indigo-400 underline hover:text-indigo-300 transition-colors">重新掃描</button>
         </div>
     );
 };
