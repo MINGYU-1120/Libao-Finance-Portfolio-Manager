@@ -94,7 +94,8 @@ import {
   checkAndFinishEmailLogin,
   getNotifications,
   subscribeToNotifications,
-  setupForegroundMessaging
+  setupForegroundMessaging,
+  subscribeToPushNotifications
 } from './services/firebase';
 import { useToast } from './contexts/ToastContext';
 import { OrderData } from './components/OrderModal';
