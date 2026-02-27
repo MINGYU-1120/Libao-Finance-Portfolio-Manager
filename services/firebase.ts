@@ -36,7 +36,8 @@ import {
   limit,
   onSnapshot,
   collection,
-  getDocs
+  getDocs,
+  where
 } from 'firebase/firestore';
 import { getMessaging, getToken, isSupported, onMessage, deleteToken } from 'firebase/messaging';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -849,6 +850,21 @@ export const getPushDiagnostic = async () => {
     info.error = (e as Error).message;
   }
   return info;
+};
+
+/**
+ * 取得特定 UID 的 Token 數量
+ */
+export const getTokenCount = async (uid: string) => {
+  if (!db) return 0;
+  try {
+    const q = query(collection(db, 'fcm_tokens'), where('uid', '==', uid), where('status', '==', 'active'));
+    const snapshot = await getDocs(q);
+    return snapshot.size;
+  } catch (e) {
+    console.error("Error counting tokens:", e);
+    return -1;
+  }
 };
 
 /**

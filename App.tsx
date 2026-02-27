@@ -170,13 +170,14 @@ const App: React.FC = () => {
   useEffect(() => {
     const checkPushSubscription = async () => {
       // 僅針對管理員進行偵錯階段的自動同步
-      if (userRole !== 'admin') return;
+      const isAdmin = roles.includes('admin');
+      if (!isAdmin) return;
 
       const dismissed = localStorage.getItem('libao_push_prompt_dismissed');
 
       if (Notification.permission === 'granted') {
         // 如果已經有權限，直接在背景執行一次訂閱與 Token 同步，確保 SW 連結正確
-        console.log("[Push] Permission already granted, syncing token...");
+        console.log("[Push] Permission already granted, syncing token for admin...");
         await subscribeToPushNotifications(user.uid);
       } else if (!dismissed) {
         // 如果還沒決定且沒被關閉過，才顯示彈窗
@@ -184,10 +185,10 @@ const App: React.FC = () => {
       }
     };
 
-    if (user) {
+    if (user && !roleLoading) {
       checkPushSubscription();
     }
-  }, [user, userRole]);
+  }, [user, roles, roleLoading]);
 
   const handleImportTrades = (newPortfolio: PortfolioState) => {
     saveAndSetPortfolio(newPortfolio);
