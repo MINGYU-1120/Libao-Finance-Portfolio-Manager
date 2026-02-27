@@ -741,8 +741,9 @@ export const subscribeToPushNotifications = async (uid: string | null): Promise<
     if ('serviceWorker' in navigator) {
       const swUrl = `/firebase-messaging-sw.js?apiKey=${firebaseConfig.apiKey}&projectId=${firebaseConfig.projectId}&messagingSenderId=${firebaseConfig.messagingSenderId}&appId=${firebaseConfig.appId}&storageBucket=${firebaseConfig.storageBucket}&authDomain=${firebaseConfig.authDomain}`;
       try {
-        registration = await navigator.serviceWorker.register(swUrl);
-        console.log('Firebase Messaging SW registered with dynamic config', registration.scope);
+        // 強制指定 scope 為 '/'，防止進入救援模式的 sub-scope
+        registration = await navigator.serviceWorker.register(swUrl, { scope: '/' });
+        console.log('Firebase Messaging SW registered at root scope', registration.scope);
       } catch (err) {
         console.error('Service Worker registration failed:', err);
       }
