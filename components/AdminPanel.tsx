@@ -269,9 +269,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, onImportTrades }) 
                 });
 
                 if (result.data && !result.data.success) {
-                    showToast(`發送失敗: ${result.data.reason}`, "error");
+                    const errorStr = result.data.errors?.join('\n') || result.data.reason || '未知錯誤';
+                    showToast(`發送失敗 (FCM rejected):\n${errorStr}`, "error");
                     setIsPushing(false);
                     return;
+                } else if (result.data && result.data.failureCount > 0) {
+                    // 部分成功
+                    showToast(`部分送達: 成功 ${result.data.successCount}, 失敗 ${result.data.failureCount}`, "info");
                 }
             }
 

@@ -154,17 +154,20 @@ export const sendDirectMessage = functions.https.onCall(async (data, context) =>
     try {
         const response = await admin.messaging().sendEachForMulticast(message);
 
-        // 4. 清理無效 Token (Maintenance)
+        // 4. 清理無效 Token (Maintenance) 與 錯誤診斷
+        const errors: string[] = [];
         if (response.failureCount > 0) {
             const cleanupPromises: Promise<any>[] = [];
             response.responses.forEach((resp, idx) => {
                 if (!resp.success) {
                     const error = resp.error as any;
-                    // 如果錯誤原因是 Token 已失效或未註冊
+                    errors.push(`Token[${idx}]: ${error?.code || 'unknown'} - ${error?.message || ''}`);
+
                     if (error?.code === 'messaging/registration-token-not-registered' ||
-                        error?.code === 'messaging/invalid-registration-token') {
+                        error?.code === 'messaging/invalid-registration-token' ||
+                        error?.code === 'messaging/mismatched-sender-id') {
                         const invalidToken = tokens[idx];
-                        console.log(`[Push] Cleaning up invalid token: ${invalidToken}`);
+                        console.log(`[Push] Cleaning up invalid token: ${invalidToken} due to ${error.code}`);
                         cleanupPromises.push(admin.firestore().collection('fcm_tokens').doc(invalidToken).delete());
                     }
                 }
@@ -172,7 +175,7 @@ export const sendDirectMessage = functions.https.onCall(async (data, context) =>
             await Promise.all(cleanupPromises);
         }
 
-        // 5. 紀錄到通知歷程 (標註為個人通知)
+        // 5. 紀錄到通知歷程
         await admin.firestore().collection('notifications').add({
             title,
             body,
@@ -184,14 +187,16 @@ export const sendDirectMessage = functions.https.onCall(async (data, context) =>
         });
 
         console.log(`[Push] Direct message sent to ${targetUid}, successes: ${response.successCount}, failures: ${response.failureCount}`);
+
         return {
-            success: true,
+            success: response.successCount > 0,
             successCount: response.successCount,
-            failureCount: response.failureCount
+            failureCount: response.failureCount,
+            errors: errors // 回傳給前端看
         };
-    } catch (error) {
+    } catch (error: any) {
         console.error("[Push] Direct Send error:", error);
-        throw new functions.https.HttpsError("internal", "發送個人推播時發生錯誤");
+        throw new functions.https.HttpsError("internal", error.message || "發送個人推播時發生錯誤");
     }
 });
 
