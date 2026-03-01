@@ -19,7 +19,7 @@ export const getTier = (role: UserRole): AccessTier => {
 };
 
 export type MarketType = 'US' | 'TW';
-export type CapitalType = 'DEPOSIT' | 'WITHDRAW' | 'ADJUST';
+export type CapitalType = 'DEPOSIT' | 'WITHDRAW' | 'ADJUST' | 'TRANSFER' | 'PROFIT_REINVEST';
 
 export interface UserProfile {
   uid: string;
@@ -114,6 +114,7 @@ export interface CalculatedAsset extends Asset {
 export interface CalculatedCategory {
   id: string;
   name: string;
+  note?: string;
   market: MarketType;
   projectedInvestment: number;
   remainingCash: number;
@@ -122,6 +123,15 @@ export interface CalculatedCategory {
   assets: CalculatedAsset[];
   allocationPercent?: number;
   realizedPnL?: number;
+  withdrawnProfit?: number;
+  availableProfit?: number;
+}
+
+// 馬丁策略專屬手續費設定（可獨立於全域 AppSettings）
+export interface MartingaleFeeSettings {
+  enableFees?: boolean;
+  twFeeDiscount?: number;
+  usBroker?: 'Firstrade' | 'IBKR' | 'Sub-brokerage';
 }
 
 export interface PortfolioState {
@@ -131,6 +141,7 @@ export interface PortfolioState {
   transactions: TransactionRecord[];
   capitalLogs: CapitalLogEntry[];
   martingale?: PositionCategory[];
+  martingaleFeeSettings?: MartingaleFeeSettings;
   syncedMartingaleCapital?: number;
   lastModified?: number;
 }
@@ -138,6 +149,7 @@ export interface PortfolioState {
 export interface PositionCategory {
   id: string;
   name: string;
+  note?: string;
   market: MarketType;
   allocationPercent: number;
   assets: Asset[];
@@ -197,4 +209,7 @@ export interface CapitalLogEntry {
   amount: number;
   note?: string;
   isMartingale?: boolean;
+  previousAllocations?: { id: string, percent: number }[];
+  sourceCategoryId?: string;
+  targetCategoryId?: string;
 }

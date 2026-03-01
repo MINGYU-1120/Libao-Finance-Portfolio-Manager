@@ -3,15 +3,18 @@ import { CalculatedCategory, UserRole, AccessTier, getTier } from '../types';
 import { PieChart, RefreshCw, ChevronRight, GraduationCap, ArrowRight, Quote, ArrowUp, ArrowDown, Trash2, Check, Lock, Shield, Edit3 } from 'lucide-react';
 import { formatTWD } from '../utils/formatting';
 import EditCategoryModal from './EditCategoryModal';
+import CashTransferModal from './CashTransferModal';
+import { ArrowRightLeft as TransferIcon } from 'lucide-react';
 
 interface MartingaleSummaryProps {
     categories: CalculatedCategory[];
     totalCapital: number;
-    onEditCategory?: (id: string, name: string, allocation: number) => void;
+    onEditCategory?: (id: string, name: string, allocation: number, note: string) => void;
     onSelectCategory: (id: string) => void;
     onRefreshCategory?: (id: string) => Promise<void>;
     onDeleteCategory?: (id: string) => void;
     onMoveCategory?: (id: string, direction: 'up' | 'down') => void;
+    onTransferCash?: (fromId: string, toId: string, amount: number, mode: 'budget' | 'profit') => void;
     onAddCategory?: () => void; // New prop
     isPrivacyMode: boolean;
     isMasked?: boolean;
@@ -31,13 +34,16 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
     isPrivacyMode,
     isMasked = false,
     readOnly = true,
-    userRole = 'viewer'
+    userRole = 'viewer',
+    onTransferCash
 }) => {
     const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
     // Modal State
     const [editingCategory, setEditingCategory] = useState<CalculatedCategory | null>(null);
+    const [transferSource, setTransferSource] = useState<CalculatedCategory | null>(null);
     const [editMode, setEditMode] = useState<'name' | 'allocation'>('allocation');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
 
     const handleEdit = (cat: CalculatedCategory, mode: 'name' | 'allocation') => {
         setEditingCategory(cat);
@@ -84,7 +90,7 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                     <div className="text-right hidden md:flex flex-col items-end gap-2">
                         <div>
                             <div className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1">總資產配置 (Total Allocation)</div>
-                            <div className="text-2xl font-black text-libao-gold font-mono">{maskValue(totalPercent)}%</div>
+                            <div className="text-2xl font-black text-libao-gold font-mono">{maskValue(typeof totalPercent === 'number' ? totalPercent.toFixed(2) : totalPercent)}%</div>
                         </div>
                     </div>
                 </div>
@@ -123,11 +129,11 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                                                 }}
                                                 className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-libao-gold/50 transition-all group/btn"
                                             >
-                                                <span className="text-xs font-bold text-libao-gold group-hover/btn:text-yellow-300">{cat.allocationPercent}% 配置</span>
+                                                <span className="text-xs font-bold text-libao-gold group-hover/btn:text-yellow-300">{cat.allocationPercent.toFixed(2)}% 配置</span>
                                                 <Edit3 className="w-3 h-3 text-slate-500 group-hover/btn:text-libao-gold" />
                                             </button>
                                         ) : (
-                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{cat.allocationPercent}% 配置</span>
+                                            <span className="text-[10px] font-bold text-gray-500 uppercase">{cat.allocationPercent.toFixed(2)}% 配置</span>
                                         )}
                                     </div>
                                     <h3 className={`text-xl font-bold tracking-tight flex items-center gap-2 ${isLocked ? 'text-slate-500' : 'text-slate-100'}`}>
@@ -146,6 +152,9 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                                         )}
                                         {isLocked && <Shield className="w-4 h-4 text-slate-600" />}
                                     </h3>
+                                    {cat.note && (
+                                        <p className="text-xs text-slate-500 italic mt-0.5 ml-0.5">{cat.note}</p>
+                                    )}
                                 </div>
                                 <div className="text-right">
                                     <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">已實現</div>
@@ -288,6 +297,9 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                                                 </button>
                                             )}
                                         </div>
+                                        {cat.note && (
+                                            <div className="text-xs text-slate-500 italic mt-0.5">{cat.note}</div>
+                                        )}
                                     </td>
                                     <td className="p-5 text-center" onClick={(e) => e.stopPropagation()}>
                                         {!readOnly && onEditCategory && !isLocked ? (
@@ -298,11 +310,13 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                                                 }}
                                                 className="flex items-center justify-center gap-1.5 group/btn hover:bg-slate-800 px-2 py-1 rounded transition-colors"
                                             >
-                                                <span className="font-mono font-bold text-libao-gold text-lg group-hover/btn:text-yellow-300">{cat.allocationPercent}%</span>
+                                                <span className="font-mono font-bold text-libao-gold text-lg group-hover/btn:text-yellow-300">{cat.allocationPercent.toFixed(2)}%</span>
                                                 <Edit3 className="w-3 h-3 text-slate-600 group-hover/btn:text-libao-gold opacity-0 group-hover/btn:opacity-100 transition-all" />
                                             </button>
                                         ) : (
-                                            <span className="font-mono font-bold text-slate-400 text-lg">{cat.allocationPercent}%</span>
+                                            <div className="font-mono font-black text-white text-base">
+                                                {cat.allocationPercent.toFixed(2)}%
+                                            </div>
                                         )}
                                     </td>
                                     <td className="p-5 text-right" onClick={(e) => e.stopPropagation()}>
@@ -342,6 +356,20 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                                             >
                                                 <RefreshCw className={`w-3.5 h-3.5 ${refreshingIds.has(cat.id) ? 'animate-spin' : ''}`} />
                                             </button>
+                                            {!readOnly && onTransferCash && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setTransferSource(cat);
+                                                        setIsTransferModalOpen(true);
+                                                    }}
+                                                    disabled={isLocked || (cat.remainingCash <= 0 && (cat.availableProfit || 0) <= 0)}
+                                                    className={`p-1.5 rounded-lg border border-slate-700 hover:bg-slate-800 transition-all active:scale-95 ${isLocked || (cat.remainingCash <= 0 && (cat.availableProfit || 0) <= 0) ? 'opacity-30 cursor-not-allowed text-slate-700' : 'text-libao-gold'}`}
+                                                    title="轉移資金"
+                                                >
+                                                    <TransferIcon className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
                                             {!readOnly && onDeleteCategory && (
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); onDeleteCategory(cat.id); }}
@@ -386,12 +414,27 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                     onClose={() => { setIsEditModalOpen(false); setEditingCategory(null); }}
                     category={editingCategory}
                     totalCapital={totalCapital}
-                    onSave={(id, name, alloc) => {
-                        if (onEditCategory) onEditCategory(id, name, alloc);
+                    onSave={(id, name, alloc, note) => {
+                        if (onEditCategory) onEditCategory(id, name, alloc, note);
                     }}
                     isPrivacyMode={isPrivacyMode}
                     isMartingale={true}
                     initialMode={editMode}
+                />
+            )}
+
+            {/* Transfer Modal */}
+            {transferSource && (
+                <CashTransferModal
+                    isOpen={isTransferModalOpen}
+                    onClose={() => { setIsTransferModalOpen(false); setTransferSource(null); }}
+                    sourceCategory={transferSource}
+                    allCategories={categories}
+                    totalCapital={totalCapital}
+                    isPrivacyMode={isPrivacyMode}
+                    onTransfer={(fromId, toId, amount, mode) => {
+                        if (onTransferCash) onTransferCash(fromId, toId, amount, mode);
+                    }}
                 />
             )}
         </div>

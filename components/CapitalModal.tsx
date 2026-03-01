@@ -70,7 +70,9 @@ const CapitalModal: React.FC<CapitalModalProps> = ({
   const maskValue = (val: string | number) => isPrivacyMode ? '*******' : val;
 
   const totalCapital = capitalLogs.reduce((sum, log) => {
-    return log.type === 'DEPOSIT' ? sum + log.amount : sum - log.amount;
+    if (log.type === 'DEPOSIT') return sum + log.amount;
+    if (log.type === 'WITHDRAW') return sum - log.amount;
+    return sum; // Ignore TRANSFER/ADJUST in external capital sum
   }, 0);
 
   return (
@@ -181,12 +183,15 @@ const CapitalModal: React.FC<CapitalModalProps> = ({
                       <tr key={log.id} className="hover:bg-gray-50 group">
                         <td className="p-3">
                           <div className="flex items-center gap-2">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${log.type === 'DEPOSIT' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                              {log.type === 'DEPOSIT' ? '入' : '出'}
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${log.type === 'DEPOSIT' ? 'bg-red-100 text-red-700' :
+                                log.type === 'WITHDRAW' ? 'bg-green-100 text-green-700' :
+                                  'bg-blue-100 text-blue-700'
+                              }`}>
+                              {log.type === 'DEPOSIT' ? '入' : log.type === 'WITHDRAW' ? '出' : '轉'}
                             </div>
                             <div>
                               <div className="font-bold text-gray-800 text-xs">
-                                {log.type === 'DEPOSIT' ? '入金' : '出金'}
+                                {log.type === 'DEPOSIT' ? '入金' : log.type === 'WITHDRAW' ? '出金' : '預算轉移'}
                               </div>
                               <div className="text-[10px] text-gray-400">
                                 {new Date(log.date).toLocaleDateString()}
@@ -199,8 +204,11 @@ const CapitalModal: React.FC<CapitalModalProps> = ({
                             {log.note || '-'}
                           </div>
                         </td>
-                        <td className={`p-3 text-right font-mono font-bold ${log.type === 'DEPOSIT' ? 'text-red-600' : 'text-green-600'}`}>
-                          {log.type === 'DEPOSIT' ? '+' : '-'}{maskValue(log.amount.toLocaleString())}
+                        <td className={`p-3 text-right font-mono font-bold ${log.type === 'DEPOSIT' ? 'text-red-600' :
+                            log.type === 'WITHDRAW' ? 'text-green-600' :
+                              'text-blue-600'
+                          }`}>
+                          {log.type === 'DEPOSIT' ? '+' : log.type === 'WITHDRAW' ? '-' : '⇄'}{maskValue(log.amount.toLocaleString())}
                         </td>
                         <td className="p-3 text-right w-10">
                           <button

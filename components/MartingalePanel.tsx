@@ -1,4 +1,4 @@
-import { CalculatedCategory, CalculatedAsset, AppSettings, UserRole, TransactionRecord } from '../types';
+import { CalculatedCategory, CalculatedAsset, AppSettings, UserRole, TransactionRecord, MartingaleFeeSettings } from '../types';
 import DetailTable from './DetailTable';
 import MartingaleSummary from './MartingaleSummary';
 import MartingaleDashboard from './MartingaleDashboard';
@@ -13,6 +13,7 @@ interface MartingaleOperations {
     onUpdateAssetPrice: (categoryId: string, assetId: string, symbol: string, market: string) => Promise<void>;
     onDeleteCategory: (categoryId: string) => void;
     onMoveCategory: (categoryId: string, direction: 'up' | 'down') => void;
+    onTransferCash: (fromId: string, toId: string, amount: number, mode: 'budget' | 'profit') => void;
 }
 
 interface MartingalePanelProps {
@@ -21,7 +22,7 @@ interface MartingalePanelProps {
     userRole: UserRole;
     isPrivacyMode: boolean;
     settings: AppSettings;
-    onEditCategory: (id: string, name: string, allocation: number) => void;
+    onEditCategory: (id: string, name: string, allocation: number, note: string) => void;
     onAddCategory: () => void;
     operations: MartingaleOperations;
     activeCategoryId: string | null;
@@ -31,6 +32,7 @@ interface MartingalePanelProps {
     onDeposit?: () => void; // New Prop
     onReset?: () => void; // New Reset Prop
     isMasked?: boolean;
+    martingaleFeeSettings?: MartingaleFeeSettings; // 馬丁策略專屬手續費設定
 }
 
 const MartingalePanel: React.FC<MartingalePanelProps> = ({
@@ -48,10 +50,17 @@ const MartingalePanel: React.FC<MartingalePanelProps> = ({
     industryData, // destructure
     onDeposit, // destructure
     onReset,
-    isMasked = false
+    isMasked = false,
+    martingaleFeeSettings
 }) => {
     const isAdmin = userRole === 'admin';
     const readOnly = !isAdmin;
+
+    // 將馬丁專屬手續費設定覆蓋全域設定，傳入下單 Modal
+    const effectiveSettings: AppSettings = {
+        ...settings,
+        ...(martingaleFeeSettings ?? {})
+    };
 
     const activeCategory = categories.find(c => c.id === activeCategoryId);
 
@@ -74,7 +83,7 @@ const MartingalePanel: React.FC<MartingalePanelProps> = ({
                     onUpdateCategoryPrices={() => operations.onUpdatePrice(activeCategory.id)}
                     onUpdateAssetNote={() => { }} // Not implemented in top level yet based on props
                     isPrivacyMode={isPrivacyMode}
-                    settings={settings}
+                    settings={effectiveSettings}
                     readOnly={readOnly}
                     isMasked={isMasked}
                 />
@@ -101,6 +110,7 @@ const MartingalePanel: React.FC<MartingalePanelProps> = ({
                         onEditCategory={onEditCategory}
                         onDeleteCategory={operations.onDeleteCategory}
                         onMoveCategory={operations.onMoveCategory}
+                        onTransferCash={operations.onTransferCash}
                         onAddCategory={onAddCategory} // Pass prop
                         isPrivacyMode={isPrivacyMode}
                         readOnly={readOnly}

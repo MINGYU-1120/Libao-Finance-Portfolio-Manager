@@ -53,6 +53,7 @@ import TransactionHistory from './components/TransactionHistory';
 import DividendLedger from './components/DividendLedger';
 import SettingsModal from './components/SettingsModal';
 import FeeSettingsModal from './components/FeeSettingsModal';
+import MartingaleFeeSettingsModal from './components/MartingaleFeeSettingsModal';
 
 import DividendModal, { ScannedDividend } from './components/DividendModal';
 import MonthlyPnLChart from './components/MonthlyPnLChart';
@@ -273,6 +274,7 @@ const App: React.FC = () => {
 
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showFeeSettingsModal, setShowFeeSettingsModal] = useState(false);
+  const [showMartingaleFeeSettingsModal, setShowMartingaleFeeSettingsModal] = useState(false);
   const [showDividendModal, setShowDividendModal] = useState(false);
   const [showCapitalModal, setShowCapitalModal] = useState(false);
   const [capitalModalSource, setCapitalModalSource] = useState<'personal' | 'martingale'>('personal');
@@ -644,7 +646,20 @@ const App: React.FC = () => {
     let totalMarketValue = 0;
     let totalRealizedPnL = 0;
 
-    // Reset categories for recalculation
+    // 1. Calculate base capitals from logs first
+    const personalTotalCapital = portfolio.capitalLogs
+      .filter(l => l.isMartingale !== true)
+      .reduce((s, log) => (log.type === 'DEPOSIT' || log.type === 'PROFIT_REINVEST') ? s + log.amount : (log.type === 'WITHDRAW' ? s - log.amount : s), 0);
+
+    const martingaleTotalCapitalFromLogs = portfolio.capitalLogs
+      .filter(l => l.isMartingale === true)
+      .reduce((s, log) => (log.type === 'DEPOSIT' || log.type === 'PROFIT_REINVEST') ? s + log.amount : (log.type === 'WITHDRAW' ? s - log.amount : s), 0);
+
+    const martingaleTotalCapital = (userRole !== 'admin' && portfolio.syncedMartingaleCapital)
+      ? portfolio.syncedMartingaleCapital
+      : martingaleTotalCapitalFromLogs;
+
+    // 2. Map through personal categories using the base capital
     const calculatedCats: CalculatedCategory[] = catsCopy.map(cat => {
       // Find Category-specific PnL (Realized) from Transactions
       const catRealizedPnL = portfolio.transactions
@@ -653,7 +668,14 @@ const App: React.FC = () => {
 
       totalRealizedPnL += catRealizedPnL;
 
-      const projectedInvestment = Math.floor(portfolio.totalCapital * (cat.allocationPercent / 100));
+      // Use the actual personal capital instead of the potentially stale portfolio.totalCapital
+      const projectedInvestment = Math.floor(personalTotalCapital * (cat.allocationPercent / 100));
+
+      const withdrawnProfit = portfolio.capitalLogs
+        .filter(l => l.type === 'PROFIT_REINVEST' && l.sourceCategoryId === cat.id && l.isMartingale !== true)
+        .reduce((sum, l) => sum + l.amount, 0);
+
+      const availableProfit = Math.max(0, catRealizedPnL - withdrawnProfit);
 
       return {
         ...cat,
@@ -662,6 +684,8 @@ const App: React.FC = () => {
         remainingCash: 0,
         investmentRatio: 0,
         realizedPnL: catRealizedPnL,
+        withdrawnProfit,
+        availableProfit,
         assets: [] as CalculatedAsset[]
       };
     });
@@ -704,18 +728,6 @@ const App: React.FC = () => {
         a.portfolioRatio = cat.projectedInvestment > 0 ? (a.costBasis / cat.projectedInvestment) * 100 : 0;
       });
     });
-
-    const personalTotalCapital = portfolio.capitalLogs
-      .filter(l => l.isMartingale !== true)
-      .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
-
-    const martingaleTotalCapitalFromLogs = portfolio.capitalLogs
-      .filter(l => l.isMartingale === true)
-      .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
-
-    const martingaleTotalCapital = (userRole !== 'admin' && portfolio.syncedMartingaleCapital)
-      ? portfolio.syncedMartingaleCapital
-      : martingaleTotalCapitalFromLogs;
 
     const totalUnrealizedPnL = totalMarketValue - totalInvested;
 
@@ -768,6 +780,12 @@ const App: React.FC = () => {
         })
         .reduce((sum, t) => sum + (t.realizedPnL || 0), 0);
 
+      const withdrawnProfit = portfolio.capitalLogs
+        .filter(l => l.type === 'PROFIT_REINVEST' && l.sourceCategoryId === cat.id && l.isMartingale === true)
+        .reduce((sum, l) => sum + l.amount, 0);
+
+      const availableProfit = Math.max(0, catRealizedPnL - withdrawnProfit);
+
       return {
         ...cat,
         assets: calcAssets,
@@ -775,7 +793,9 @@ const App: React.FC = () => {
         investedAmount: catInvested,
         remainingCash: projected - catInvested,
         investmentRatio: projected > 0 ? (catInvested / projected) * 100 : 0,
-        realizedPnL: catRealizedPnL
+        realizedPnL: catRealizedPnL,
+        withdrawnProfit,
+        availableProfit
       };
     });
 
@@ -1237,7 +1257,7 @@ const App: React.FC = () => {
    * Unified Edit Handler for Personal Portfolio
    * Handles both Name Renaming (with Batch Transaction Update) and Allocation Change
    */
-  const handleEditCategory = (id: string, newName: string, newAllocation: number) => {
+  const handleEditCategory = (id: string, newName: string, newAllocation: number, newNote: string) => {
     const category = portfolio.categories.find(c => c.id === id);
     if (!category) return;
 
@@ -1268,7 +1288,7 @@ const App: React.FC = () => {
     }
 
     const newCategories = portfolio.categories.map(c =>
-      c.id === id ? { ...c, name: trimmedName, allocationPercent: newAllocation } : c
+      c.id === id ? { ...c, name: trimmedName, allocationPercent: newAllocation, note: newNote || undefined } : c
     );
 
     saveAndSetPortfolio({
@@ -1283,7 +1303,7 @@ const App: React.FC = () => {
   /* 
    * Unified Edit Handler for Martingale Portfolio
    */
-  const handleEditMartingaleCategory = (id: string, newName: string, newAllocation: number) => {
+  const handleEditMartingaleCategory = (id: string, newName: string, newAllocation: number, newNote: string) => {
     const cats = Array.isArray(portfolio.martingale) ? [...portfolio.martingale] : [];
     const category = cats.find(c => c.id === id);
     if (!category) return;
@@ -1315,7 +1335,7 @@ const App: React.FC = () => {
     }
 
     const newCats = cats.map(c =>
-      c.id === id ? { ...c, name: trimmedName, allocationPercent: newAllocation } : c
+      c.id === id ? { ...c, name: trimmedName, allocationPercent: newAllocation, note: newNote || undefined } : c
     );
 
     saveAndSetPortfolio({
@@ -1326,6 +1346,168 @@ const App: React.FC = () => {
 
     showToast("馬丁倉位更新成功", "success");
   };
+
+  const handleTransferMartingaleCash = (fromId: string, toId: string, amount: number, mode: 'budget' | 'profit' = 'budget') => {
+    const cats = Array.isArray(portfolio.martingale) ? [...portfolio.martingale] : [];
+    const sourceCat = cats.find(c => c.id === fromId);
+    const targetCat = cats.find(c => c.id === toId);
+
+    if (!sourceCat || !targetCat || amount <= 0) return;
+
+    // 1. Calculate current total capital
+    const martingaleTotalCapitalFromLogs = portfolio.capitalLogs
+      .filter(l => l.isMartingale === true)
+      .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
+
+    const currentTotalCapital = (userRole !== 'admin' && portfolio.syncedMartingaleCapital)
+      ? portfolio.syncedMartingaleCapital
+      : martingaleTotalCapitalFromLogs;
+
+    if (currentTotalCapital <= 0) {
+      showToast("馬丁總資金不足，無法計算比例", "error");
+      return;
+    }
+
+    let newTotalCapital = currentTotalCapital;
+    let newLogs = [...portfolio.capitalLogs];
+
+    if (mode === 'profit') {
+      newTotalCapital = currentTotalCapital + amount;
+      newLogs.push({
+        id: uuidv4(),
+        date: new Date().toISOString(),
+        amount: amount,
+        type: 'PROFIT_REINVEST',
+        isMartingale: true,
+        note: `利潤再投入：從 ${sourceCat.name} 轉入 ${targetCat.name}`,
+        previousAllocations: cats.map(c => ({ id: c.id, percent: c.allocationPercent })),
+        sourceCategoryId: fromId,
+        targetCategoryId: toId
+      });
+    } else if (mode === 'budget') {
+      newLogs.push({
+        id: uuidv4(),
+        date: new Date().toISOString(),
+        amount: amount,
+        type: 'TRANSFER',
+        isMartingale: true,
+        note: `預算對調：從 ${sourceCat.name} 轉至 ${targetCat.name}`,
+        previousAllocations: cats.map(c => ({ id: c.id, percent: c.allocationPercent }))
+      });
+    }
+
+    const newCats = cats.map(c => {
+      const currentDollarAmount = currentTotalCapital * (c.allocationPercent / 100);
+      let nextDollarAmount = currentDollarAmount;
+      if (mode === 'budget') {
+        if (c.id === fromId) nextDollarAmount = Math.max(0, currentDollarAmount - amount);
+        else if (c.id === toId) nextDollarAmount = currentDollarAmount + amount;
+      } else {
+        if (c.id === toId) nextDollarAmount = currentDollarAmount + amount;
+      }
+      const nextPercent = (nextDollarAmount / newTotalCapital) * 100;
+      return { ...c, allocationPercent: nextPercent };
+    });
+
+    // --- Normalization: Ensure sum is exactly 100% ---
+    const totalPercent = newCats.reduce((sum, c) => sum + c.allocationPercent, 0);
+    const normalizedCats = newCats.map(c => ({
+      ...c,
+      allocationPercent: Number(((c.allocationPercent / totalPercent) * 100).toFixed(4))
+    }));
+
+    saveAndSetPortfolio({
+      ...portfolio,
+      martingale: normalizedCats,
+      capitalLogs: newLogs,
+      lastModified: Date.now()
+    });
+
+    const successMsg = mode === 'profit'
+      ? `利潤複利投入成功！馬丁總資金已增加 ${formatTWD(amount, false)} 並分配至 ${targetCat.name}`
+      : `預算轉移成功：從 ${sourceCat.name} 轉出 ${formatTWD(amount, false)}`;
+
+    showToast(successMsg, "success");
+  };
+
+  const handleTransferCategoryCash = (fromId: string, toId: string, amount: number, mode: 'budget' | 'profit' = 'budget') => {
+    const cats = [...portfolio.categories];
+    const sourceCat = cats.find(c => c.id === fromId);
+    const targetCat = cats.find(c => c.id === toId);
+
+    if (!sourceCat || !targetCat || amount <= 0) return;
+
+    const currentTotalCapital = portfolio.totalCapital;
+    if (currentTotalCapital <= 0) {
+      showToast("總資金不足，無法計算比例", "error");
+      return;
+    }
+
+    let newTotalCapital = currentTotalCapital;
+    let newLogs = [...portfolio.capitalLogs];
+
+    if (mode === 'profit') {
+      newTotalCapital = currentTotalCapital + amount;
+      newLogs.push({
+        id: uuidv4(),
+        date: new Date().toISOString(),
+        amount: amount,
+        type: 'PROFIT_REINVEST',
+        isMartingale: false,
+        note: `利潤再投入：從 ${sourceCat.name} 轉入 ${targetCat.name}`,
+        previousAllocations: cats.map(c => ({ id: c.id, percent: c.allocationPercent })),
+        sourceCategoryId: fromId,
+        targetCategoryId: toId
+      });
+    } else if (mode === 'budget') {
+      newLogs.push({
+        id: uuidv4(),
+        date: new Date().toISOString(),
+        amount: amount,
+        type: 'TRANSFER',
+        isMartingale: false,
+        note: `預算轉移：從 ${sourceCat.name} 轉至 ${targetCat.name}`,
+        previousAllocations: cats.map(c => ({ id: c.id, percent: c.allocationPercent }))
+      });
+    }
+
+    const newCats = cats.map(c => {
+      const currentDollarAmount = currentTotalCapital * (c.allocationPercent / 100);
+      let nextDollarAmount = currentDollarAmount;
+
+      if (mode === 'budget') {
+        if (c.id === fromId) nextDollarAmount = Math.max(0, currentDollarAmount - amount);
+        else if (c.id === toId) nextDollarAmount = currentDollarAmount + amount;
+      } else {
+        if (c.id === toId) nextDollarAmount = currentDollarAmount + amount;
+      }
+
+      const nextPercent = (nextDollarAmount / newTotalCapital) * 100;
+      return { ...c, allocationPercent: nextPercent };
+    });
+
+    // --- Normalization: Ensure sum is exactly 100% ---
+    const totalPercentCat = newCats.reduce((sum, c) => sum + c.allocationPercent, 0);
+    const normalizedCatsPersonal = newCats.map(c => ({
+      ...c,
+      allocationPercent: Number(((c.allocationPercent / totalPercentCat) * 100).toFixed(4))
+    }));
+
+    saveAndSetPortfolio({
+      ...portfolio,
+      totalCapital: newTotalCapital,
+      categories: normalizedCatsPersonal,
+      capitalLogs: newLogs,
+      lastModified: Date.now()
+    });
+
+    const successMsg = mode === 'profit'
+      ? `利潤複利投入成功！個人持倉總資本已增加 ${formatTWD(amount, false)} 並再投入至 ${targetCat.name}`
+      : `預算轉移成功：從 ${sourceCat.name} 轉至 ${targetCat.name}`;
+
+    showToast(successMsg, "success");
+  };
+
   const handleUpdateSettings = (s: AppSettings) => { saveAndSetPortfolio({ ...portfolio, settings: s }); showToast("設定已儲存", 'success'); };
 
   const [dividendScanTarget, setDividendScanTarget] = useState<'my' | 'martingale'>('my');
@@ -1622,6 +1804,7 @@ const App: React.FC = () => {
     } catch (e) { showToast("更新失敗", "error"); } finally { setIsUpdatingPrices(false); }
   };
 
+  /* Consolidated Operations Object for Martingale */
   const handleMartingaleOperations = {
     onExecuteOrder: (categoryId: string, order: OrderData) => {
       const cats = Array.isArray(portfolio.martingale) ? [...portfolio.martingale] : [];
@@ -1821,7 +2004,8 @@ const App: React.FC = () => {
       }
 
       saveAndSetPortfolio({ ...portfolio, martingale: cats });
-    }
+    },
+    onTransferCash: handleTransferMartingaleCash
   };
 
   const handleResetMartingale = () => {
@@ -2081,6 +2265,12 @@ const App: React.FC = () => {
         userRole={userRole} // Add this prop
       />
       <FeeSettingsModal isOpen={showFeeSettingsModal} onClose={() => setShowFeeSettingsModal(false)} settings={portfolio.settings} onUpdateSettings={handleUpdateSettings} />
+      <MartingaleFeeSettingsModal
+        isOpen={showMartingaleFeeSettingsModal}
+        onClose={() => setShowMartingaleFeeSettingsModal(false)}
+        settings={portfolio.martingaleFeeSettings ?? {}}
+        onUpdateSettings={(newFeeSettings) => saveAndSetPortfolio({ ...portfolio, martingaleFeeSettings: newFeeSettings })}
+      />
       <DividendModal
         isOpen={showDividendModal}
         onClose={() => setShowDividendModal(false)}
@@ -2110,7 +2300,37 @@ const App: React.FC = () => {
         onClose={() => setShowCapitalModal(false)}
         capitalLogs={portfolio.capitalLogs.filter(l => capitalModalSource === 'martingale' ? l.isMartingale === true : l.isMartingale !== true)}
         onAddLog={(l) => { const newState = { ...portfolio, capitalLogs: [...portfolio.capitalLogs, { ...l, id: uuidv4(), isMartingale: capitalModalSource === 'martingale' }] }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }}
-        onDeleteLog={(id) => { const newState = { ...portfolio, capitalLogs: portfolio.capitalLogs.filter(l => l.id !== id) }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }}
+        onDeleteLog={(id) => {
+          const logToDelete = portfolio.capitalLogs.find(l => l.id === id);
+          const newState = { ...portfolio, capitalLogs: portfolio.capitalLogs.filter(l => l.id !== id) };
+
+          // Rollback allocation change if snapshot exists
+          if (logToDelete?.previousAllocations) {
+            if (logToDelete.isMartingale) {
+              newState.martingale = (portfolio.martingale || []).map(c => {
+                const prev = logToDelete.previousAllocations?.find(pa => pa.id === c.id);
+                return prev ? { ...c, allocationPercent: prev.percent } : c;
+              });
+            } else {
+              newState.categories = portfolio.categories.map(c => {
+                const prev = logToDelete.previousAllocations?.find(pa => pa.id === c.id);
+                return prev ? { ...c, allocationPercent: prev.percent } : c;
+              });
+            }
+          }
+
+          // Recalculate total capital (ignoring TRANSFERS)
+          newState.totalCapital = newState.capitalLogs
+            .filter(l => l.isMartingale !== true)
+            .reduce((s, log) => {
+              if (log.type === 'DEPOSIT' || log.type === 'PROFIT_REINVEST') return s + log.amount;
+              if (log.type === 'WITHDRAW') return s - log.amount;
+              return s;
+            }, 0);
+
+          saveAndSetPortfolio(newState);
+          showToast("紀錄已撤回並還原配置", "info");
+        }}
         isPrivacyMode={isPrivacyMode}
       />
 
@@ -2329,6 +2549,12 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-3"><Calculator className="w-5 h-5 text-indigo-400 group-hover:scale-110 transition-transform" /><span className="text-sm font-medium">手續費設定</span></div>
                     <ChevronRight className="w-4 h-4 text-gray-600" />
                   </button>
+                  {isMemberRole && (
+                    <button onClick={() => { setShowMartingaleFeeSettingsModal(true); setIsSidebarOpen(false); }} className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gray-800 hover:bg-gray-700 transition-all group">
+                      <div className="flex items-center gap-3"><Calculator className="w-5 h-5 text-yellow-500 group-hover:scale-110 transition-transform" /><span className="text-sm font-medium">馬丁手續費設定</span></div>
+                      <ChevronRight className="w-4 h-4 text-gray-600" />
+                    </button>
+                  )}
                   <button onClick={() => { setShowSettingsModal(true); setIsSidebarOpen(false); }} className="w-full flex items-center justify-between p-3.5 rounded-xl bg-gray-800 hover:bg-gray-700 transition-all group">
                     <div className="flex items-center gap-3"><Settings className="w-5 h-5 text-gray-400 group-hover:rotate-45 transition-transform" /><span className="text-sm font-medium">系統備份與匯率</span></div>
                     <ChevronRight className="w-4 h-4 text-gray-600" />
@@ -2441,6 +2667,7 @@ const App: React.FC = () => {
                     saveAndSetPortfolio({ ...portfolio, categories: newCats });
                   }}
                   onAddCategory={() => setIsAddCategoryModalOpen(true)}
+                  onTransferCash={handleTransferCategoryCash}
                   isPrivacyMode={isPrivacyMode}
                 />
 
@@ -2466,6 +2693,7 @@ const App: React.FC = () => {
                         onSetActiveCategory={setMartingaleActiveId}
                         transactions={[]}
                         industryData={[]}
+                        martingaleFeeSettings={portfolio.martingaleFeeSettings}
                       />
                     </SectionGate>
                   </div>
@@ -2548,6 +2776,7 @@ const App: React.FC = () => {
                 industryData={(calculatedData as any).martingaleIndustryData}
                 onDeposit={() => { setCapitalModalSource('martingale'); setShowCapitalModal(true); }}
                 onReset={handleResetMartingale}
+                martingaleFeeSettings={portfolio.martingaleFeeSettings}
               />
             </div>
           </RequireRole>

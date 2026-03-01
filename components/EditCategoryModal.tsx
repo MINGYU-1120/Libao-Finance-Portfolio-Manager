@@ -8,7 +8,7 @@ interface EditCategoryModalProps {
     onClose: () => void;
     category: CalculatedCategory;
     totalCapital: number;
-    onSave: (id: string, newName: string, newAllocation: number) => void;
+    onSave: (id: string, newName: string, newAllocation: number, newNote: string) => void;
     isPrivacyMode: boolean;
     isMartingale?: boolean;
     initialMode?: 'name' | 'allocation';
@@ -25,6 +25,7 @@ const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
     initialMode = 'allocation'
 }) => {
     const [name, setName] = useState(category.name);
+    const [note, setNote] = useState(category.note || '');
     const [allocation, setAllocation] = useState(category.allocationPercent.toString());
     const [amount, setAmount] = useState(category.projectedInvestment.toString());
     const [mode, setMode] = useState<'percent' | 'amount'>('percent');
@@ -33,6 +34,7 @@ const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
     useEffect(() => {
         if (isOpen) {
             setName(category.name);
+            setNote(category.note || '');
             setAllocation(category.allocationPercent.toString());
             setAmount(category.projectedInvestment.toString());
         }
@@ -70,7 +72,7 @@ const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
             alert('請輸入有效的配置比例');
             return;
         }
-        onSave(category.id, name.trim(), numAlloc);
+        onSave(category.id, name.trim(), numAlloc, note.trim());
         onClose();
     };
 
@@ -122,6 +124,18 @@ const EditCategoryModal: React.FC<EditCategoryModalProps> = ({
                             </p>
                         </div>
                     )}
+
+                    {/* Note Input — always visible */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">備註 (Note)</label>
+                        <textarea
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                            rows={2}
+                            className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-cyan-500 transition-colors resize-none placeholder-gray-600"
+                            placeholder="輸入備註，例如：2022年長線、黃標觀察..."
+                        />
+                    </div>
 
                     {/* Allocation Input */}
                     {initialMode === 'allocation' && (

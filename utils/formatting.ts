@@ -41,3 +41,5 @@ export const formatShares = (value: number, isPrivacyMode: boolean = false): str
     const formatted = parseFloat(value.toFixed(6));
     return formatted.toLocaleString(undefined, { maximumFractionDigits: 6 });
 };
+
+
