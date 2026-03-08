@@ -1,9 +1,0 @@
-external_id,trade_date,portfolio,category_name,market,symbol,name,side,quantity,price,exchange_rate,fee,tax,note
-FINAL-PRICE-SYNC-QQQ,2026-03-04,martingale,D倉(長線),US,QQQ,Nasdaq 100 ETF,BUY,0.0001,615.38,33,0,0,當前市價同步(對齊Excel損益%)
-FINAL-PRICE-SYNC-SPY,2026-03-04,martingale,D倉(長線),US,SPY,S&P 500 ETF,BUY,0.0001,728.40,33,0,0,當前市價同步(對齊Excel損益%)
-FINAL-PRICE-SYNC-SOXX,2026-03-04,martingale,D倉(長線),US,SOXX,Semiconductor ETF,BUY,0.0001,228.35,33,0,0,當前市價同步(對齊Excel損益%)
-FINAL-PRICE-SYNC-IWM,2026-03-04,martingale,D倉(長線),US,IWM,Russell 2000 ETF,BUY,0.0001,211.28,33,0,0,當前市價同步(對齊Excel損益%)
-FINAL-PRICE-SYNC-TLT,2026-03-04,martingale,D倉(長線),US,TLT,20+ Year Treasury Bond,BUY,0.0001,86.80,33,0,0,當前市價同步(對齊Excel損益%)
-FINAL-PRICE-SYNC-IJR,2026-03-04,martingale,D倉(長線),US,IJR,S&P Small-Cap 600,BUY,0.0001,110.55,33,0,0,當前市價同步(對齊Excel損益%)
-FINAL-PRICE-SYNC-BTC,2026-03-04,martingale,D倉(長線),US,BTC-USD,Bitcoin,BUY,0.0001,68461.00,33,0,0,當前市價同步(對齊Excel損益%)
-FINAL-PRICE-SYNC-ETH,2026-03-04,martingale,D倉(長線),US,ETH-USD,Ethereum,BUY,0.0001,1977.90,33,0,0,當前市價同步(對齊Excel損益%)

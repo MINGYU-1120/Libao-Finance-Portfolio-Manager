@@ -1,6 +1,0 @@
-external_id,trade_date,portfolio,category_name,market,symbol,name,side,quantity,price,exchange_rate,fee,tax,note
-PATCH-20260303-D-BTC,2026-02-06,martingale,D倉(長線),US,BTC-USD,Bitcoin,BUY,0.0375,68418.96,30,0,0,Excel數據補齊 (1% 佔比)
-PATCH-20260303-D-ETH,2026-02-06,martingale,D倉(長線),US,ETH-USD,Ethereum,BUY,1.3,1978.7,30,0,0,Excel數據補齊 (1% 佔比)
-PATCH-20260303-D-TLT,2026-03-02,martingale,D倉(長線),US,TLT,20+ Year Treasury Bond,BUY,404,89.61,30,0,0,Excel數據補足至 21.01%
-PATCH-20260303-D-IWM,2026-03-02,martingale,D倉(長線),US,IWM,Russell 2000 ETF,BUY,137,263.81,30,0,0,Excel數據補足至 15.00%
-PATCH-20260303-D-QQQ,2026-03-02,martingale,D倉(長線),US,QQQ,Nasdaq 100 ETF,BUY,13,608.09,30,0,0,Excel數據補足至 4.00%

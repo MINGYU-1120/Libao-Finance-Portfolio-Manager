@@ -1,4 +1,0 @@
-﻿external_id,trade_date,portfolio,category_name,market,symbol,name,side,quantity,price,exchange_rate,fee,tax,note
-D倉長線-2025-03-31-SPY-BUY-10,2025-03-31,martingale,D倉(長線),US,SPY,S&P 500 ETF,BUY,18,551.73,33,0,0,加碼5%
-D倉長線-2025-03-31-SOXX-BUY-11,2025-03-31,martingale,D倉(長線),US,SOXX,Semiconductor ETF,BUY,54,184.96,33,0,0,加碼5%
-D倉長線-2025-04-07-QQQ-BUY-12,2025-04-07,martingale,D倉(長線),US,QQQ,Nasdaq 100 ETF,BUY,24,415.05,33,0,0,加碼5%
