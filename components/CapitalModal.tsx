@@ -18,11 +18,11 @@ interface CapitalModalProps {
 const CapitalModal: React.FC<CapitalModalProps> = ({
   isOpen,
   onClose,
-  capitalLogs,
+  capitalLogs = [],
   onAddLog,
   onDeleteLog,
   isPrivacyMode,
-  categories,
+  categories = [],
   isMartingale
 }) => {
   const { showToast } = useToast();

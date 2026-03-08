@@ -45,7 +45,7 @@ import {
   UserCheck,
   User
 } from 'lucide-react';
-import { PortfolioState, PositionCategory, CalculatedCategory, CalculatedAsset, TransactionRecord, AppSettings, NewsItem, AssetLot, Asset, MarketType } from './types';
+import { PortfolioState, PositionCategory, CalculatedCategory, CalculatedAsset, TransactionRecord, AppSettings, NewsItem, AssetLot, Asset, MarketType, CapitalLogEntry } from './types';
 import { DEFAULT_CATEGORIES, INITIAL_CAPITAL, DEFAULT_EXCHANGE_RATE } from './constants';
 
 import DetailTable from './components/DetailTable';
@@ -1821,6 +1821,46 @@ const App: React.FC = () => {
       }
 
       saveAndSetPortfolio({ ...portfolio, martingale: cats });
+    },
+    onTransferCash: (fromId: string, toId: string, amount: number, mode: 'budget' | 'profit') => {
+      const cats = Array.isArray(portfolio.martingale) ? [...portfolio.martingale] : [];
+      const martTotal = (portfolio.capitalLogs || []).filter(l => l.isMartingale === true).reduce((s, l) => l.type === 'DEPOSIT' ? s + l.amount : (l.type === 'WITHDRAW' ? s - l.amount : s), 0);
+
+      if (mode === 'budget' && martTotal > 0) {
+        const percentDelta = (amount / martTotal) * 100;
+        const newCats = cats.map(c => {
+          if (c.id === fromId) return { ...c, allocationPercent: Math.max(0, c.allocationPercent - percentDelta) };
+          if (c.id === toId) return { ...c, allocationPercent: c.allocationPercent + percentDelta };
+          return c;
+        });
+
+        const newLog: CapitalLogEntry = {
+          id: uuidv4(),
+          date: new Date().toISOString(),
+          type: 'TRANSFER',
+          amount: amount,
+          note: '預算轉移',
+          isMartingale: true,
+          sourceCategoryId: fromId,
+          targetCategoryId: toId
+        };
+
+        saveAndSetPortfolio({ ...portfolio, martingale: newCats, capitalLogs: [newLog, ...portfolio.capitalLogs] });
+        showToast("馬丁策略轉移成功", "success");
+      } else {
+        const newLog: CapitalLogEntry = {
+          id: uuidv4(),
+          date: new Date().toISOString(),
+          type: 'TRANSFER',
+          amount: amount,
+          note: mode === 'profit' ? '獲利轉移' : '預算轉移',
+          isMartingale: true,
+          sourceCategoryId: fromId,
+          targetCategoryId: toId
+        };
+        saveAndSetPortfolio({ ...portfolio, capitalLogs: [newLog, ...portfolio.capitalLogs] });
+        showToast("轉移紀錄已儲存", "success");
+      }
     }
   };
 
@@ -2108,10 +2148,12 @@ const App: React.FC = () => {
       <CapitalModal
         isOpen={showCapitalModal}
         onClose={() => setShowCapitalModal(false)}
-        capitalLogs={portfolio.capitalLogs.filter(l => capitalModalSource === 'martingale' ? l.isMartingale === true : l.isMartingale !== true)}
-        onAddLog={(l) => { const newState = { ...portfolio, capitalLogs: [...portfolio.capitalLogs, { ...l, id: uuidv4(), isMartingale: capitalModalSource === 'martingale' }] }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }}
-        onDeleteLog={(id) => { const newState = { ...portfolio, capitalLogs: portfolio.capitalLogs.filter(l => l.id !== id) }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }}
+        capitalLogs={(portfolio.capitalLogs || []).filter(l => capitalModalSource === 'martingale' ? l.isMartingale === true : l.isMartingale !== true)}
+        onAddLog={(l) => { const newState = { ...portfolio, capitalLogs: [...(portfolio.capitalLogs || []), { ...l, id: uuidv4(), isMartingale: capitalModalSource === 'martingale' }] }; newState.totalCapital = (newState.capitalLogs || []).reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }}
+        onDeleteLog={(id) => { const newState = { ...portfolio, capitalLogs: (portfolio.capitalLogs || []).filter(l => l.id !== id) }; newState.totalCapital = (newState.capitalLogs || []).reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }}
         isPrivacyMode={isPrivacyMode}
+        categories={capitalModalSource === 'martingale' ? (portfolio.martingale || []) : (portfolio.categories || [])}
+        isMartingale={capitalModalSource === 'martingale'}
       />
 
 
@@ -2441,6 +2483,44 @@ const App: React.FC = () => {
                     saveAndSetPortfolio({ ...portfolio, categories: newCats });
                   }}
                   onAddCategory={() => setIsAddCategoryModalOpen(true)}
+                  onTransferCash={(fromId, toId, amount, mode) => {
+                    const cats = [...(portfolio.categories || [])];
+                    const perTotal = (portfolio.capitalLogs || []).filter(l => l.isMartingale !== true).reduce((s, l) => l.type === 'DEPOSIT' ? s + l.amount : (l.type === 'WITHDRAW' ? s - l.amount : s), 0);
+
+                    if (mode === 'budget' && perTotal > 0) {
+                      const percentDelta = (amount / perTotal) * 100;
+                      const newCats = cats.map(c => {
+                        if (c.id === fromId) return { ...c, allocationPercent: Math.max(0, c.allocationPercent - percentDelta) };
+                        if (c.id === toId) return { ...c, allocationPercent: c.allocationPercent + percentDelta };
+                        return c;
+                      });
+                      const newLog: CapitalLogEntry = {
+                        id: uuidv4(),
+                        date: new Date().toISOString(),
+                        type: 'TRANSFER',
+                        amount: amount,
+                        note: '個人預算轉移',
+                        isMartingale: false,
+                        sourceCategoryId: fromId,
+                        targetCategoryId: toId
+                      };
+                      saveAndSetPortfolio({ ...portfolio, categories: newCats, capitalLogs: [newLog, ...(portfolio.capitalLogs || [])] });
+                      showToast("個人預算轉移成功", "success");
+                    } else {
+                      const newLog: CapitalLogEntry = {
+                        id: uuidv4(),
+                        date: new Date().toISOString(),
+                        type: 'TRANSFER',
+                        amount: amount,
+                        note: mode === 'profit' ? '獲利轉移' : '預算轉移',
+                        isMartingale: false,
+                        sourceCategoryId: fromId,
+                        targetCategoryId: toId
+                      };
+                      saveAndSetPortfolio({ ...portfolio, capitalLogs: [newLog, ...(portfolio.capitalLogs || [])] });
+                      showToast("轉移紀錄已儲存", "success");
+                    }
+                  }}
                   isPrivacyMode={isPrivacyMode}
                 />
 
