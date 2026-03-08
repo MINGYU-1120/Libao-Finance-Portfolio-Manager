@@ -707,11 +707,11 @@ const App: React.FC = () => {
 
     const personalTotalCapital = portfolio.capitalLogs
       .filter(l => l.isMartingale !== true)
-      .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
+      .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : (log.type === 'WITHDRAW' ? s - log.amount : s), 0);
 
     const martingaleTotalCapitalFromLogs = portfolio.capitalLogs
       .filter(l => l.isMartingale === true)
-      .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
+      .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : (log.type === 'WITHDRAW' ? s - log.amount : s), 0);
 
     const martingaleTotalCapital = (userRole !== 'admin' && portfolio.syncedMartingaleCapital)
       ? portfolio.syncedMartingaleCapital
@@ -977,7 +977,7 @@ const App: React.FC = () => {
       // 計算預算，用於計算交易比例
       const personalTotalCapital = portfolio.capitalLogs
         .filter(l => l.isMartingale !== true)
-        .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
+        .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : (log.type === 'WITHDRAW' ? s - log.amount : s), 0);
       const projectedInvestment = Math.floor(personalTotalCapital * (currentCategory.allocationPercent / 100));
 
       const dateToSave = order.transactionDate
@@ -1664,7 +1664,7 @@ const App: React.FC = () => {
       // Projected Investment = Martingale Total Capital * (Category Allocation / 100)
       const martingaleTotalCapital = portfolio.capitalLogs
         .filter(l => l.isMartingale === true)
-        .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
+        .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : (log.type === 'WITHDRAW' ? s - log.amount : s), 0);
       const projectedInvestment = Math.floor(martingaleTotalCapital * (cat.allocationPercent / 100));
       if (projectedInvestment > 0) {
         // Use order.totalAmount if available, otherwise calculate
@@ -1749,7 +1749,7 @@ const App: React.FC = () => {
         // Recalculate Ratio for SELL based on COST BASIS (not proceeds), matching Personal logic
         const martingaleTotalCapital = portfolio.capitalLogs
           .filter(l => l.isMartingale === true)
-          .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
+          .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : (log.type === 'WITHDRAW' ? s - log.amount : s), 0);
         const projectedInvestment = Math.floor(martingaleTotalCapital * (cat.allocationPercent / 100));
         if (projectedInvestment > 0) {
           newTransaction.portfolioRatio = (costBasisSold / projectedInvestment) * 100;
@@ -1908,7 +1908,7 @@ const App: React.FC = () => {
       : [];
 
     const nextCapitalLogs = portfolio.capitalLogs.filter(l => l.isMartingale !== true);
-    const nextTotalCapital = nextCapitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
+    const nextTotalCapital = nextCapitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : (log.type === 'WITHDRAW' ? s - log.amount : s), 0);
 
     saveAndSetPortfolio({
       ...portfolio,
@@ -1937,7 +1937,7 @@ const App: React.FC = () => {
       assets: []
     }));
     const nextCapitalLogs = portfolio.capitalLogs.filter(l => l.isMartingale === true);
-    const nextTotalCapital = nextCapitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
+    const nextTotalCapital = nextCapitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : (log.type === 'WITHDRAW' ? s - log.amount : s), 0);
 
     saveAndSetPortfolio({
       ...portfolio,
@@ -2149,8 +2149,8 @@ const App: React.FC = () => {
         isOpen={showCapitalModal}
         onClose={() => setShowCapitalModal(false)}
         capitalLogs={(portfolio.capitalLogs || []).filter(l => capitalModalSource === 'martingale' ? l.isMartingale === true : l.isMartingale !== true)}
-        onAddLog={(l) => { const newState = { ...portfolio, capitalLogs: [...(portfolio.capitalLogs || []), { ...l, id: uuidv4(), isMartingale: capitalModalSource === 'martingale' }] }; newState.totalCapital = (newState.capitalLogs || []).reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }}
-        onDeleteLog={(id) => { const newState = { ...portfolio, capitalLogs: (portfolio.capitalLogs || []).filter(l => l.id !== id) }; newState.totalCapital = (newState.capitalLogs || []).reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }}
+        onAddLog={(l) => { const newState = { ...portfolio, capitalLogs: [...(portfolio.capitalLogs || []), { ...l, id: uuidv4(), isMartingale: capitalModalSource === 'martingale' }] }; newState.totalCapital = (newState.capitalLogs || []).reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : (log.type === 'WITHDRAW' ? s - log.amount : s), 0); saveAndSetPortfolio(newState); }}
+        onDeleteLog={(id) => { const newState = { ...portfolio, capitalLogs: (portfolio.capitalLogs || []).filter(l => l.id !== id) }; newState.totalCapital = (newState.capitalLogs || []).reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : (log.type === 'WITHDRAW' ? s - log.amount : s), 0); saveAndSetPortfolio(newState); }}
         isPrivacyMode={isPrivacyMode}
         categories={capitalModalSource === 'martingale' ? (portfolio.martingale || []) : (portfolio.categories || [])}
         isMartingale={capitalModalSource === 'martingale'}
