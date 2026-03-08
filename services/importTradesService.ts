@@ -574,7 +574,7 @@ function processSingleRow(
         ? (originalPortfolio.capitalLogs ?? []).filter(l => l.isMartingale === true)
         : (originalPortfolio.capitalLogs ?? []).filter(l => l.isMartingale !== true);
     const localTotalCapital = localCapitalLogs.reduce(
-        (s, l) => (l.type === 'DEPOSIT' || l.type === 'PROFIT_REINVEST') ? s + l.amount : s - l.amount, 0
+        (s, l) => (l.type === 'DEPOSIT' || l.type === 'PROFIT_REINVEST') ? s + l.amount : (l.type === 'WITHDRAW' ? s - l.amount : s), 0
     );
     const projected = localTotalCapital > 0
         ? Math.floor(localTotalCapital * (cat.allocationPercent / 100))
