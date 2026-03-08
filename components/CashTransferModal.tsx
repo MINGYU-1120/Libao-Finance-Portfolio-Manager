@@ -28,9 +28,10 @@ const CashTransferModal: React.FC<CashTransferModalProps> = ({
     const [error, setError] = useState<string | null>(null);
 
     // Filter out source category only for budget mode
+    const safeCategories = allCategories || [];
     const targetOptions = transferMode === 'budget'
-        ? allCategories.filter(c => c.id !== sourceCategory.id)
-        : allCategories;
+        ? safeCategories.filter(c => c.id !== sourceCategory.id)
+        : safeCategories;
 
     // Initialize amount to full remaining cash or profit
     useEffect(() => {
