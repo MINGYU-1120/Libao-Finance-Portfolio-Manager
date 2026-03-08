@@ -407,8 +407,7 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                     isOpen={isTransferModalOpen}
                     onClose={() => { setIsTransferModalOpen(false); setTransferSource(null); }}
                     sourceCategory={transferSource}
-                    allCategories={categories}
-                    totalCapital={totalCapital}
+                    categories={categories}
                     isPrivacyMode={isPrivacyMode}
                     onTransfer={(fromId, toId, amount, mode) => {
                         if (onTransferCash) onTransferCash(fromId, toId, amount, mode);
