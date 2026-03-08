@@ -29,24 +29,31 @@ const CashTransferModal: React.FC<CashTransferModalProps> = ({
 
     // Filter out source category only for budget mode
     const safeCategories = allCategories || [];
-    const targetOptions = transferMode === 'budget'
-        ? safeCategories.filter(c => c.id !== sourceCategory.id)
-        : safeCategories;
+    const targetOptions = React.useMemo(() => {
+        return transferMode === 'budget'
+            ? safeCategories.filter(c => c.id !== sourceCategory.id)
+            : safeCategories;
+    }, [safeCategories, transferMode, sourceCategory.id]);
 
-    // Initialize amount to full remaining cash or profit
+    // Initialize amount when modal opens or transfer mode changes
     useEffect(() => {
         if (isOpen) {
             const initialAmount = transferMode === 'budget'
                 ? Math.max(0, sourceCategory.remainingCash)
                 : Math.max(0, sourceCategory.availableProfit || 0);
             setAmountStr(initialAmount.toString());
-            // Important: we depend on targetOptions which depends on transferMode
-            if (!targetOptions.some(opt => opt.id === targetId)) {
-                setTargetId(targetOptions.length > 0 ? targetOptions[0].id : '');
-            }
             setError(null);
         }
-    }, [isOpen, sourceCategory, transferMode, targetOptions, targetId]);
+    }, [isOpen, transferMode, sourceCategory.id]);
+
+    // Ensure a valid target is selected
+    useEffect(() => {
+        if (isOpen && targetOptions.length > 0) {
+            if (!targetOptions.some(opt => opt.id === targetId)) {
+                setTargetId(targetOptions[0].id);
+            }
+        }
+    }, [isOpen, targetOptions, targetId]);
 
     const amount = parseFloat(amountStr) || 0;
     const currentMax = transferMode === 'budget'
