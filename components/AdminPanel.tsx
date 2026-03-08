@@ -2,15 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { db, functions, updateUserRole, getAllUsers, getAllSectionMinTiers, updateSectionMinTier, logAdminAction, getAuditLogs, getPushDiagnostic, forceResetPushSettings, getTokenCount, deleteAllUserTokens, checkTokenExists, subscribeToPushNotifications } from '../services/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { UserProfile, UserRole, AccessTier, AuditLog } from '../types';
-import { Shield, User, Clock, Search, Filter, AlertTriangle, CheckCircle, X, FileText, Activity, Download, Bell, Send, Upload, Zap, RefreshCw } from 'lucide-react';
+import { Shield, User, Clock, Search, Filter, AlertTriangle, CheckCircle, X, FileText, Activity, Download, Bell, Send, Upload, Zap, RefreshCw, ArrowLeft } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 
 interface AdminPanelProps {
     currentUser: UserProfile | any;
     onImportTrades?: () => void;
+    onUndoImport?: () => void;
 }
 
-const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, onImportTrades }) => {
+const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, onImportTrades, onUndoImport }) => {
     // ... (state vars same)
     const { showToast } = useToast();
     const [users, setUsers] = useState<UserProfile[]>([]);
@@ -381,16 +382,27 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, onImportTrades }) 
                         </h1>
                         <p className="text-indigo-300/80 mt-2 font-mono text-sm tracking-wider pl-1">SYSTEM_ADMIN_DASHBOARD // V5.0</p>
                     </div>
-                    {onImportTrades && (
-                        <button
-                            id="btn-import-trades"
-                            onClick={onImportTrades}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl shadow-lg transition-all active:scale-95"
-                        >
-                            <Upload className="w-4 h-4" />
-                            匯入歷史交易
-                        </button>
-                    )}
+                    <div className="flex gap-2">
+                        {onUndoImport && (
+                            <button
+                                onClick={onUndoImport}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white text-sm font-bold rounded-xl shadow-lg transition-all active:scale-95"
+                            >
+                                <ArrowLeft className="w-4 h-4" />
+                                復原匯入
+                            </button>
+                        )}
+                        {onImportTrades && (
+                            <button
+                                id="btn-import-trades"
+                                onClick={onImportTrades}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl shadow-lg transition-all active:scale-95"
+                            >
+                                <Upload className="w-4 h-4" />
+                                匯入歷史交易
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Tabs */}

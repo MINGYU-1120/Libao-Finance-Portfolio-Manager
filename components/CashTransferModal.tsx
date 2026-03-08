@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, ArrowRight, ArrowRightLeft, ArrowRightLeft as TransferIcon, Coins, AlertCircle, Info } from 'lucide-react';
 import { CalculatedCategory } from '../types';
 import { formatTWD } from '../utils/formatting';
@@ -27,25 +27,30 @@ const CashTransferModal: React.FC<CashTransferModalProps> = ({
     const [transferMode, setTransferMode] = useState<'budget' | 'profit'>('budget');
     const [error, setError] = useState<string | null>(null);
 
-    // Filter out source category only for budget mode
-    const targetOptions = transferMode === 'budget'
-        ? allCategories.filter(c => c.id !== sourceCategory.id)
-        : allCategories;
+    // Use useMemo to prevent targetOptions from changing reference on every render
+    const targetOptions = useMemo(() => {
+        return transferMode === 'budget'
+            ? allCategories.filter(c => c.id !== sourceCategory.id)
+            : allCategories;
+    }, [transferMode, allCategories, sourceCategory.id]);
 
-    // Initialize amount to full remaining cash or profit
+    // Initialize amount only when modal opens or transfer mode changes
     useEffect(() => {
         if (isOpen) {
             const initialAmount = transferMode === 'budget'
                 ? Math.max(0, sourceCategory.remainingCash)
                 : Math.max(0, sourceCategory.availableProfit || 0);
             setAmountStr(initialAmount.toString());
-            // Important: we depend on targetOptions which depends on transferMode
-            if (!targetOptions.some(opt => opt.id === targetId)) {
-                setTargetId(targetOptions.length > 0 ? targetOptions[0].id : '');
-            }
             setError(null);
         }
-    }, [isOpen, sourceCategory, transferMode, targetOptions, targetId]);
+    }, [isOpen, transferMode, sourceCategory]); // Removed targetOptions, and targetId from here
+
+    // Separate effect for targetId initialization
+    useEffect(() => {
+        if (isOpen && (!targetId || !targetOptions.some(opt => opt.id === targetId))) {
+            setTargetId(targetOptions.length > 0 ? targetOptions[0].id : '');
+        }
+    }, [isOpen, targetOptions, targetId]);
 
     const amount = parseFloat(amountStr) || 0;
     const currentMax = transferMode === 'budget'

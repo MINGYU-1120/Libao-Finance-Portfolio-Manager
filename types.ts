@@ -169,7 +169,7 @@ export interface TransactionRecord {
   id: string;
   date: number | string;
   symbol: string;
-  type: 'buy' | 'sell' | 'BUY' | 'SELL' | 'DIVIDEND';
+  type: 'buy' | 'sell' | 'BUY' | 'SELL' | 'DIVIDEND' | 'SPLIT';
   quantity?: number; // Made optional
   price: number;
   amount: number;

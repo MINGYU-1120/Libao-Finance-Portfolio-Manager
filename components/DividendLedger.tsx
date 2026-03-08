@@ -35,41 +35,30 @@ const DividendLedger: React.FC<DividendLedgerProps> = ({
   const dividends = transactions
     .filter(t => t.type === 'DIVIDEND')
     .filter(t => {
-      // 0. Global Restriction for "Red Label" (First Class)
-      const isRedLabel = t.categoryName === '紅標 (頭等艙)' || t.categoryName.includes('紅標');
-      const userTier = getTier(userRole);
-      if (isRedLabel && userTier < AccessTier.FIRST_CLASS) {
-        return false;
-      }
-
-      // Determine if a transaction is "Martingale"
-
-      // 1. If explicit tag exists (Future proof), use it.
+      // 1. 判定是否為馬丁交易 (優先使用 isMartingale 標記，次之使用 Legacy Fallback)
+      let isMart = false;
       if (t.isMartingale !== undefined) {
-        return activeTab === 'my' ? !t.isMartingale : t.isMartingale;
-      }
-
-      // 2. Legacy Logic
-      if (userRole === 'admin') {
+        isMart = t.isMartingale;
+      } else if (userRole === 'admin') {
         const isMartingaleName = martingaleCategories.includes(t.categoryName);
-
-        // Smart Check: If name implies Martingale, verify if it's actually a Personal asset.
-        // If the Asset ID exists in Personal Categories, treat as Personal regardless of name.
         const isPersonalAsset = personalCategories.some(c => c.assets.some(a => a.id === t.assetId));
-
-        if (isPersonalAsset) {
-          // It's definitely Personal
-          return activeTab === 'my';
-        }
-
-        // Otherwise fallback to name match
-        return activeTab === 'my' ? !isMartingaleName : isMartingaleName;
+        isMart = isMartingaleName && !isPersonalAsset;
       } else {
-        // For Members, ALL existing transactions are Personal.
-        return activeTab === 'my';
+        isMart = false; // Members see personal by default if not marked
       }
 
-      // return activeTab === 'my' ? !isMartingaleTx : isMartingaleTx; // Old return removed
+      // 2. 依照當前分頁 (個人/馬丁) 進行初步過濾
+      if (activeTab === 'my' && isMart) return false;
+      if (activeTab === 'martingale' && !isMart) return false;
+
+      // 3. 針對「官方馬丁交易」進行「紅標 (頭等艙)」權限限制
+      if (isMart) {
+        const isRedLabel = t.categoryName === '紅標 (頭等艙)' || (t.categoryName || '').includes('紅標');
+        const userTier = getTier(userRole);
+        if (isRedLabel && userTier < AccessTier.FIRST_CLASS) return false;
+      }
+
+      return true;
     })
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 

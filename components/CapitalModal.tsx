@@ -11,6 +11,8 @@ interface CapitalModalProps {
   onAddLog: (entry: Omit<CapitalLogEntry, 'id'>) => void;
   onDeleteLog: (id: string) => void;
   isPrivacyMode: boolean;
+  categories: { id: string, name: string }[];
+  isMartingale?: boolean;
 }
 
 const CapitalModal: React.FC<CapitalModalProps> = ({
@@ -19,13 +21,16 @@ const CapitalModal: React.FC<CapitalModalProps> = ({
   capitalLogs,
   onAddLog,
   onDeleteLog,
-  isPrivacyMode
+  isPrivacyMode,
+  categories,
+  isMartingale
 }) => {
   const { showToast } = useToast();
   const [type, setType] = useState<CapitalType>('DEPOSIT');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [note, setNote] = useState('');
+  const [targetCategoryId, setTargetCategoryId] = useState<string>('');
 
   const dateInputRef = useRef<HTMLInputElement>(null);
 
@@ -45,10 +50,12 @@ const CapitalModal: React.FC<CapitalModalProps> = ({
       date: new Date(date).toISOString(),
       type,
       amount: val,
-      note
+      note,
+      targetCategoryId: targetCategoryId || undefined
     });
     setAmount('');
     setNote('');
+    setTargetCategoryId('');
   };
 
   const handleDateIconClick = () => {
@@ -143,6 +150,22 @@ const CapitalModal: React.FC<CapitalModalProps> = ({
                 />
               </div>
 
+              {type === 'DEPOSIT' && (
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">資金分配至</label>
+                  <select
+                    value={targetCategoryId}
+                    onChange={(e) => setTargetCategoryId(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700"
+                  >
+                    <option value="">(不指定) 均分至所有倉位</option>
+                    {categories.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="text-xs font-bold text-gray-500 mb-1 block">備註 (選填)</label>
                 <div className="relative">
@@ -179,47 +202,65 @@ const CapitalModal: React.FC<CapitalModalProps> = ({
               ) : (
                 <table className="w-full text-sm text-left">
                   <tbody className="divide-y divide-gray-100">
-                    {sortedLogs.map(log => (
-                      <tr key={log.id} className="hover:bg-gray-50 group">
-                        <td className="p-3">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${log.type === 'DEPOSIT' ? 'bg-red-100 text-red-700' :
+                    {sortedLogs.map(log => {
+                      const targetCat = log.targetCategoryId ? categories.find(c => c.id === log.targetCategoryId) : null;
+                      const sourceCat = log.sourceCategoryId ? categories.find(c => c.id === log.sourceCategoryId) : null;
+                      return (
+                        <tr key={log.id} className="hover:bg-gray-50 group border-b border-gray-50 last:border-0">
+                          <td className="p-3 align-top">
+                            <div className="flex items-start gap-2">
+                              <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-xs ${log.type === 'DEPOSIT' ? 'bg-red-100 text-red-700' :
                                 log.type === 'WITHDRAW' ? 'bg-green-100 text-green-700' :
                                   'bg-blue-100 text-blue-700'
+                                }`}>
+                                {log.type === 'DEPOSIT' ? '入' : log.type === 'WITHDRAW' ? '出' : '轉'}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="font-bold text-gray-800 text-xs">
+                                  {log.type === 'DEPOSIT' ? '入金' : log.type === 'WITHDRAW' ? '出金' : '預算轉移'}
+                                  {(targetCat || sourceCat) && (
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                      {sourceCat && (
+                                        <span className="text-gray-500 bg-gray-100 px-1 rounded-[4px] text-[10px] font-normal">
+                                          從 {sourceCat.name}
+                                        </span>
+                                      )}
+                                      {targetCat && (
+                                        <span className="text-libao-gold bg-gray-800 px-1 rounded-[4px] text-[10px] font-normal">
+                                          {log.type === 'TRANSFER' ? '至 ' : '→ '}{targetCat.name}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-gray-400 mt-0.5">
+                                  {new Date(log.date).toLocaleDateString()}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3 align-top min-w-[120px]">
+                            <div className="text-gray-600 text-[11px] leading-relaxed break-words whitespace-normal">
+                              {log.note || <span className="text-gray-300">-</span>}
+                            </div>
+                          </td>
+                          <td className="p-3 align-top text-right">
+                            <div className={`font-mono font-bold text-sm ${log.type === 'DEPOSIT' ? 'text-red-600' :
+                              log.type === 'WITHDRAW' ? 'text-green-600' :
+                                'text-blue-600'
                               }`}>
-                              {log.type === 'DEPOSIT' ? '入' : log.type === 'WITHDRAW' ? '出' : '轉'}
+                              {log.type === 'DEPOSIT' ? '+' : log.type === 'WITHDRAW' ? '-' : '⇄'}{maskValue(log.amount.toLocaleString())}
                             </div>
-                            <div>
-                              <div className="font-bold text-gray-800 text-xs">
-                                {log.type === 'DEPOSIT' ? '入金' : log.type === 'WITHDRAW' ? '出金' : '預算轉移'}
-                              </div>
-                              <div className="text-[10px] text-gray-400">
-                                {new Date(log.date).toLocaleDateString()}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <div className="text-gray-600 text-xs truncate max-w-[100px]">
-                            {log.note || '-'}
-                          </div>
-                        </td>
-                        <td className={`p-3 text-right font-mono font-bold ${log.type === 'DEPOSIT' ? 'text-red-600' :
-                            log.type === 'WITHDRAW' ? 'text-green-600' :
-                              'text-blue-600'
-                          }`}>
-                          {log.type === 'DEPOSIT' ? '+' : log.type === 'WITHDRAW' ? '-' : '⇄'}{maskValue(log.amount.toLocaleString())}
-                        </td>
-                        <td className="p-3 text-right w-10">
-                          <button
-                            onClick={() => onDeleteLog(log.id)}
-                            className="text-gray-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-all"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                            <button
+                              onClick={() => onDeleteLog(log.id)}
+                              className="text-gray-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-all ml-auto block mt-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}

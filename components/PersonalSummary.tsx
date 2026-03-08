@@ -112,51 +112,92 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                 </div>
             </div>
 
-            {/* Mobile Cards (Visible only on small screens) */}
-            <div className="md:hidden p-4 space-y-4 bg-slate-900">
+            {/* Mobile View - Unified with Martingale Style but Cyan Themed */}
+            <div className="md:hidden p-4 space-y-4 bg-slate-900 font-sans">
                 {categories.map((cat, idx) => (
                     <div
                         key={cat.id}
+                        className="group relative overflow-hidden p-5 rounded-xl border bg-slate-800/50 border-slate-700/50 active:scale-[0.98] hover:border-cyan-500/30 hover:bg-slate-800 cursor-pointer transition-all duration-200"
                         onClick={() => onSelectCategory(cat.id)}
-                        className="group relative overflow-hidden p-5 rounded-xl border bg-slate-800/50 border-slate-700/50 active:scale-[0.98] hover:border-libao-gold/30 hover:bg-slate-800 transition-all cursor-pointer"
                     >
-                        <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-libao-gold/0 via-libao-gold/50 to-libao-gold/0 opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                        <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-cyan-500/0 via-cyan-500/50 to-cyan-500/0 opacity-50 group-hover:opacity-100 transition-opacity"></div>
+
                         <div className="flex justify-between items-start mb-4">
                             <div>
                                 <div className="flex items-center gap-2 mb-1">
                                     <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${cat.market === 'TW' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
                                         {cat.market}
                                     </span>
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase">{cat.allocationPercent.toFixed(2)}% 配置</span>
+                                    {!readOnly && onEditCategory ? (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEdit(cat, 'allocation');
+                                            }}
+                                            className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-cyan-500/50 transition-all group/btn"
+                                        >
+                                            <span className="text-xs font-bold text-cyan-400 group-hover/btn:text-cyan-300">{cat.allocationPercent.toFixed(2)}% 配置</span>
+                                            <Edit3 className="w-3 h-3 text-slate-500 group-hover/btn:text-cyan-400" />
+                                        </button>
+                                    ) : (
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase">{cat.allocationPercent.toFixed(2)}% 配置</span>
+                                    )}
                                 </div>
                                 <h3 className="text-xl font-bold tracking-tight text-slate-100 flex items-center gap-2">
                                     {cat.name}
+                                    {!readOnly && onEditCategory && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEdit(cat, 'name');
+                                            }}
+                                            className="p-1 rounded hover:bg-slate-700 text-slate-500 hover:text-cyan-400 transition-colors"
+                                        >
+                                            <Edit3 className="w-3.5 h-3.5" />
+                                        </button>
+                                    )}
                                 </h3>
+                                {cat.note && (
+                                    <p className="text-xs text-slate-500 italic mt-0.5 ml-0.5">{cat.note}</p>
+                                )}
                             </div>
                             <div className="text-right">
-                                <div className="text-[10px] text-slate-500 uppercase font-black mb-1 tracking-tighter">已實現損益</div>
-                                <div className={`text-sm font-black font-mono ${cat.realizedPnL >= 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                                    {maskValue(formatTWD(cat.realizedPnL || 0, isPrivacyMode))}
+                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">已實現</div>
+                                <div className={`font-mono font-bold text-base ${cat.realizedPnL >= 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                                    {cat.realizedPnL > 0 ? '+' : ''}{maskValue(formatTWD(cat.realizedPnL || 0, isPrivacyMode))}
                                 </div>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 mb-4 bg-gray-950/50 p-3 rounded-xl border border-gray-800/50">
-                            <div>
-                                <div className="text-[9px] text-gray-500 font-bold uppercase mb-1">預計投入</div>
-                                <div className="text-sm font-bold text-gray-300 font-mono italic">{maskValue(formatTWD(cat.projectedInvestment, isPrivacyMode))}</div>
+                        {/* Progress Bar */}
+                        <div className="mb-4">
+                            <div className="flex justify-between text-xs font-medium text-slate-400 mb-1.5">
+                                <span>資金使用率</span>
+                                <span className="text-cyan-400">{cat.investmentRatio.toFixed(0)}%</span>
                             </div>
-                            <div className="text-right">
-                                <div className="text-[9px] text-gray-500 font-bold uppercase mb-1">剩餘現金</div>
-                                <div className="text-sm font-bold text-emerald-400 font-mono italic">{maskValue(formatTWD(cat.remainingCash, isPrivacyMode))}</div>
+                            <div className="w-full h-2 bg-slate-700/50 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full ${cat.investmentRatio > 80 ? 'bg-gradient-to-r from-red-500 to-red-400' : 'bg-gradient-to-r from-cyan-500 to-blue-500'}`}
+                                    style={{ width: `${Math.min(cat.investmentRatio, 100)}%` }}
+                                ></div>
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-between pt-3 border-t border-gray-800">
+                        <div className="flex items-center justify-between pt-3 border-t border-slate-700/50">
+                            <div className="flex items-center gap-4">
+                                <div>
+                                    <div className="text-[10px] text-slate-500">已投入</div>
+                                    <div className="text-sm font-mono font-bold text-slate-300">{maskValue(formatTWD(cat.investedAmount, isPrivacyMode))}</div>
+                                </div>
+                                <div>
+                                    <div className="text-[10px] text-slate-500">剩餘現金</div>
+                                    <div className="text-sm font-mono font-bold text-slate-300">{maskValue(formatTWD(cat.remainingCash, isPrivacyMode))}</div>
+                                </div>
+                            </div>
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={(e) => handleRefresh(e, cat.id)}
-                                    className="p-2 rounded-lg bg-gray-800 text-gray-400 active:bg-gray-700"
+                                    className="p-2 rounded-lg bg-slate-800 text-slate-400 active:bg-slate-700 border border-slate-700"
                                 >
                                     <RefreshCw className={`w-4 h-4 ${refreshingIds.has(cat.id) ? 'animate-spin' : ''}`} />
                                 </button>
@@ -168,24 +209,27 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                                             setIsTransferModalOpen(true);
                                         }}
                                         disabled={cat.remainingCash <= 0 && (cat.availableProfit || 0) <= 0}
-                                        className={`p-2 rounded-lg bg-gray-800 text-cyan-400 active:bg-gray-700 ${cat.remainingCash <= 0 && (cat.availableProfit || 0) <= 0 ? 'opacity-30' : ''}`}
+                                        className={`p-2 rounded-lg bg-slate-800 text-cyan-400 active:bg-slate-700 border border-slate-700 ${cat.remainingCash <= 0 && (cat.availableProfit || 0) <= 0 ? 'opacity-30' : ''}`}
                                     >
                                         <TransferIcon className="w-4 h-4" />
                                     </button>
                                 )}
-                            </div>
-                            <div className="flex items-center text-cyan-500 text-xs font-black uppercase tracking-widest">
-                                查看明細 <ArrowRight className="ml-1 w-4 h-4" />
+                                <div className="ml-2 flex items-center text-cyan-400 text-xs font-bold gap-1">
+                                    查看明細 <ArrowRight className="w-3.5 h-3.5" />
+                                </div>
                             </div>
                         </div>
                     </div>
                 ))}
-                {!readOnly && onAddCategory && (
+                {onAddCategory && (
                     <button
                         onClick={onAddCategory}
-                        className="w-full p-4 rounded-2xl border border-dashed border-gray-700 text-gray-500 font-bold flex items-center justify-center gap-2 hover:bg-gray-900 active:scale-95 transition-all"
+                        className="w-full p-5 rounded-xl border border-dashed border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800 transition-all flex items-center justify-center gap-3 text-slate-500 hover:text-cyan-400 group"
                     >
-                        <span>+</span> 新增投資策略 (Add)
+                        <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center group-hover:border-cyan-500 transition-colors">
+                            <span className="text-xl leading-none mb-0.5">+</span>
+                        </div>
+                        <span className="font-bold text-sm tracking-widest uppercase">新增個人策略 (Add Strategy)</span>
                     </button>
                 )}
             </div>
@@ -207,14 +251,14 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                             <th className="p-5 text-center w-24 text-[10px]">操作</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
+                    <tbody className="divide-y divide-white/5 text-lg">
                         {categories.map((cat, idx) => (
                             <tr
                                 key={cat.id}
                                 onClick={() => onSelectCategory(cat.id)}
                                 className="group hover:bg-slate-800/50 transition-all cursor-pointer border-l-4 border-transparent hover:border-libao-gold"
                             >
-                                <td className="p-5 text-center text-slate-600 font-mono text-xs">{idx + 1}</td>
+                                <td className="p-5 text-center text-slate-600 font-mono text-sm">{idx + 1}</td>
                                 <td className="p-5 text-center">
                                     <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase border ${cat.market === 'TW' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-blue-500/10 text-cyan-500 border-cyan-500/20'}`}>
                                         {cat.market}
@@ -241,7 +285,7 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                                 </td>
                                 <td className="p-5 text-center min-w-[40px]">
                                     <div className="flex items-center justify-center gap-2">
-                                        <div className="font-mono font-black text-libao-gold text-sm">
+                                        <div className="font-mono font-bold text-libao-gold text-lg">
                                             {cat.allocationPercent.toFixed(2)}%
                                         </div>
                                         {!readOnly && (
@@ -255,18 +299,18 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                                         )}
                                     </div>
                                 </td>
-                                <td className="p-5 text-right font-mono text-slate-400 text-sm">
+                                <td className="p-5 text-right font-mono text-slate-500 font-medium whitespace-nowrap">
                                     {maskValue(formatTWD(cat.projectedInvestment, isPrivacyMode))}
                                 </td>
-                                <td className="p-5 text-right font-mono text-slate-200 text-sm font-black">
+                                <td className="p-5 text-right font-mono text-slate-200 font-black whitespace-nowrap">
                                     {maskValue(formatTWD(cat.investedAmount, isPrivacyMode))}
                                 </td>
-                                <td className="p-5 text-right font-mono font-black text-sm">
+                                <td className="p-5 text-right font-mono font-black whitespace-nowrap">
                                     <div className={cat.remainingCash < 0 ? 'text-red-400' : 'text-emerald-400'}>
                                         {maskValue(formatTWD(cat.remainingCash, isPrivacyMode))}
                                     </div>
                                 </td>
-                                <td className="p-5 text-right font-mono font-black text-sm">
+                                <td className="p-5 text-right font-mono font-black whitespace-nowrap">
                                     <span className={cat.realizedPnL >= 0 ? 'text-red-400' : 'text-emerald-400'}>
                                         {maskValue(formatTWD(cat.realizedPnL || 0, isPrivacyMode))}
                                     </span>
@@ -321,7 +365,7 @@ const PersonalSummary: React.FC<PersonalSummaryProps> = ({
                             </tr>
                         ))}
                         {/* Add Strategy Row */}
-                        {!readOnly && onAddCategory && (
+                        {onAddCategory && (
                             <tr
                                 onClick={onAddCategory}
                                 className="border-t border-white/5 hover:bg-slate-800 transition-all cursor-pointer group"

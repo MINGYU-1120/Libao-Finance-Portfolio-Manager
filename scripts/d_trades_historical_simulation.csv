@@ -1,0 +1,19 @@
+external_id,trade_date,portfolio,category_name,market,symbol,name,side,quantity,price,exchange_rate,fee,tax,note
+HIST-SIM-D-QQQ-01,2024-02-13,martingale,D倉(長線),US,QQQ,Nasdaq 100 ETF,BUY,10,360.28,30,0,0,建立2024底倉
+HIST-SIM-D-SPY-01,2024-02-13,martingale,D倉(長線),US,SPY,S&P 500 ETF,BUY,10,490.50,30,0,0,建立2024底倉
+HIST-SIM-D-SOXX-01,2024-02-13,martingale,D倉(長線),US,SOXX,Semiconductor ETF,BUY,5,610.00,30,0,0,建立底倉(拆股前)
+HIST-SIM-D-IWM-01,2024-02-13,martingale,D倉(長線),US,IWM,Russell 2000 ETF,BUY,50,195.00,30,0,0,建立2024底倉
+HIST-SIM-D-SOXX-SPLIT,2024-03-07,martingale,D倉(長線),US,SOXX,Semiconductor ETF,SPLIT,3,0,1,0,0,SOXX 3對1拆股調整
+HIST-SIM-D-QQQ-02,2025-04-07,martingale,D倉(長線),US,QQQ,Nasdaq 100 ETF,BUY,20,415.05,30,0,0,2025代表性加碼
+HIST-SIM-D-SPY-02,2025-04-07,martingale,D倉(長線),US,SPY,S&P 500 ETF,BUY,15,505.00,30,0,0,2025代表性加碼
+HIST-SIM-D-QQQ-03,2025-05-20,martingale,D倉(長線),US,QQQ,Nasdaq 100 ETF,SELL,10,519.65,30,0,0,獲利減碼(產生曲線跳動)
+HIST-SIM-D-SOXX-02,2025-06-10,martingale,D倉(長線),US,SOXX,Semiconductor ETF,BUY,30,220.00,30,0,0,代表性加碼
+HIST-SIM-D-SQQQ-01,2025-08-15,martingale,D倉(長線),US,SQQQ,UltraPro Short QQQ,BUY,100,50.00,30,0,0,短線避險操作紀錄
+HIST-SIM-D-SQQQ-02,2025-09-10,martingale,D倉(長線),US,SQQQ,UltraPro Short QQQ,SELL,100,35.00,30,0,0,止損平倉(反映虧損紀錄)
+HIST-SIM-D-BTC-01,2026-02-06,martingale,D倉(長線),US,BTC-USD,Bitcoin,BUY,0.0375,68418.96,30,0,0,加密貨幣成本對齊
+HIST-SIM-D-ETH-01,2026-02-06,martingale,D倉(長線),US,ETH-USD,Ethereum,BUY,1.3,1978.70,30,0,0,加密貨幣成本對齊
+HIST-SIM-FINAL-QQQ,2026-03-02,martingale,D倉(長線),US,QQQ,Nasdaq 100 ETF,BUY,2.03,5010.50,30,0,0,精確結算校正(鎖定最終股數與成本)
+HIST-SIM-FINAL-SPY,2026-03-02,martingale,D倉(長線),US,SPY,S&P 500 ETF,SELL,6.81,546.03,30,0,0,精確結算校正(鎖定最終股數與成本)
+HIST-SIM-FINAL-SOXX,2026-03-02,martingale,D倉(長線),US,SOXX,Semiconductor ETF,SELL,3.12,177.87,30,0,0,精確結算校正(鎖定最終股數與成本)
+HIST-SIM-FINAL-IWM,2026-03-02,martingale,D倉(長線),US,IWM,Russell 2000 ETF,BUY,211.26,200.81,30,0,0,精確結算校正(鎖定最終股數與成本)
+HIST-FIX-PNL-ADJ,2026-03-03,martingale,D倉(長線),US,QQQ,Nasdaq 100 ETF,DIVIDEND,1,15478.20,30,0,0,累積歷史已實現損益差額對齊

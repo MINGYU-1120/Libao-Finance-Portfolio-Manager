@@ -37,7 +37,7 @@ export const RequireRole: React.FC<RequireRoleProps> = ({ role, children, fallba
                     </h2>
                     <p className="text-gray-600">
                         {user
-                            ? "抱歉，您的帳號尚未開通此區域的存取權限。如果您剛完成購買，請稍候片刻或重新整理。"
+                            ? "抱歉，您的帳號尚未開通此區域的功能權限。如果您剛完成Pro會員升級，請稍候片刻等待客服人員幫您開通權限。"
                             : "此為 Pro會員專屬內容，請先登入以繼續訪問。"}
                     </p>
                 </div>
@@ -55,12 +55,12 @@ export const RequireRole: React.FC<RequireRoleProps> = ({ role, children, fallba
                         </button>
                     ) : (
                         <a
-                            href="https://kajabi.com/your-sales-page" // TODO: REPLACE WITH REAL URL
+                            href="https://libao-finance-school.mykajabi.com/offers/FjHF9NGY" // TODO: REPLACE WITH REAL URL
                             target="_blank"
                             rel="noopener noreferrer"
                             className="w-full py-2.5 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-lg font-medium transition-all shadow-lg shadow-orange-500/20 text-center"
                         >
-                            前往課程購買
+                            前往升級Pro會員
                         </a>
                     )}
                 </div>

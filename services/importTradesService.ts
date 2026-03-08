@@ -31,6 +31,8 @@ export interface RawImportRow {
     fee: string;
     tax: string;
     note: string;
+    /** 直接強制設定倉位百分比 (用於精準對齊) */
+    target_percent?: string;
     /** 1-based line number in the original CSV (including header) */
     _lineNumber: number;
 }
@@ -46,13 +48,15 @@ export interface ValidatedRow {
     market: 'TW' | 'US';
     symbol: string;
     name: string;
-    side: 'BUY' | 'SELL';
+    side: 'BUY' | 'SELL' | 'DEPOSIT' | 'SPLIT' | 'DIVIDEND';
     quantity: number;
     price: number;
     exchangeRate: number;
     fee: number;
     tax: number;
     note: string;
+    target_percent?: string;
+    targetPercent?: number;
     lineNumber: number;
 }
 
@@ -153,6 +157,7 @@ export function parseCsvText(text: string): RawImportRow[] {
             fee: row['fee'] ?? '',
             tax: row['tax'] ?? '',
             note: row['note'] ?? '',
+            target_percent: row['target_percent'] ?? '',
             _lineNumber: idx + 1, // 1-based, includes header line
         });
     }
@@ -256,17 +261,17 @@ export function validateRows(
         }
 
         const side_upper = row.side.toUpperCase();
-        if (side_upper !== 'BUY' && side_upper !== 'SELL') {
-            errs.push(`side 值無效，需為 BUY 或 SELL，收到：${row.side}`);
+        if (side_upper !== 'BUY' && side_upper !== 'SELL' && side_upper !== 'DEPOSIT' && side_upper !== 'SPLIT' && side_upper !== 'DIVIDEND') {
+            errs.push(`side 值無效，需為 BUY、SELL、DEPOSIT、SPLIT 或 DIVIDEND，收到：${row.side}`);
         }
 
         const quantity = parseFloat(row.quantity);
-        if (row.quantity && (isNaN(quantity) || quantity <= 0)) {
-            errs.push(`quantity 需為正數，收到：${row.quantity}`);
+        if (row.quantity && (isNaN(quantity) || quantity < 0)) {
+            errs.push(`quantity 需為非負數，收到：${row.quantity}`);
         }
 
         const price = parseFloat(row.price);
-        if (row.price && (isNaN(price) || price <= 0)) {
+        if (row.price && (isNaN(price) || (price <= 0 && side_upper !== 'SPLIT' && side_upper !== 'DEPOSIT' && side_upper !== 'DIVIDEND'))) {
             errs.push(`price 需為正數，收到：${row.price}`);
         }
 
@@ -321,13 +326,14 @@ export function validateRows(
             market: market_upper as 'TW' | 'US',
             symbol: row.symbol.toUpperCase(),
             name: row.name,
-            side: side_upper as 'BUY' | 'SELL',
+            side: side_upper as 'BUY' | 'SELL' | 'DEPOSIT' | 'SPLIT',
             quantity,
             price,
             exchangeRate: exchangeRate ?? 1,
             fee: fee ?? 0,
             tax: tax ?? 0,
             note: row.note ?? '',
+            targetPercent: row.target_percent ? parseFloat(row.target_percent) : undefined,
             lineNumber: ln,
         });
     }
@@ -365,13 +371,15 @@ export function applyImport(
         ? JSON.parse(JSON.stringify(portfolio.martingale))
         : [];
     let transactions: TransactionRecord[] = [...portfolio.transactions];
+    let capitalLogs = [...(portfolio.capitalLogs ?? [])];
+    let totalCapital = portfolio.totalCapital;
 
     const failures: ImportFailure[] = [];
     let successCount = 0;
 
     for (const row of sortedRows) {
         try {
-            const result = processSingleRow(row, categories, martingale, transactions, portfolio);
+            const result = processSingleRow(row, categories, martingale, transactions, capitalLogs, totalCapital, portfolio);
             if (result.error) {
                 failures.push({
                     lineNumber: row.lineNumber,
@@ -384,7 +392,12 @@ export function applyImport(
             }
 
             // Apply changes
-            if (row.portfolio === 'personal') {
+            if (row.side === 'DEPOSIT') {
+                capitalLogs = result.updatedCapitalLogs ?? capitalLogs;
+                totalCapital = result.updatedTotalCapital ?? totalCapital;
+                categories = result.updatedCategories ?? categories;
+                martingale = result.updatedMartingale ?? martingale;
+            } else if (row.portfolio === 'personal') {
                 categories = result.updatedCategories ?? categories;
             } else {
                 martingale = result.updatedMartingale ?? martingale;
@@ -402,13 +415,25 @@ export function applyImport(
         }
     }
 
+    // Final cleanup: remove assets with 0 shares (or tiny dust)
+    // Threshold increased to 0.01 to catch 0.0% positions like US fractional leftovers
+    const cleanupAssets = (cats: any[]) => cats.map(c => ({
+        ...c,
+        assets: c.assets.filter((a: any) => Math.round(a.shares * 100) / 100 > 0)
+    }));
+
+    const finalCategories = cleanupAssets(categories);
+    const finalMartingale = cleanupAssets(martingale);
+
     const newPortfolio: PortfolioState | null = dryRun
         ? null
         : {
             ...portfolio,
-            categories,
-            martingale,
+            categories: finalCategories,
+            martingale: finalMartingale,
             transactions,
+            capitalLogs,
+            totalCapital,
             lastModified: Date.now(),
         };
 
@@ -430,20 +455,88 @@ interface ProcessRowResult {
     newTx?: TransactionRecord;
     updatedCategories?: ReturnType<typeof JSON.parse>;
     updatedMartingale?: ReturnType<typeof JSON.parse>;
+    updatedCapitalLogs?: any[];
+    updatedTotalCapital?: number;
     error?: string;
 }
+
+const normalizeName = (s: string) => (s || '').replace(/[\s\(\)\uff08\uff09\-_]/g, '').toLowerCase();
 
 function processSingleRow(
     row: ValidatedRow,
     categories: PortfolioState['categories'],
     martingale: PortfolioState['martingale'],
     transactions: TransactionRecord[],
+    capitalLogs: any[],
+    totalCapital: number,
     originalPortfolio: PortfolioState
 ): ProcessRowResult {
     const isMartingale = row.portfolio === 'martingale';
     const targetList: PortfolioState['categories'] = isMartingale
         ? (Array.isArray(martingale) ? martingale : [])
         : categories;
+
+    // --- Special Handling: DEPOSIT (已棄用，改為完全由 App.tsx UI 負責) ---
+    if (row.side === 'DEPOSIT') {
+        return { error: `資料格式版本不符：不再支援透過 CSV 直接匯入本金或調權指令。請使用系統 UI 的「出/入金」功能進行手動擴大分母。` };
+    }
+
+    // --- Special Handling: SPLIT ---
+    if (row.side === 'SPLIT') {
+        const catIdx = targetList.findIndex(c => c.name === row.categoryName);
+        if (catIdx === -1) return { error: `category_name "${row.categoryName}" 在 ${row.portfolio} 持倉中不存在` };
+
+        const cat = targetList[catIdx];
+        const nextAssets = [...cat.assets];
+        const assetIdx = nextAssets.findIndex(a => a.symbol === row.symbol);
+
+        if (assetIdx === -1) {
+            return { error: `找不到持倉 ${row.symbol}，無法執行拆合股` };
+        }
+
+        const asset = nextAssets[assetIdx];
+        const multiplier = row.quantity;        // Apply split multiplier to all lots and total shares
+        const isTW = row.market === 'TW';
+        nextAssets[assetIdx] = {
+            ...asset,
+            // For TW stocks, shares must be integers. For others, keep precision.
+            shares: isTW ? Math.round(asset.shares * multiplier) : (asset.shares * multiplier),
+            avgCost: asset.avgCost / multiplier,
+            lots: (asset.lots ?? []).map(l => ({
+                ...l,
+                shares: isTW ? Math.floor(l.shares * multiplier) : (l.shares * multiplier),
+                costPerShare: l.costPerShare / multiplier
+            }))
+        };
+
+        const updatedCatList = targetList.map((c, i) =>
+            i === catIdx ? { ...c, assets: nextAssets } : c
+        );
+
+        const newTx: TransactionRecord = {
+            id: row.externalId,
+            date: row.tradeDate,
+            symbol: row.symbol,
+            name: row.name,
+            type: 'SPLIT',
+            shares: 0,
+            quantity: row.quantity, // 儲存拆分倍率
+            price: row.price,
+            exchangeRate: row.exchangeRate,
+            amount: 0,
+            fee: 0, tax: 0,
+            categoryName: row.categoryName,
+            realizedPnL: 0,
+            portfolioRatio: 0,
+            isMartingale,
+        };
+
+        return {
+            newTx,
+            updatedCategories: isMartingale ? undefined : updatedCatList,
+            updatedMartingale: isMartingale ? updatedCatList : undefined,
+        };
+    }
 
     const catIdx = targetList.findIndex(c => c.name === row.categoryName);
     if (catIdx === -1) {
@@ -464,7 +557,7 @@ function processSingleRow(
         symbol: row.symbol,
         name: row.name,
         type: row.side,
-        shares: row.quantity,
+        shares: row.market === 'TW' ? Math.round(row.quantity) : row.quantity,
         price: row.price,
         exchangeRate: row.exchangeRate,
         amount: totalAmountTWD,
@@ -477,14 +570,14 @@ function processSingleRow(
     };
 
     // Compute total capital for portfolioRatio
-    const capitalLogs = isMartingale
+    const localCapitalLogs = isMartingale
         ? (originalPortfolio.capitalLogs ?? []).filter(l => l.isMartingale === true)
         : (originalPortfolio.capitalLogs ?? []).filter(l => l.isMartingale !== true);
-    const totalCapital = capitalLogs.reduce(
+    const localTotalCapital = localCapitalLogs.reduce(
         (s, l) => (l.type === 'DEPOSIT' || l.type === 'PROFIT_REINVEST') ? s + l.amount : s - l.amount, 0
     );
-    const projected = totalCapital > 0
-        ? Math.floor(totalCapital * (cat.allocationPercent / 100))
+    const projected = localTotalCapital > 0
+        ? Math.floor(localTotalCapital * (cat.allocationPercent / 100))
         : 0;
 
     // --- Update assets in category ---
@@ -503,7 +596,7 @@ function processSingleRow(
         const newLot: AssetLot = {
             id: lotId!,
             date: row.tradeDate,
-            shares: row.quantity,
+            shares: row.market === 'TW' ? Math.round(row.quantity) : row.quantity,
             costPerShare: row.price,
             exchangeRate: row.exchangeRate,
         };
@@ -511,7 +604,9 @@ function processSingleRow(
         if (assetIdx > -1) {
             const asset = nextAssets[assetIdx];
             const updatedLots = [...(asset.lots ?? []), newLot];
-            const totalShares = asset.shares + row.quantity;
+            const totalShares = row.market === 'TW'
+                ? Math.round(asset.shares + row.quantity)
+                : parseFloat((asset.shares + row.quantity).toFixed(4));
             const totalOriginalCost = updatedLots.reduce(
                 (s, l) => s + l.shares * l.costPerShare, 0
             );
@@ -523,11 +618,14 @@ function processSingleRow(
                 currentPrice: row.price,
             };
         } else {
+            const sharesVal = row.market === 'TW'
+                ? Math.round(row.quantity)
+                : parseFloat(row.quantity.toFixed(4));
             nextAssets.push({
                 id: assetId,
                 symbol: row.symbol,
                 name: row.name,
-                shares: row.quantity,
+                shares: sharesVal,
                 avgCost: row.price,
                 currentPrice: row.price,
                 lots: [newLot],
@@ -537,7 +635,20 @@ function processSingleRow(
         if (projected > 0) {
             newTx.portfolioRatio = (totalAmountTWD / projected) * 100;
         }
+    } else if (row.side === 'DIVIDEND') {
+        const catIdx = targetList.findIndex(c => c.name === row.categoryName);
+        if (catIdx === -1) return { error: `category_name "${row.categoryName}" 不存在` };
 
+        // Dividend/Profit adjust doesn't affect shares
+        newTx.realizedPnL = totalAmountTWD;
+        newTx.shares = 0; // ensure no shares added
+        newTx.assetId = '';
+
+        return {
+            newTx,
+            updatedCategories: undefined,
+            updatedMartingale: undefined,
+        };
     } else {
         // SELL
         if (assetIdx === -1) {
@@ -547,10 +658,18 @@ function processSingleRow(
         assetId = asset.id;
         newTx.assetId = assetId;
 
-        if (row.quantity > asset.shares) {
+        const roundedQuantity = Math.round(row.quantity * 10000) / 10000;
+        const roundedShares = Math.round(asset.shares * 10000) / 10000;
+
+        if (roundedQuantity > roundedShares) {
             return {
                 error: `賣出股數 (${row.quantity}) 超過持有股數 (${asset.shares})，symbol: ${row.symbol}`,
             };
+        }
+
+        // If it's a full sell, ensure we don't leave tiny fractional dust
+        if (roundedQuantity === roundedShares) {
+            row.quantity = asset.shares;
         }
 
         // FIFO lot consumption
@@ -583,7 +702,10 @@ function processSingleRow(
             newTx.portfolioRatio = (totalCostOfSoldSharesTWD / projected) * 100;
         }
 
-        const totalSharesRemaining = asset.shares - row.quantity;
+        const totalSharesRemaining = row.market === 'TW'
+            ? Math.round(asset.shares - row.quantity)
+            : parseFloat((asset.shares - row.quantity).toFixed(4));
+
         if (totalSharesRemaining <= 0) {
             nextAssets = nextAssets.filter(a => a.symbol !== row.symbol);
         } else {

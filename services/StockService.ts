@@ -26,72 +26,152 @@ class StockService {
   private PRICE_TTL = 30 * 1000;
 
   private async fetchWithProxy(targetUrl: string, isJson: boolean = true): Promise<any | null> {
+    const PROXY_TIMEOUT = 10000; // 延長至 10 秒，增加代理回傳成功率
+
     for (const config of STOCK_PROXIES) {
       try {
         const pUrl = config.url(targetUrl);
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3500);
-        const response = await fetch(pUrl, { signal: controller.signal });
+        const timeoutId = setTimeout(() => controller.abort(), PROXY_TIMEOUT);
+
+        const response = await fetch(pUrl, {
+          signal: controller.signal,
+          headers: { 'Accept': 'application/json' }
+        });
+
         clearTimeout(timeoutId);
-        if (!response.ok) continue;
+        if (!response.ok) {
+          console.warn(`[StockService] Proxy ${config.wrapper} returned ${response.status} for ${targetUrl}`);
+          continue;
+        }
+
+        let data;
         if (config.wrapper === 'allorigins') {
           const json = await response.json();
-          return isJson ? JSON.parse(json.contents) : json.contents;
+          data = isJson ? JSON.parse(json.contents) : json.contents;
+        } else {
+          data = isJson ? await response.json() : await response.text();
         }
-        return isJson ? await response.json() : await response.text();
-      } catch (e) { continue; }
+
+        if (data) return data;
+      } catch (e) {
+        console.warn(`[StockService] Proxy ${config.wrapper} failed or timed out:`, (e as Error).message);
+        continue;
+      }
     }
+    console.error(`[StockService] All proxies failed for: ${targetUrl}`);
     return null;
   }
 
   public async getPrice(symbol: string, market: MarketType): Promise<number | null> {
     const cacheKey = `${symbol}-${market}`;
     const now = Date.now();
+
+    // 檢查快取 (30秒內不重複抓取)
     if (this.priceCache[cacheKey] && (now - this.priceCache[cacheKey].timestamp < this.PRICE_TTL)) {
       return this.priceCache[cacheKey].price;
     }
+
     let price: number | null = null;
-    if (market === 'TW') {
-      const suffixes = ['.TW', '.TWO'];
-      for (const s of suffixes) {
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}${s}?interval=1d&range=1d`;
-        const data = await this.fetchWithProxy(url);
-        if (data?.chart?.result?.[0]?.meta) {
-          price = data.chart.result[0].meta.regularMarketPrice || data.chart.result[0].meta.previousClose;
-          break;
-        }
-      }
-    } else {
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
+    const querySymbol = market === 'TW'
+      ? (symbol.includes('.') ? symbol : `${symbol}.TW`) // 優先嘗試 .TW
+      : symbol;
+
+    const urls = [
+      `https://query1.finance.yahoo.com/v8/finance/chart/${querySymbol}?interval=1d&range=1d`,
+      market === 'TW' ? `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.TWO?interval=1d&range=1d` : null // 台股額外嘗試 .TWO
+    ].filter(Boolean) as string[];
+
+    for (const url of urls) {
       const data = await this.fetchWithProxy(url);
       if (data?.chart?.result?.[0]?.meta) {
-        price = data.chart.result[0].meta.regularMarketPrice || data.chart.result[0].meta.previousClose;
+        const meta = data.chart.result[0].meta;
+        price = meta.regularMarketPrice || meta.previousClose;
+        if (price !== null) break;
       }
     }
-    if (price !== null) this.priceCache[cacheKey] = { price, timestamp: now };
+
+    if (price !== null) {
+      this.priceCache[cacheKey] = { price, timestamp: now };
+    }
     return price;
   }
 
   public async getPrices(assets: { symbol: string, market: MarketType }[]): Promise<Record<string, number>> {
     const priceMap: Record<string, number> = {};
     const unique = Array.from(new Set(assets.map(a => `${a.symbol}|${a.market}`)));
-    await Promise.all(unique.map(async (key) => {
-      const [symbol, market] = key.split('|');
-      const price = await this.getPrice(symbol, market as MarketType);
-      if (price !== null) priceMap[symbol] = price;
-    }));
+
+    // 🚀 優化：分批抓取 (每批 3 檔)，避免並發過高被 Proxy 或 Yahoo 封鎖 IP
+    const BATCH_SIZE = 3;
+    for (let i = 0; i < unique.length; i += BATCH_SIZE) {
+      const batch = unique.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch.map(async (key) => {
+        const [symbol, market] = key.split('|');
+        const price = await this.getPrice(symbol, market as MarketType);
+        if (price !== null) priceMap[symbol] = price;
+      }));
+
+      // 批次間微小停頓，降低被偵測風險
+      if (i + BATCH_SIZE < unique.length) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+    }
     return priceMap;
   }
 
   public async searchStocks(query: string, market: MarketType): Promise<{ symbol: string, name: string, market: MarketType }[]> {
     const targetUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&lang=zh-Hant-TW&region=TW`;
     const data = await this.fetchWithProxy(targetUrl);
+
+    let results: { symbol: string, name: string, market: MarketType }[] = [];
+
     if (data?.quotes) {
-      return data.quotes
-        .filter((q: any) => (q.quoteType === 'EQUITY' || q.quoteType === 'ETF' || q.quoteType === 'CRYPTOCURRENCY') && (market === 'TW' ? (q.symbol.endsWith('.TW') || q.symbol.endsWith('.TWO')) : (!q.symbol.endsWith('.TW') && !q.symbol.endsWith('.TWO'))))
-        .map((q: any) => ({ symbol: q.symbol.split('.')[0], name: q.shortname || q.longname || q.symbol, market: market }));
+      results = data.quotes
+        .filter((q: any) => {
+          const isTW = q.symbol.endsWith('.TW') || q.symbol.endsWith('.TWO');
+          // 放寬過濾條件：如果是台股代號，不論 quoteType 為何（EQUITY, UNKNOWN, INDEX...）都允許通過
+          if (market === 'TW') return isTW;
+          // 美股則維持原有的類型過濾
+          return (q.quoteType === 'EQUITY' || q.quoteType === 'ETF' || q.quoteType === 'CRYPTOCURRENCY' || q.quoteType === 'INDEX') && !isTW;
+        })
+        .map((q: any) => {
+          // 抓取所有可能的名稱欄位
+          const candidates = [q.dispname, q.shortname, q.longname].filter(Boolean);
+
+          // 判斷是否包含中文字的正規表達式
+          const hasChinese = /[\u4e00-\u9fa5]/;
+
+          // 優先尋找包含中文字的名稱
+          let bestName = candidates.find(name => hasChinese.test(name)) || candidates[0] || q.symbol;
+
+          // 如果全英文（常見於 Yahoo 國際版回傳台股），嘗試做一點清理或標註
+          if (market === 'TW' && !hasChinese.test(bestName)) {
+            // 某些情況下 Yahoo 會回傳 "3357.TWO" 或 "TAI CHENG"
+            // 保留原本樣子即可，因為我們主要依賴 hasChinese 挑選
+          }
+
+          return {
+            symbol: q.symbol.split('.')[0],
+            name: bestName,
+            market: market
+          };
+        });
     }
-    return [];
+
+    // 🚀 強大回退機制：如果搜尋不到結果，且使用者輸入的是 4 位數台股代號，則手動產生一個建議項
+    const isTWSymbolFormat = /^\d{4,6}$/.test(query); // 支援 4-6 位數字
+    if (market === 'TW' && isTWSymbolFormat) {
+      const exists = results.some(r => r.symbol === query);
+      if (!exists) {
+        results.unshift({
+          symbol: query,
+          name: `手動新增: ${query}`,
+          market: 'TW'
+        });
+      }
+    }
+
+    return results;
   }
 
   /**

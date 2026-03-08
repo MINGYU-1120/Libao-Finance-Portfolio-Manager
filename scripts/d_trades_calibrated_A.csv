@@ -1,0 +1,14 @@
+external_id,trade_date,portfolio,category_name,market,symbol,name,side,quantity,price,exchange_rate,fee,tax,note
+PRE-A-SIM-QQQ-INIT,2023-04-01,martingale,D倉(長線),US,QQQ,Nasdaq 100 ETF,BUY,17.03,360.29,33,0,0,仿真歷史起始底倉(校準)
+PRE-A-SIM-SPY-INIT,2023-04-01,martingale,D倉(長線),US,SPY,S&P 500 ETF,BUY,18.19,435.18,33,0,0,仿真歷史起始底倉(校準)
+PRE-A-SIM-SOXX-INIT,2023-04-01,martingale,D倉(長線),US,SOXX,Semiconductor ETF,BUY,13.96,476.37,33,0,0,仿真歷史起始底倉(校準)
+PRE-A-SIM-IWM-INIT,2023-04-01,martingale,D倉(長線),US,IWM,Russell 2000 ETF,BUY,250.26,174.50,33,0,0,仿真歷史起始底倉(校準)
+D倉長線-2023-11-15-QQQ-BUY-1,2023-11-15,martingale,D倉(長線),US,QQQ,Nasdaq 100 ETF,BUY,92.52,360.29,33,0,0,新增比例(校準至3.3萬美金)
+D倉長線-2023-11-15-SPY-BUY-2,2023-11-15,martingale,D倉(長線),US,SPY,S&P 500 ETF,BUY,76.60,435.18,33,0,0,新增比例(校準至3.3萬美金)
+D倉長線-2023-11-15-SOXX-BUY-3,2023-11-15,martingale,D倉(長線),US,SOXX,Semiconductor ETF,BUY,69.96,476.37,33,0,0,新增比例(校準至3.3萬美金)
+D倉長線-2023-11-15-IWM-BUY-4,2023-11-15,martingale,D倉(長線),US,IWM,Russell 2000 ETF,BUY,191.06,174.5,33,0,0,新增比例(校準至3.3萬美金)
+D倉長線-2024-02-13-QQQ-SELL-5,2024-02-13,martingale,D倉(長線),US,QQQ,Nasdaq 100 ETF,SELL,46.26,438.58,33,0,0,減碼一半(目標PNL +3621)
+D倉長線-2024-02-13-SPY-SELL-6,2024-02-13,martingale,D倉(長線),US,SPY,S&P 500 ETF,SELL,38.30,503.24,33,0,0,減碼一半(目標PNL +2606)
+D倉長線-2024-02-13-SOXX-SELL-7,2024-02-13,martingale,D倉(長線),US,SOXX,Semiconductor ETF,SELL,34.98,637.76,33,0,0,減碼一半(目標PNL +5645)
+D倉長線-2024-02-13-IWM-SELL-8,2024-02-13,martingale,D倉(長線),US,IWM,Russell 2000 ETF,SELL,95.53,203.06,33,0,0,減碼一半(目標PNL +2728)
+SPLIT-2024-03-07-SOXX-8,2024-03-07,martingale,D倉(長線),US,SOXX,Semiconductor ETF,SPLIT,3,1,1,0,0,拆股3:1

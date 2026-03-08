@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import {
     X, Upload, FileText, CheckCircle, AlertCircle, AlertTriangle,
-    ChevronRight, Download, Info, SkipForward
+    ChevronRight, Download, Info, SkipForward, ArrowLeft
 } from 'lucide-react';
 import { PortfolioState } from '../types';
 import {
@@ -14,12 +14,12 @@ import {
     ValidationResult,
 } from '../services/importTradesService';
 import { useToast } from '../contexts/ToastContext';
-
 interface ImportTradesModalProps {
     isOpen: boolean;
     onClose: () => void;
     portfolio: PortfolioState;
     onImportComplete: (newPortfolio: PortfolioState) => void;
+    onUndo?: () => void;
 }
 
 type Step = 'input' | 'preview' | 'done';
@@ -29,6 +29,7 @@ const ImportTradesModal: React.FC<ImportTradesModalProps> = ({
     onClose,
     portfolio,
     onImportComplete,
+    onUndo,
 }) => {
     const { showToast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -428,9 +429,19 @@ const ImportTradesModal: React.FC<ImportTradesModalProps> = ({
                 <div className="border-t p-4 flex justify-between items-center shrink-0 bg-gray-50">
                     {step === 'input' && (
                         <>
-                            <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
-                                取消
-                            </button>
+                            <div className="flex gap-2">
+                                <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
+                                    取消
+                                </button>
+                                {onUndo && (
+                                    <button
+                                        onClick={() => { onUndo(); onClose(); }}
+                                        className="px-4 py-2 text-sm text-red-600 hover:text-red-700 font-medium flex items-center gap-1 border border-red-200 rounded-lg hover:bg-red-50"
+                                    >
+                                        <ArrowLeft className="w-4 h-4" /> 復原上一步 (Undo)
+                                    </button>
+                                )}
+                            </div>
                             <button
                                 onClick={handleParse}
                                 disabled={!csvText.trim() || isProcessing}
@@ -458,9 +469,19 @@ const ImportTradesModal: React.FC<ImportTradesModalProps> = ({
 
                     {step === 'done' && (
                         <>
-                            <button onClick={handleReset} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
-                                繼續匯入
-                            </button>
+                            <div className="flex gap-2">
+                                <button onClick={handleReset} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
+                                    繼續匯入
+                                </button>
+                                {onUndo && (
+                                    <button
+                                        onClick={() => { onUndo(); onClose(); }}
+                                        className="px-4 py-2 text-sm text-red-600 hover:text-red-700 font-medium flex items-center gap-1 border border-red-200 rounded-lg hover:bg-red-50"
+                                    >
+                                        <ArrowLeft className="w-4 h-4" /> 復原上一步 (Undo)
+                                    </button>
+                                )}
+                            </div>
                             <button
                                 onClick={onClose}
                                 className="px-5 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700"

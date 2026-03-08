@@ -1,0 +1,12 @@
+external_id,trade_date,portfolio,category_name,market,symbol,name,side,quantity,price,exchange_rate,fee,tax,note
+SYNC-20260303-D-QQQ-BUY,2026-03-02,martingale,D倉(長線),US,QQQ,Nasdaq 100 ETF,BUY,22.03,450.86,30,0,0,Excel持股成本對齊
+SYNC-20260303-D-SPY-BUY,2026-03-02,martingale,D倉(長線),US,SPY,S&P 500 ETF,BUY,18.19,546.03,30,0,0,Excel持股成本對齊
+SYNC-20260303-D-SOXX-BUY,2026-03-02,martingale,D倉(長線),US,SOXX,Semiconductor ETF,BUY,41.88,177.87,30,0,0,Excel持股成本對齊
+SYNC-20260303-D-IWM-BUY,2026-03-02,martingale,D倉(長線),US,IWM,Russell 2000 ETF,BUY,261.26,199.7,30,0,0,Excel持股成本對齊
+SYNC-20260303-D-BTC-BUY,2026-02-06,martingale,D倉(長線),US,BTC-USD,Bitcoin,BUY,0.0375,68418.96,30,0,0,Excel持股成本對齊
+SYNC-20260303-D-ETH-BUY,2026-02-06,martingale,D倉(長線),US,ETH-USD,Ethereum,BUY,1.3,1978.7,30,0,0,Excel持股成本對齊
+SYNC-20260303-D-QQQ-PNL,2026-03-03,martingale,D倉(長線),US,QQQ,Nasdaq 100 ETF,DIVIDEND,1,12244.93,30,0,0,歷史已實現損益同步
+SYNC-20260303-D-SPY-PNL,2026-03-03,martingale,D倉(長線),US,SPY,S&P 500 ETF,DIVIDEND,1,8536.97,30,0,0,歷史已實現損益同步
+SYNC-20260303-D-SOXX-PNL,2026-03-03,martingale,D倉(長線),US,SOXX,Semiconductor ETF,DIVIDEND,1,11384.92,30,0,0,歷史已實現損益同步
+SYNC-20260303-D-IWM-PNL,2026-03-03,martingale,D倉(長線),US,IWM,Russell 2000 ETF,DIVIDEND,1,6028.29,30,0,0,歷史已實現損益同步
+SYNC-20260303-D-SQQQ-PNL,2026-03-03,martingale,D倉(長線),US,SQQQ,UltraPro Short QQQ,DIVIDEND,1,-3603.00,30,0,0,歷史已實現損益同步(虧損補償)

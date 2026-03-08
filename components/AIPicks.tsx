@@ -551,9 +551,14 @@ const AIPicks: React.FC<AIPicksProps> = ({ userRole }) => {
                             解鎖完整 AI 量化選股策略<br />
                             <span className="text-sm text-gray-500">包含進場點位、出場邏輯與即時庫存動態</span>
                         </p>
-                        <button className="px-8 py-3 bg-white text-gray-900 font-bold rounded-lg hover:bg-gray-100 transition shadow-lg transform active:scale-95">
+                        <a
+                            href="https://libao-finance-school.mykajabi.com/offers/FjHF9NGY"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-8 py-3 bg-white text-gray-900 font-bold rounded-lg hover:bg-gray-100 transition shadow-lg transform active:scale-95 text-center flex items-center justify-center"
+                        >
                             立即升級 Pro會員
-                        </button>
+                        </a>
                     </div>
                 </div>
             )}

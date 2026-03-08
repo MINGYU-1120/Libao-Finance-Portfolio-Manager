@@ -1,0 +1,432 @@
+﻿diff --git a/App.tsx b/App.tsx
+index bd383c3..661a043 100644
+--- a/App.tsx
++++ b/App.tsx
+@@ -45,7 +45,7 @@ import {
+   UserCheck,
+   User
+ } from 'lucide-react';
+-import { PortfolioState, PositionCategory, CalculatedCategory, CalculatedAsset, TransactionRecord, AppSettings, NewsItem, AssetLot, Asset, MarketType } from './types';
++import { PortfolioState, PositionCategory, CalculatedCategory, CalculatedAsset, TransactionRecord, AppSettings, NewsItem, AssetLot, Asset, MarketType, CapitalLogEntry } from './types';
+ import { DEFAULT_CATEGORIES, INITIAL_CAPITAL, DEFAULT_EXCHANGE_RATE } from './constants';
+ 
+ import DetailTable from './components/DetailTable';
+@@ -166,6 +166,13 @@ const App: React.FC = () => {
+   const [loginModalMode, setLoginModalMode] = useState<'default' | 'confirm-email'>('default');
+   const [showPushPrompt, setShowPushPrompt] = useState(false);
+   const [showImportModal, setShowImportModal] = useState(false);
++  const [previousPortfolio, setPreviousPortfolio] = useState<PortfolioState | null>(() => {
++    try {
++      const saved = localStorage.getItem('libao-portfolio-backup');
++      if (saved) return JSON.parse(saved);
++    } catch { }
++    return null;
++  });
+ 
+   // ???冽甈?敶??摩
+   useEffect(() => {
+@@ -192,10 +199,24 @@ const App: React.FC = () => {
+   }, [user, roles, roleLoading]);
+ 
+   const handleImportTrades = (newPortfolio: PortfolioState) => {
++    // ?臬??隞踝??舀??銝甇乓???+    setPreviousPortfolio(portfolioRef.current);
++    try {
++      localStorage.setItem('libao-portfolio-backup', JSON.stringify(portfolioRef.current));
++    } catch { }
+     saveAndSetPortfolio(newPortfolio);
+     showToast('甇瑕鈭斗??臬摰?嚗??歇?脣?', 'success');
+   };
+ 
++  const handleUndoPortfolio = () => {
++    if (previousPortfolio) {
++      saveAndSetPortfolio(previousPortfolio);
++      setPreviousPortfolio(null);
++      localStorage.removeItem('libao-portfolio-backup');
++      showToast('撌脣儔??銝甇交?雿?, 'success');
++    }
++  };
++
+   // --- Foreground Notification Listener ---
+   useEffect(() => {
+     const unsubscribe = setupForegroundMessaging((payload) => {
+@@ -577,9 +598,115 @@ const App: React.FC = () => {
+     showToast("撠汗摰?嚗??冽?鞈??押?, "success");
+   };
+ 
++  const getEffectiveTotalCapital = useCallback((isMartingale: boolean) => {
++    const martCatIds = new Set((portfolio.martingale || []).map(c => c.id));
++
++    const sumFromLogs = portfolio.capitalLogs
++      .filter(l => {
++        // 1. Explicit Flag Preference
++        if (l.isMartingale === true) return isMartingale;
++        if (l.isMartingale === false) return !isMartingale;
++
++        // 2. Category ID Smart Heuristic (For untagged legacy logs)
++        const isMartTarget = (l.targetCategoryId && martCatIds.has(l.targetCategoryId)) ||
++          (l.sourceCategoryId && martCatIds.has(l.sourceCategoryId));
++
++        if (isMartTarget) return isMartingale;
++
++        // 3. Absolute Fallback: Untagged and no CatID defaults to Personal
++        return !isMartingale;
++      })
++      .reduce((s, log) => {
++        // Include ADJUST in total calculation. TRANSFER is internal but ADJUST brings/removes base.
++        if (log.type === 'DEPOSIT' || log.type === 'PROFIT_REINVEST' || log.type === 'ADJUST') return s + log.amount;
++        if (log.type === 'WITHDRAW') return s - log.amount;
++        return s;
++      }, 0);
++
++    // 4. Legacy "totalCapital" field fallback
++    // If we have NO logs for THIS context, but we HAVE the legacy totalCapital field, use it as a starting base.
++    // This handles the transition from older versions correctly.
++    if (sumFromLogs === 0 && portfolio.totalCapital > 0) {
++      return portfolio.totalCapital;
++    }
++
++    return sumFromLogs;
++  }, [portfolio.capitalLogs, portfolio.martingale, portfolio.totalCapital]);
++
++  const handleUpdateCapital = (entry: Omit<CapitalLogEntry, 'id'>) => {
++    const isMartingaleContext = entry.isMartingale ?? (viewMode === 'VIP_PORTFOLIO');
++    const targetArray = isMartingaleContext ? (portfolio.martingale || []) : portfolio.categories;
++
++    let currentTotal = getEffectiveTotalCapital(isMartingaleContext);
++
++    // Additional Fallback: If logs are empty but we have categories with non-zero allocation,
++    // it's highly likely the legacy totalCapital should be used as the base for this calculation.
++    if (currentTotal === 0 && targetArray.some(c => c.allocationPercent > 0) && portfolio.totalCapital > 0) {
++      currentTotal = portfolio.totalCapital;
++    }
++
++    let nextCats = [...targetArray];
++    const newLog: CapitalLogEntry = {
++      ...entry,
++      id: uuidv4(),
++      isMartingale: isMartingaleContext,
++      previousAllocations: nextCats.map(c => ({ id: c.id, percent: c.allocationPercent }))
++    };
++
++    if (entry.type === 'DEPOSIT' && entry.amount > 0) {
++      // ?詨?靽格迤嚗?潛?祕??Dollar ???脰?憓??湔嚗??箸 Percent ???+      // ?蝣箔??冽迨銋???撠批瞏斗??乓??◤?曉?瘥像???寥??+      const newTotal = currentTotal + entry.amount;
++
++      const newCatsWithBudget = nextCats.map(c => {
++        // 雿輻?嗅?撣單蝮賡? * ?曉?瘥??函??箄府????◤隤??????
++        const currentDollarBudget = currentTotal * (c.allocationPercent / 100);
++        const nextDollarBudget = c.id === entry.targetCategoryId ? (currentDollarBudget + entry.amount) : currentDollarBudget;
++        return { ...c, tempBudget: nextDollarBudget };
++      });
++
++      // ?箸?啁?蝮賡?蝞??唳蝞??
++      nextCats = newCatsWithBudget.map(c => {
++        const exactPercent = newTotal > 0 ? (c.tempBudget / newTotal) * 100 : 0;
++        const { tempBudget, ...rest } = c;
++        return {
++          ...rest,
++          allocationPercent: Math.round(exactPercent * 10000) / 10000
++        };
++      });
++
++      // 甇???Ⅱ靽?100%
++      const totalPercent = nextCats.reduce((s, c) => s + c.allocationPercent, 0);
++      nextCats = nextCats.map(c => ({
++        ...c,
++        allocationPercent: Number(((c.allocationPercent / (totalPercent || 1)) * 100).toFixed(4))
++      }));
++    }
++
++    const nextLogs = [newLog, ...portfolio.capitalLogs];
++    const nextPersonalTotal = nextLogs
++      .filter(l => l.isMartingale !== true)
++      .reduce((s, log) => {
++        if (log.type === 'DEPOSIT' || log.type === 'PROFIT_REINVEST') return s + log.amount;
++        if (log.type === 'WITHDRAW') return s - log.amount;
++        return s;
++      }, 0);
++
++    const newState = {
++      ...portfolio,
++      capitalLogs: nextLogs,
++      totalCapital: nextPersonalTotal,
++    };
++
++    if (isMartingaleContext) newState.martingale = nextCats;
++    else newState.categories = nextCats;
++
++    saveAndSetPortfolio(newState);
++    setShowCapitalModal(false);
++    showToast(`??${entry.type === 'DEPOSIT' ? '?仿?' : entry.type === 'WITHDRAW' ? '?粹?' : '隤踵鞈?'}`, "success");
++  };
++
+   const handleUpdatePrices = async (isManual: boolean) => {
+-    /* Implementation omitted for brevity in replacement tool, handled by rest of file */
+-    // Placeholder to allow subsequent code to work if not replaced
+     if (isUpdatingPrices) return;
+     if (isManual) showToast("?湔?∪銝?..", "info");
+     setIsUpdatingPrices(true);
+@@ -591,7 +718,7 @@ const App: React.FC = () => {
+       c.assets.forEach(a => {
+         const key = `${a.symbol}-${c.market}`;
+         if (!seen.has(key)) {
+-          seen.add(key); // Use a properly typed Set or unique logic
++          seen.add(key);
+           assetsList.push({ symbol: a.symbol, market: c.market as 'TW' | 'US' });
+         }
+       });
+@@ -647,18 +774,13 @@ const App: React.FC = () => {
+     let totalRealizedPnL = 0;
+ 
+     // 1. Calculate base capitals from logs first
+-    const personalTotalCapital = portfolio.capitalLogs
+-      .filter(l => l.isMartingale !== true)
+-      .reduce((s, log) => (log.type === 'DEPOSIT' || log.type === 'PROFIT_REINVEST') ? s + log.amount : (log.type === 'WITHDRAW' ? s - log.amount : s), 0);
++    const personalTotalCapital = getEffectiveTotalCapital(false);
+ 
+-    const martingaleTotalCapitalFromLogs = portfolio.capitalLogs
+-      .filter(l => l.isMartingale === true)
+-      .reduce((s, log) => (log.type === 'DEPOSIT' || log.type === 'PROFIT_REINVEST') ? s + log.amount : (log.type === 'WITHDRAW' ? s - log.amount : s), 0);
++    const martingaleTotalCapitalFromLogs = getEffectiveTotalCapital(true);
+ 
+     const martingaleTotalCapital = (userRole !== 'admin' && portfolio.syncedMartingaleCapital)
+       ? portfolio.syncedMartingaleCapital
+       : martingaleTotalCapitalFromLogs;
+-
+     // 2. Map through personal categories using the base capital
+     const calculatedCats: CalculatedCategory[] = catsCopy.map(cat => {
+       // Find Category-specific PnL (Realized) from Transactions
+@@ -832,7 +954,7 @@ const App: React.FC = () => {
+       martingaleTotalCapital
+     };
+ 
+-  }, [portfolio, portfolio.settings.usExchangeRate]);
++  }, [portfolio, portfolio.settings.usExchangeRate, getEffectiveTotalCapital]);
+ 
+   // Derived Totals (Personal)
+   const totalNetWorth = calculatedData.personalTotalCapital + calculatedData.totalUnrealizedPnL + calculatedData.totalRealizedPnL;
+@@ -1034,11 +1156,14 @@ const App: React.FC = () => {
+           if (assetIdx > -1) {
+             const asset = nextAssets[assetIdx];
+             const updatedLots = [...asset.lots, newLot];
+-            const totalShares = asset.shares + order.shares;
++            const totalShares = currentCategory.market === 'TW'
++              ? Math.round(asset.shares + order.shares)
++              : asset.shares + order.shares;
+             const totalOriginalCost = updatedLots.reduce((s, l) => s + (l.shares * l.costPerShare), 0);
+             nextAssets[assetIdx] = { ...asset, shares: totalShares, avgCost: totalOriginalCost / totalShares, lots: updatedLots, currentPrice: order.price };
+           } else {
+-            nextAssets.push({ id: newTx.assetId, symbol: order.symbol, name: order.name, shares: order.shares, avgCost: order.price, currentPrice: order.price, lots: [newLot] });
++            const sharesVal = currentCategory.market === 'TW' ? Math.round(order.shares) : order.shares;
++            nextAssets.push({ id: newTx.assetId, symbol: order.symbol, name: order.name, shares: sharesVal, avgCost: order.price, currentPrice: order.price, lots: [newLot] });
+           }
+           newTx.portfolioRatio = projectedInvestment > 0 ? (order.totalAmount / projectedInvestment) * 100 : 0;
+         } else if (order.action === 'SELL') {
+@@ -1067,7 +1192,9 @@ const App: React.FC = () => {
+ 
+           newTx.portfolioRatio = projectedInvestment > 0 ? (totalCostOfSoldSharesTWD / projectedInvestment) * 100 : 0;
+ 
+-          const totalShares = asset.shares - order.shares;
++          const totalShares = currentCategory.market === 'TW'
++            ? Math.round(asset.shares - order.shares)
++            : asset.shares - order.shares;
+           if (totalShares <= 0) { nextAssets = nextAssets.filter(a => a.symbol !== order.symbol); }
+           else {
+             const totalOriginalCostRemaining = processedLots.reduce((s, l) => s + (l.shares * l.costPerShare), 0);
+@@ -1091,10 +1218,8 @@ const App: React.FC = () => {
+       showToast("甇?靽桀儔鞈?...", "info");
+ 
+       // 1. Reset categories assets
+-      let tempCategories = portfolio.categories.map(cat => ({
+-        ...cat,
+-        assets: [] as Asset[]
+-      }));
++      let tempCategories = portfolio.categories.map(cat => ({ ...cat, assets: [] as Asset[] }));
++      let tempMartingale = (Array.isArray(portfolio.martingale) ? portfolio.martingale : []).map(cat => ({ ...cat, assets: [] as Asset[] }));
+ 
+       // 2. Sort transactions chronologically
+       const sortedTxs = [...portfolio.transactions].sort((a, b) =>
+@@ -1103,20 +1228,26 @@ const App: React.FC = () => {
+ 
+       // 3. Replay BUY/SELL transactions
+       for (const tx of sortedTxs) {
+-        if (tx.type !== 'BUY' && tx.type !== 'SELL') continue;
++        // legacy check: some splits were stored as 'BUY' with 0 shares
++        const isLegacySplit = tx.type === 'BUY' && (tx.shares === 0 || !tx.shares) && tx.quantity && tx.quantity !== 0 && tx.quantity !== 1;
++        const currentType = isLegacySplit ? 'SPLIT' : tx.type;
+ 
+-        const catIdx = tempCategories.findIndex(c => c.name === tx.categoryName);
++        if (currentType !== 'BUY' && currentType !== 'SELL' && currentType !== 'SPLIT') continue;
++
++        const isMartTx = tx.isMartingale === true;
++        const targetList = isMartTx ? tempMartingale : tempCategories;
++        const catIdx = targetList.findIndex(c => c.name === tx.categoryName);
+         if (catIdx === -1) continue;
+ 
+-        const cat = tempCategories[catIdx];
++        const cat = targetList[catIdx];
+         let nextAssets = [...cat.assets];
+         const assetIdx = nextAssets.findIndex(a => a.symbol === tx.symbol);
+ 
+-        if (tx.type === 'BUY') {
++        if (currentType === 'BUY') {
+           const newLot: AssetLot = {
+             id: tx.lotId || uuidv4(),
+             date: tx.date,
+-            shares: tx.shares,
++            shares: cat.market === 'TW' ? Math.round(tx.shares) : tx.shares,
+             costPerShare: tx.price,
+             exchangeRate: tx.exchangeRate
+           };
+@@ -1124,15 +1255,16 @@ const App: React.FC = () => {
+           if (assetIdx > -1) {
+             const asset = nextAssets[assetIdx];
+             const updatedLots = [...(asset.lots || []), newLot];
+-            const totalShares = asset.shares + tx.shares;
++            const totalShares = cat.market === 'TW' ? Math.round(asset.shares + tx.shares) : asset.shares + tx.shares;
+             const totalOriginalCost = updatedLots.reduce((s, l) => s + (l.shares * l.costPerShare), 0);
+             nextAssets[assetIdx] = { ...asset, shares: totalShares, avgCost: totalOriginalCost / totalShares, lots: updatedLots };
+           } else {
++            const sharesVal = cat.market === 'TW' ? Math.round(tx.shares) : tx.shares;
+             nextAssets.push({
+               id: tx.assetId,
+               symbol: tx.symbol,
+               name: tx.name,
+-              shares: tx.shares,
++              shares: sharesVal,
+               avgCost: tx.price,
+               currentPrice: tx.price,
+               lots: [newLot]
+@@ -1155,7 +1287,7 @@ const App: React.FC = () => {
+             }
+           }
+ 
+-          const totalShares = asset.shares - tx.shares;
++          const totalShares = cat.market === 'TW' ? Math.round(asset.shares - tx.shares) : asset.shares - tx.shares;
+           if (totalShares <= 0) {
+             nextAssets = nextAssets.filter(a => a.symbol !== tx.symbol);
+           } else {
+@@ -1167,12 +1299,39 @@ const App: React.FC = () => {
+               avgCost: totalOriginalCostRemaining / totalShares
+             };
+           }
++        } else if (currentType === 'SPLIT') {
++          if (assetIdx === -1) continue;
++          const asset = nextAssets[assetIdx];
++          const multiplier = tx.quantity || 1;
++          const isTW = cat.market === 'TW';
++
++          nextAssets[assetIdx] = {
++            ...asset,
++            shares: isTW ? Math.round(asset.shares * multiplier) : (asset.shares * multiplier),
++            avgCost: asset.avgCost / multiplier,
++            lots: (asset.lots || []).map(l => ({
++              ...l,
++              shares: isTW ? Math.floor(l.shares * multiplier) : (l.shares * multiplier),
++              costPerShare: l.costPerShare / multiplier
++            }))
++          };
+         }
+-        tempCategories[catIdx] = { ...cat, assets: nextAssets };
++        targetList[catIdx] = { ...cat, assets: nextAssets };
+       }
+ 
+-      saveAndSetPortfolio({ ...portfolio, categories: tempCategories });
+-      showToast("鞈?靽桀儔摰?嚗??∪歇敺風?脩???撱箝?, "success");
++      // 4. Final Cleanup: remove assets with 0 shares (or tiny dust)
++      // Use 0.01 threshold to match import service optimization
++      const finalCleanup = (cats: any[]) => cats.map(c => ({
++        ...c,
++        assets: c.assets.filter((a: any) => Math.round(a.shares * 100) / 100 > 0)
++      }));
++
++      saveAndSetPortfolio({
++        ...portfolio,
++        categories: finalCleanup(tempCategories),
++        martingale: finalCleanup(tempMartingale)
++      });
++      showToast("鞈?靽桀儔摰?嚗??∪歇敺風?脩???撱箔蒂皜?敺桅???, "success");
+     } catch (error) {
+       console.error('handleRepairPortfolio Failed:', error);
+       showToast("靽桀儔憭望?嚗? + (error instanceof Error ? error.message : "?芰?航炊"), "error");
+@@ -1230,6 +1389,23 @@ const App: React.FC = () => {
+           } else {
+             nextAssets.push({ id: tx.assetId, symbol: tx.symbol, name: tx.name, shares: tx.shares, avgCost: restoredCostPerShare, currentPrice: tx.price, lots: [restoredLot] });
+           }
++        } else if (tx.type === 'SPLIT') {
++          if (assetIdx === -1) return cat;
++          const asset = nextAssets[assetIdx];
++          const multiplier = tx.quantity || 1;
++          const reverseMultiplier = 1 / multiplier;
++          const isTW = cat.market === 'TW';
++
++          nextAssets[assetIdx] = {
++            ...asset,
++            shares: isTW ? Math.round(asset.shares * reverseMultiplier) : (asset.shares * reverseMultiplier),
++            avgCost: asset.avgCost / reverseMultiplier,
++            lots: (asset.lots || []).map(l => ({
++              ...l,
++              shares: isTW ? Math.floor(l.shares * reverseMultiplier) : (l.shares * reverseMultiplier),
++              costPerShare: l.costPerShare / reverseMultiplier
++            }))
++          };
+         }
+         return { ...cat, assets: nextAssets };
+       });
+@@ -1354,15 +1530,9 @@ const App: React.FC = () => {
+ 
+     if (!sourceCat || !targetCat || amount <= 0) return;
+ 
+-    // 1. Calculate current total capital
+-    const martingaleTotalCapitalFromLogs = portfolio.capitalLogs
+-      .filter(l => l.isMartingale === true)
+-      .reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0);
+-
+     const currentTotalCapital = (userRole !== 'admin' && portfolio.syncedMartingaleCapital)
+       ? portfolio.syncedMartingaleCapital
+-      : martingaleTotalCapitalFromLogs;
+-
++      : getEffectiveTotalCapital(true);
+     if (currentTotalCapital <= 0) {
+       showToast("擐砌?蝮質???頞喉??⊥?閮?瘥?", "error");
+       return;
+@@ -1437,7 +1607,7 @@ const App: React.FC = () => {
+ 
+     if (!sourceCat || !targetCat || amount <= 0) return;
+ 
+-    const currentTotalCapital = portfolio.totalCapital;
++    const currentTotalCapital = getEffectiveTotalCapital(false);
+     if (currentTotalCapital <= 0) {
+       showToast("蝮質???頞喉??⊥?閮?瘥?", "error");
+       return;
+@@ -2299,7 +2469,9 @@ const App: React.FC = () => {
+         isOpen={showCapitalModal}
+         onClose={() => setShowCapitalModal(false)}
+         capitalLogs={portfolio.capitalLogs.filter(l => capitalModalSource === 'martingale' ? l.isMartingale === true : l.isMartingale !== true)}
+-        onAddLog={(l) => { const newState = { ...portfolio, capitalLogs: [...portfolio.capitalLogs, { ...l, id: uuidv4(), isMartingale: capitalModalSource === 'martingale' }] }; newState.totalCapital = newState.capitalLogs.reduce((s, log) => log.type === 'DEPOSIT' ? s + log.amount : s - log.amount, 0); saveAndSetPortfolio(newState); }}
++        onAddLog={(entry) => handleUpdateCapital({ ...entry, isMartingale: capitalModalSource === 'martingale' })}
++        categories={capitalModalSource === 'martingale' ? (portfolio.martingale || []) : portfolio.categories}
++        isMartingale={capitalModalSource === 'martingale'}
+         onDeleteLog={(id) => {
+           const logToDelete = portfolio.capitalLogs.find(l => l.id === id);
+           const newState = { ...portfolio, capitalLogs: portfolio.capitalLogs.filter(l => l.id !== id) };
+@@ -2783,7 +2955,11 @@ const App: React.FC = () => {
+         )}
+         {viewMode === 'ADMIN' && (
+           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+-            <AdminPanel currentUser={user} onImportTrades={() => setShowImportModal(true)} />
++            <AdminPanel
++              currentUser={user}
++              onImportTrades={() => setShowImportModal(true)}
++              onUndoImport={previousPortfolio ? handleUndoPortfolio : undefined}
++            />
+           </div>
+         )}
+       </main>
+@@ -2807,6 +2983,7 @@ const App: React.FC = () => {
+           onClose={() => setShowImportModal(false)}
+           portfolio={portfolio}
+           onImportComplete={handleImportTrades}
++          onUndo={previousPortfolio ? handleUndoPortfolio : undefined}
+         />
+       )}
+ 

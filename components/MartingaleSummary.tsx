@@ -190,16 +190,41 @@ const MartingaleSummary: React.FC<MartingaleSummaryProps> = ({
                                         <div className={`text-sm font-mono font-bold ${isLocked ? 'text-slate-500' : 'text-slate-300'}`}>{maskValue(formatTWD(cat.remainingCash, isPrivacyMode))}</div>
                                     </div>
                                 </div>
-                                <div className={`flex items-center text-xs font-bold gap-1 ${isLocked ? 'text-slate-600' : 'text-libao-gold'}`}>
-                                    {isLocked ? (
-                                        <>
-                                            <Lock className="w-3.5 h-3.5" /> 限 VIP 權限
-                                        </>
-                                    ) : (
-                                        <>
-                                            查看明細 <ArrowRight className="w-3.5 h-3.5" />
-                                        </>
+                                <div className="flex items-center gap-2">
+                                    {!isLocked && (
+                                        <button
+                                            onClick={(e) => handleRefresh(e, cat.id)}
+                                            className="p-2 rounded-lg bg-slate-800 text-slate-400 active:bg-slate-700 border border-slate-700"
+                                            title="更新價格"
+                                        >
+                                            <RefreshCw className={`w-4 h-4 ${refreshingIds.has(cat.id) ? 'animate-spin' : ''}`} />
+                                        </button>
                                     )}
+                                    {!readOnly && onTransferCash && !isLocked && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setTransferSource(cat);
+                                                setIsTransferModalOpen(true);
+                                            }}
+                                            disabled={cat.remainingCash <= 0 && (cat.availableProfit || 0) <= 0}
+                                            className={`p-2 rounded-lg bg-slate-800 text-libao-gold active:bg-slate-700 border border-slate-700 ${(cat.remainingCash <= 0 && (cat.availableProfit || 0) <= 0) ? 'opacity-30' : ''}`}
+                                            title="轉移資金"
+                                        >
+                                            <TransferIcon className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                    <div className={`ml-2 flex items-center text-xs font-bold gap-1 ${isLocked ? 'text-slate-600' : 'text-libao-gold'}`}>
+                                        {isLocked ? (
+                                            <>
+                                                <Lock className="w-3.5 h-3.5" /> 限 VIP
+                                            </>
+                                        ) : (
+                                            <>
+                                                查看明細 <ArrowRight className="w-3.5 h-3.5" />
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
